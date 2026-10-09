@@ -3004,7 +3004,10 @@ function makeCarMesh(car, opts = {}) {
   sw.add(swBody);
   for (const sg of [-1, 1]) { const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: .9 })); grip.position.set(0, -0.01, sg * 0.15); sw.add(grip); }
   sw.visible = false; grp.add(sw);
-  return { group: grp, wheels, flap, light, lightMat, helmet, steeringWheel: sw, bodyMat };
+  // level of detail: decals and small parts are hidden for distant cars, shadows only near the camera
+  const detail = [wingTxt, num, ...grp.children.filter(c => c.isMesh && c.geometry.type === 'PlaneGeometry' && c !== wingBg)];
+  const shadowCasters = []; grp.traverse(o => { if (o.isMesh && o.castShadow) shadowCasters.push(o); });
+  return { group: grp, wheels, flap, light, lightMat, helmet, steeringWheel: sw, bodyMat, detail: [...new Set(detail)], shadowCasters, lod: -1 };
 }
 function addSteeringDisplay(model) {
   const cvs = document.createElement('canvas'); cvs.width = 320; cvs.height = 168;
@@ -3806,6 +3809,13 @@ function updateCarVisuals(dt) {
     if (cockpit) { m.steeringWheel.rotation.x = car.steer * 2.6; if (m.swCanvas && (G.swT = (G.swT || 0) + dt) > 0.07) { G.swT = 0; drawSteeringDisplay(m, car, sess); } }
     // effects (only near the camera)
     const dist = Math.hypot(car.x - camPos.x, car.z - camPos.z);
+    const lod = dist < 90 ? 0 : dist < 220 ? 1 : 2;
+    if (lod !== m.lod) {
+      m.lod = lod;
+      for (const d of m.detail) d.visible = lod < 2;
+      for (const sc of m.shadowCasters) sc.castShadow = lod === 0;
+      for (const w of m.wheels) w.spin.children[1].visible = lod < 2;
+    }
     if (dist > 260 || car.inGarage) continue;
     const c = Math.cos(car.psi), s = Math.sin(car.psi);
     for (let i = 0; i < 4; i++) {
