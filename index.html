@@ -2423,11 +2423,11 @@ function makeTextures(quality) {
     T.asphalt = canvasTex(S, S, (g, w, h) => {
       const id = g.createImageData(w, h); const d = id.data;
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const patch = nz.tfbm(x / w * 4, y / h * 4, 4, 4) * 0.22;
+        const patch = nz.tfbm(x / w * 4, y / h * 4, 4, 4) * 0.08;
         const grain = rnd(); const stone = grain > 0.985 ? 0.35 : grain < 0.04 ? -0.25 : (grain - 0.5) * 0.28;
         const streak = Math.sin(x / w * Math.PI * 2 * 3 + nz.tiled(y / h * 3, 1.7, 3) * 2) * 0.03;
         const v = 0.5 + patch * 0.25 + stone * 0.6 + streak;
-        hgt[y * w + x] = stone + patch * 0.4;
+        hgt[y * w + x] = stone;
         const c = Math.max(0, Math.min(255, v * 205)); const k = (y * w + x) * 4;
         d[k] = c; d[k + 1] = c; d[k + 2] = c * 1.02 + 2; d[k + 3] = 255;
       }
@@ -2534,7 +2534,7 @@ function makeTextures(quality) {
 
 // Shader patch helpers (onBeforeCompile) ---------------------------------
 // Two-scale texture sampling + world-space macro variation to hide tiling on large surfaces.
-function antiTile(mat, scale2 = 0.21, mix2 = 0.5, macro = 0.18) {
+function antiTile(mat, scale2 = 0.21, mix2 = 0.5, macro = 0.18, stripes = false) {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPosAT;').replace('#include <fog_vertex>', '#include <fog_vertex>\nvWPosAT = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
@@ -2546,10 +2546,12 @@ function antiTile(mat, scale2 = 0.21, mix2 = 0.5, macro = 0.18) {
         float mn = vnoiseAT(vWPosAT.xz * 0.012) * 0.65 + vnoiseAT(vWPosAT.xz * 0.05) * 0.35;
         vec4 sampledDiffuseColor = mix(tA, tB, ${mix2.toFixed(2)});
         sampledDiffuseColor.rgb *= 1.0 + (mn - 0.5) * ${(macro * 2).toFixed(2)};
+        ${stripes ? `{ float fl = 1.0 - smoothstep(0.3, 2.5, vWPosAT.y + 0.06); float st = smoothstep(0.42, 0.5, fract(dot(vWPosAT.xz, vec2(0.6, 0.8)) / 14.0)) - smoothstep(0.92, 1.0, fract(dot(vWPosAT.xz, vec2(0.6, 0.8)) / 14.0));
+          sampledDiffuseColor.rgb *= 1.0 + fl * (st - 0.5) * 0.26; }` : ''}
         diffuseColor *= sampledDiffuseColor;
       #endif`);
   };
-  mat.customProgramCacheKey = () => 'antiTile' + scale2 + mix2 + macro;
+  mat.customProgramCacheKey = () => 'antiTile' + scale2 + mix2 + macro + stripes;
   return mat;
 }
 
@@ -2652,7 +2654,7 @@ function buildTerrain(world, track, T, opts) {
     col[i * 3] = r; col[i * 3 + 1] = gg; col[i * 3 + 2] = b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const mat = antiTile(new THREE.MeshStandardMaterial({ map: T.grass, vertexColors: true, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 }), 0.17, 0.45, 0.22);
+  const mat = antiTile(new THREE.MeshStandardMaterial({ map: T.grass, vertexColors: true, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 }), 0.17, 0.45, 0.22, true);
   const mesh = new THREE.Mesh(g, mat); mesh.receiveShadow = true; world.add(mesh);
   return { heightAt, distAt, mesh };
 }
@@ -2724,8 +2726,8 @@ function buildWorld(scene, track, T, opts) {
   const wet = opts.wet; const Q = opts.quality; const P = wet ? SKY.wet : SKY.dry;
   const sunDir = new THREE.Vector3(...SUN_DIR).normalize();
   // lights: warm low sun + sky/ground bounce (image based lighting adds the rest)
-  const hemi = new THREE.HemisphereLight(wet ? 0xb8c4d0 : 0xe2ebf5, wet ? 0x3a4030 : 0x5d6245, wet ? 0.9 : 0.5); scene.add(hemi);
-  const sun = new THREE.DirectionalLight(wet ? 0xd7dde6 : 0xfff0d8, wet ? 0.9 : 3.2);
+  const hemi = new THREE.HemisphereLight(wet ? 0xb8c4d0 : 0xf0f2f2, wet ? 0x3a4030 : 0x6a6650, wet ? 0.9 : 0.85); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(wet ? 0xd7dde6 : 0xfff0d8, wet ? 0.9 : 3.0);
   sun.position.copy(sunDir).multiplyScalar(300);
   sun.castShadow = Q > 0;
   const sm = Q === 2 ? 2048 : 1024; sun.shadow.mapSize.set(sm, sm);
@@ -2818,8 +2820,8 @@ function buildTrack(scene, track, T, opts) {
         uv.push(k / segs * 1.4, i * SIM.DS / 9);
         const rl = track.rlOff[ii]; const rub = Math.exp(-((d - rl) ** 2) / (3.2 + brk * 2));
         const edge = Math.max(0, (Math.abs(d) - hw + 1.6) / 1.6);
-        const patch = nzA.fbm(ii * SIM.DS / 60, d / 9, 3);
-        let v = 0.6 - (0.16 + brk * 0.05) * rub + 0.1 * edge + patch * 0.035;
+        const patch = nzA.fbm(ii * SIM.DS / 140, d / 14, 2);
+        let v = 0.6 - (0.16 + brk * 0.05) * rub + 0.1 * edge + patch * 0.025;
         if (wet) v *= 0.55;
         col.push(v, v, v * 1.025);
       }
@@ -2827,7 +2829,7 @@ function buildTrack(scene, track, T, opts) {
     }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
     T.asphalt.repeat.set(1, 1); T.asphaltN.repeat.set(1, 1);
-    const mat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.45, 0.45), vertexColors: true, roughness: wet ? 1.0 : 0.86, metalness: 0.0, envMapIntensity: wet ? 1.25 : 0.4 });
+    const mat = new THREE.MeshStandardMaterial({ map: T.asphalt, normalMap: T.asphaltN, normalScale: new THREE.Vector2(0.35, 0.35), vertexColors: true, roughness: wet ? 1.0 : 0.86, metalness: 0.0, envMapIntensity: wet ? 1.25 : 0.3 });
     if (wet) { T.wetRough.repeat.set(0.35, 0.11); mat.roughnessMap = T.wetRough; }
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; G.add(m); objs.asphaltMat = mat;
   }
@@ -3040,6 +3042,7 @@ function buildTrack(scene, track, T, opts) {
   return { group: G, objs };
 }
 
+const CROWD_GREY = new THREE.Color(0x6b6e72);
 function buildGrandstands(G, track, T, opts, objs) {
   const hw = track.halfW, P = track.pit, side = P.side, Q = opts.quality;
   const crowdMax = Q === 2 ? 16000 : Q === 1 ? 9000 : 3500;
@@ -3068,7 +3071,7 @@ function buildGrandstands(G, track, T, opts, objs) {
         const v = new THREE.Vector3(lx, 0.55 * (r + 1), sgn * (r * 0.9 + 0.45));
         v.applyAxisAngle(new THREE.Vector3(0, 1, 0), -ang); v.add(g.position);
         m4.compose(v, new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -ang + (rng() - .5) * .4), new THREE.Vector3(1, 0.85 + rng() * .3, 1));
-        crowd.setMatrixAt(crowdN, m4); crowd.setColorAt(crowdN, colr.setHex(palette[(rng() * palette.length) | 0]).multiplyScalar(0.7 + rng() * .3)); crowdN++;
+        crowd.setMatrixAt(crowdN, m4); crowd.setColorAt(crowdN, colr.setHex(palette[(rng() * palette.length) | 0]).lerp(CROWD_GREY, 0.38).multiplyScalar(0.62 + rng() * .3)); crowdN++;
       }
     }
     const mA = new THREE.Mesh(mergeGeoms(stepsA), standMat); mA.receiveShadow = true; g.add(mA);
@@ -3136,7 +3139,7 @@ function buildGrandstands(G, track, T, opts, objs) {
       const t = k * 0.7 / len; const ox = Math.sin(ang) * r * 0.8 * -side, oz = -Math.cos(ang) * r * 0.8 * -side;
       m4.compose(new THREE.Vector3(xa + (xb - xa) * t + ox * 0, 9, za + (zb - za) * t + oz * 0 + 0), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
       const v = new THREE.Vector3(xa + (xb - xa) * t, 9, za + (zb - za) * t); const nrm = new THREE.Vector3(-Math.sin(ang), 0, Math.cos(ang)).multiplyScalar(side * (r * 0.8 + 0.5)); v.add(nrm);
-      m4.makeTranslation(v.x, v.y, v.z); crowd.setMatrixAt(crowdN, m4); crowd.setColorAt(crowdN, colr.setHex(palette[(rng() * palette.length) | 0])); crowdN++;
+      m4.makeTranslation(v.x, v.y, v.z); crowd.setMatrixAt(crowdN, m4); crowd.setColorAt(crowdN, colr.setHex(palette[(rng() * palette.length) | 0]).lerp(CROWD_GREY, 0.38).multiplyScalar(0.75)); crowdN++;
     }
   }
   crowd.count = crowdN; crowd.instanceMatrix.needsUpdate = true; if (crowd.instanceColor) crowd.instanceColor.needsUpdate = true;
@@ -3279,7 +3282,7 @@ const CAR_GEO = {};
 function carGeometries() {
   if (CAR_GEO.body) return CAR_GEO;
   const S = SIM.SPEC; const a = S.a, b = S.b;
-  const body = [], carbon = [], accent = [], dark = [];
+  const body = [], carbon = [], accent = [], dark = [], mirror = [];
   // monocoque + nose
   body.push(loft([
     { x: 2.98, y: 0.27, w: 0.06, hT: 0.04, hB: 0.04, p: 2.4 },
@@ -3342,7 +3345,8 @@ function carGeometries() {
     susp.push(rod([-b + 0.3, 0.25, sg * 0.24], [-b, 0.27, sg * 0.64]), rod([-b - 0.25, 0.25, sg * 0.2], [-b, 0.27, sg * 0.64]));
     // mirrors
     carbon.push(rod([0.55, 0.62, sg * 0.32], [0.55, 0.72, sg * 0.5], 0.015));
-    dark.push(xf(new THREE.BoxGeometry(0.07, 0.07, 0.15), { p: [0.55, 0.74, sg * 0.53] }));
+    accent.push(xf(new THREE.BoxGeometry(0.06, 0.075, 0.17), { p: [0.56, 0.745, sg * 0.53] }));
+    mirror.push(xf(new THREE.PlaneGeometry(0.15, 0.058), { p: [0.528, 0.745, sg * 0.53], r: [0, -Math.PI / 2, 0] }));
   }
   carbon.push(...susp);
   // halo
@@ -3356,6 +3360,7 @@ function carGeometries() {
   CAR_GEO.carbon = mergeGeoms(carbon);
   CAR_GEO.accent = mergeGeoms(accent);
   CAR_GEO.dark = mergeGeoms(dark);
+  CAR_GEO.mirror = mergeGeoms(mirror);
   // wheels
   CAR_GEO.tyreF = new THREE.CylinderGeometry(0.36, 0.36, 0.3, 30, 1); CAR_GEO.tyreF.rotateX(Math.PI / 2);
   CAR_GEO.tyreR = new THREE.CylinderGeometry(0.36, 0.36, 0.4, 30, 1); CAR_GEO.tyreR.rotateX(Math.PI / 2);
@@ -3398,6 +3403,7 @@ function makeCarMesh(car, opts = {}) {
   const darkMat = MAT_CACHE.dark || (MAT_CACHE.dark = new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6 }));
   const add = (g, m, shadow = true) => { const mesh = new THREE.Mesh(g, m); mesh.castShadow = shadow; mesh.receiveShadow = true; grp.add(mesh); return mesh; };
   add(geo.body, bodyMat); add(geo.carbon, carbonMat); add(geo.accent, accentMat); add(geo.dark, darkMat, false);
+  add(geo.mirror, MAT_CACHE.mirror || (MAT_CACHE.mirror = new THREE.MeshStandardMaterial({ color: 0xc8ced6, metalness: 1, roughness: 0.06 })), false);
   // helmet
   const helmet = new THREE.Group(); helmet.position.set(0.0, 0.79, 0);
   helmet.add(new THREE.Mesh(geo.helmet, new THREE.MeshPhysicalMaterial({ color: team.c2, roughness: .25, clearcoat: 1 })));
