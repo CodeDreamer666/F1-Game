@@ -127,29 +127,14 @@
   #fps { position: absolute; right: 8px; top: 2px; font-size: 11px; color: #8f8; text-shadow: 0 0 3px #000; }
   #hint { position: absolute; left: 50%; bottom: 168px; transform: translateX(-50%); font-size: 13px; color: #dfe3ea; background: rgba(12,14,19,.7); padding: 4px 12px; border-radius: 4px; }
 
-
-  /* ---------------- DRIVING MODE ---------------- */
-  .modepick { pointer-events: auto; margin: 4px 0 10px; }
-  .modepick .mp-h { font-size: 12px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; display: flex; justify-content: space-between; }
-  .modepick .mp-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-  .modepick button { pointer-events: auto; cursor: pointer; padding: 7px 6px 6px; border-radius: 5px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: #cfd5df; font: 700 14px var(--font); letter-spacing: .5px; text-transform: uppercase; display: flex; flex-direction: column; align-items: center; gap: 1px; transition: all .12s; }
-  .modepick button small { font-size: 10px; font-weight: 600; letter-spacing: 1px; color: rgba(255,255,255,.5); }
-  .modepick button .bars { display: flex; gap: 2px; margin-top: 3px; } .modepick button .bars i { width: 12px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.18); }
-  .modepick button .bars i.on { background: currentColor; }
-  .modepick button:hover { background: rgba(255,255,255,.12); }
-  .modepick button.sel { color: #fff; border-color: var(--mc); background: color-mix(in srgb, var(--mc) 32%, transparent); box-shadow: inset 0 -3px 0 var(--mc); }
-  .modepick button.sel small { color: rgba(255,255,255,.85); }
-  .modepick .mp-desc { font-size: 12.5px; line-height: 1.45; color: #b9c0cc; margin-top: 7px; min-height: 36px; }
-  .modepick.compact .mp-desc { display: none; }
+  /* ---------------- DRIVING HELP ---------------- */
   .field .desc { font-size: 12px; line-height: 1.4; color: #8f98a8; margin-top: 6px; }
   .field.wide { grid-column: 1 / -1; }
-  #modeRow .v { color: var(--mcol, #fff); text-transform: uppercase; letter-spacing: 1px; font-size: 13px; }
   #cornerGuide { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 5px 14px 5px 10px; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 15px; letter-spacing: .5px; border-left: 4px solid #21c55d; white-space: nowrap; }
   #cornerGuide .arr { font-size: 20px; width: 20px; text-align: center; }
   #cornerGuide small { color: var(--dim); font-weight: 600; font-size: 12px; letter-spacing: 1px; }
   #cornerGuide b { font-size: 18px; }
   #cornerGuide.ok { border-left-color: #21c55d; } #cornerGuide.lift { border-left-color: #f5c518; } #cornerGuide.brake { border-left-color: #e53935; background: rgba(120, 12, 12, .88); }
-  #cornerGuide .tag { font-size: 11px; padding: 1px 6px; border-radius: 3px; background: #2f7bff; color: #fff; letter-spacing: 1px; }
   #tutorial .dialog { width: min(640px, 94vw); }
   #tutorial .tk { display: grid; grid-template-columns: 150px 1fr; gap: 10px 18px; align-items: center; margin: 14px 0 8px; font-size: 15px; line-height: 1.4; }
   #tutorial .tk .kk { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -175,10 +160,8 @@
   @media (max-height: 860px) {
     .menu-left { padding: 30px 48px 20px; } .logo { font-size: 40px; } .logo-sub { margin: 8px 0 14px !important; }
     .menu-left .btn { padding: 10px 18px; margin: 4px 0; font-size: 17px; }
-    .modepick .mp-desc { font-size: 12px; min-height: 0; }
     .menu-foot { display: none; }
   }
-  @media (max-height: 700px) { .modepick[data-mp=menu] .mp-desc { display: none; } }
   .circuit-card { position: absolute; right: 48px; bottom: 48px; width: 380px; padding: 16px 18px; pointer-events: auto; }
   .circuit-card h3 { margin: 0; font-size: 22px; letter-spacing: .5px; }
   .circuit-card .country { color: var(--dim); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
@@ -233,7 +216,6 @@
     <div class="kv"><span class="k">LAST</span><span class="v num" id="tLast">--:--.---</span></div>
     <div class="kv"><span class="k">CURRENT</span><span class="v num" id="tCur">0:00.000</span></div>
     <div class="kv"><span class="k">DELTA</span><span class="v num" id="tDelta">--</span></div>
-    <div class="kv" id="modeRow"><span class="k">MODE</span><span class="v" id="modeTxt">Beginner</span></div>
     <div class="sectors"><div id="s1">S1</div><div id="s2">S2</div><div id="s3">S3</div></div>
   </div>
   <div id="hud-bc">
@@ -249,7 +231,7 @@
         <span class="chip" id="chipErs">BALANCED</span>
         <span class="chip" id="chipDrs">DRS</span>
         <span class="chip" id="chipLim" style="display:none">PIT LIMITER</span>
-        <span class="chip ot" id="chipDrift" style="display:none">DRIFT</span>
+        <span class="chip ot" id="chipDrift" style="display:none">SLIDE</span>
         <span class="chip" id="chipFuel">FUEL</span>
       </div>
     </div>
@@ -270,7 +252,7 @@
   <div id="lights" class="panel hidden"><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div></div>
   <div id="pitstop" class="panel hidden"><div class="t">PIT STOP</div><b class="num" id="pitTime">0.0 s</b></div>
   <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP <span style="color:var(--dim);font-size:12px">(P to cancel)</span></div><div class="opts" id="boxOpts"></div></div>
-  <div id="cornerGuide" class="panel hidden"><span class="arr" id="cgArr">◀</span><span id="cgName">T1</span><small id="cgDist">120 m</small><b class="num" id="cgSpd">90</b><small id="cgUnit">KM/H</small><span class="tag hidden" id="cgTag">AUTO-BRAKE</span></div>
+  <div id="cornerGuide" class="panel hidden"><span class="arr" id="cgArr">◀</span><span id="cgName">T1</span><small id="cgDist">120 m</small><b class="num" id="cgSpd">90</b><small id="cgUnit">KM/H</small></div>
   <div id="brakemark" class="hidden">BRAKE<b class="num" id="brakeDist">0 m</b></div>
   <div id="telemetry" class="panel hidden"><canvas id="telCanvas" width="900" height="240"></canvas><canvas id="gCanvas" width="280" height="240"></canvas></div>
   <div id="specbar" class="panel hidden"></div>
@@ -283,7 +265,6 @@
   <div class="menu-left">
     <div class="logo">APEX<br><span>GRAND PRIX</span></div>
     <div class="logo-sub" style="margin-bottom:18px">Formula Racing Simulator</div>
-    <div class="modepick" data-mp="menu"></div>
     <button class="btn primary" data-act="play">Play <small>Race weekend</small></button>
     <button class="btn" data-act="quickrace">Quick Race <small>Skip qualifying</small></button>
     <button class="btn" data-act="spectate">Spectator Mode <small>Watch the AI</small></button>
@@ -312,16 +293,20 @@
 <div id="controls" class="overlay hidden">
   <div class="dialog">
     <h2>Con<span>trols</span></h2>
-    <div class="sub">Keyboard (gamepad: left stick steer, RT throttle, LT brake, A/B gears, X DRS, Y camera, click left stick for the assisted turn / drift, Start pause).</div>
-    <div class="modepick" data-mp="controls"></div>
-    <div class="ctrl-mode" id="ctrlMode"></div>
+    <div class="sub">Keyboard (gamepad: left stick steer, RT throttle, LT brake, X DRS, Y camera, Start pause).</div>
+    <div class="ctrl-mode" id="ctrlMode"><h4>Driving</h4><ul>
+      <li><b>W</b> accelerates smoothly — hold it through ordinary corners and steer with <b>A / D</b>.</li>
+      <li>Steering is speed-sensitive: sharp at hairpin speeds, calmer and more stable at high speed. Release the key and the car straightens.</li>
+      <li><b>S</b> brakes progressively. Brake while steering (<b>W</b> can stay held) and the car rotates more sharply and can slide in a controlled way.</li>
+      <li>Let go of <b>S</b> with <b>W</b> held and the tyres regain grip, the car straightens and accelerates out of the corner.</li>
+      <li>Gears, traction control, ABS and stability control are automatic. No drift button — the slide comes from braking and steering.</li>
+    </ul></div>
     <div class="keys">
       <div>Accelerate <span><kbd>W</kbd><kbd>↑</kbd></span></div>
       <div>Brake / reverse <span><kbd>S</kbd><kbd>↓</kbd></span></div>
       <div>Steer <span><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></span></div>
-      <div>Gear up / down (manual) <span><kbd>E</kbd><kbd>Q</kbd></span></div>
-      <div>Assisted turn / drift (Beginner, Balanced) <span><kbd>Space</kbd> + <kbd>W</kbd> + <kbd>A</kbd>/<kbd>D</kbd></span></div>
-      <div>DRS (when available) <span><kbd>G</kbd></span></div>
+      <div>Brake into a turn (controlled slide) <span><kbd>W</kbd> + <kbd>S</kbd> + <kbd>A</kbd>/<kbd>D</kbd></span></div>
+      <div>DRS (when available) <span><kbd>G</kbd> / <kbd>Space</kbd></span></div>
       <div>ERS overtake (hold) <span><kbd>Shift</kbd></span></div>
       <div>ERS mode cycle <span><kbd>X</kbd></span></div>
       <div>Box this lap / tyre <span><kbd>P</kbd> + <kbd>1</kbd>-<kbd>4</kbd></span></div>
@@ -346,7 +331,6 @@
   <div class="dialog" style="width:460px">
     <h2>Pa<span>used</span></h2>
     <div class="sub" id="pauseSub"></div>
-    <div class="modepick" data-mp="pause"></div>
     <button class="btn primary" data-act="resume">Resume</button>
     <button class="btn" data-act="restart">Restart session</button>
     <button class="btn" data-act="skipquali" id="btnSkipQ">Return to garage &amp; skip to end</button>
@@ -359,7 +343,7 @@
 <div id="tutorial" class="overlay hidden">
   <div class="dialog">
     <h2>How to <span>drive</span></h2>
-    <div class="sub" id="tutSub">Beginner mode</div>
+    <div class="sub" id="tutSub"></div>
     <div class="tk" id="tutKeys"></div>
     <div class="tip" id="tutTip"></div>
     <div class="actions"><button class="btn primary" data-act="tutorialClose">Let's race <small>Enter</small></button></div>
@@ -793,7 +777,6 @@ const SIM = (function () {
     gears: [13.4, 10.4, 8.6, 7.35, 6.4, 5.65, 5.03, 4.48], revLimit: 12500, idle: 4000,
     brakeMax: 44000, brakeBias: 0.60, maxLock: 0.34, ersMax: 4.0e6,
     B: 16, C: 1.45, aPk: 0.116, rearGrip: 1.06, // pacejka
-    driftLoss: 0.4, driftA0: 0.3, driftWin: 0.12, driftRestore: 1.3, driftYawDamp: 4, driftKb: 16,
   };
   function torqueAt(rpm) {
     const T = [[3000, 0.55], [5000, 0.72], [7000, 0.86], [9000, 0.96], [10500, 1.0], [11500, 0.99], [12200, 0.93], [12600, 0.85], [14000, 0.6]];
@@ -859,8 +842,6 @@ const SIM = (function () {
   }
 
   const tmpW = { l: 0, r: 0, innerPit: 0 };
-  const escB = new Float64Array(4);
-  const DRIFT_DEFAULT = { loss: SPEC.driftLoss, a0: SPEC.driftA0, win: SPEC.driftWin, restore: SPEC.driftRestore, damp: SPEC.driftYawDamp, kb: SPEC.driftKb, inRate: 4, outRate: 1.2, driveCap: 0.45, maxTgt: 0.4 };
   function stepCarPhysics(car, dt, track, env) {
     if (car.frozen) return;
     const sp = SPEC, m = car.mass, inp = car.input;
@@ -871,34 +852,8 @@ const SIM = (function () {
     const c = Math.cos(car.psi), s = Math.sin(car.psi);
     let u = car.vx * c + car.vz * s, v = -car.vx * s + car.vz * c; const r = car.r;
     const speed = Math.hypot(u, v);
-    // drift input (any car may use it; the player maps it to Space + throttle): the rear is
-    // unloaded laterally (like a locked diff / power oversteer) so the tail steps out, and grip
-    // comes back as the slide angle grows so the car settles into a controllable drift
-    // per-driver drift tuning (the player's driving mode picks one; defaults reproduce the original behaviour)
-    const dc = inp.driftCfg || DRIFT_DEFAULT;
-    const driftIn = inp.drift && speed > 8 && car.gear > 0 ? 1 : 0;
-    car.drift = (car.drift || 0) + clamp(driftIn - (car.drift || 0), -dc.outRate * dt, dc.inRate * dt);
-    if (!driftIn) inp.driftTarget = 0;
-    const beta = Math.atan2(v, Math.max(Math.abs(u), 3)); car.driftAngle = beta;
-    let rearLatMul = 1;
-    if (car.drift > 0.001) {
-      // downforce pins the rear at speed: big slides in slow corners, only small ones in fast corners
-      const aeroPin = clamp(1.3 - speed / 70, 0.35, 1);
-      rearLatMul = 1 - dc.loss * car.drift * aeroPin;
-      const excess = Math.abs(beta) - dc.a0; // beyond this slide angle the rear tyres bite again
-      if (excess > 0) rearLatMul = lerp(rearLatMul, dc.restore, clamp(excess / dc.win, 0, 1));
-      // balance the slide (what a driver does with throttle and opposite lock): yaw is nudged so the
-      // slide angle tracks the requested angle, and excess rotation is damped, so the car settles
-      // into the drift instead of spinning
-      const want = clamp(inp.driftTarget || 0, -dc.maxTgt, dc.maxTgt) * clamp(1.4 - speed / 60, 0.45, 1);
-      car.driftTgt = (car.driftTgt || 0) + clamp(want - (car.driftTgt || 0), -1.4 * dt, 1.4 * dt);
-      const target = car.driftTgt;
-      const err = beta - target, rRef = Math.abs(u) > 3 ? car.ayL / Math.abs(u) : 0;
-      // full strength until the car is straight again, even after the drift button is released
-      const wStab = driftIn ? car.drift : Math.min(1, car.drift * 4 + Math.abs(beta) * 3);
-      const push = clamp(dc.kb * err * Math.min(1, speed / 20), -4, 4);
-      car.r += (push - dc.damp * (car.r - rRef)) * wStab * dt;
-    }
+    // body slip angle: how far the direction of travel is from the way the car points
+    const beta = Math.atan2(v, Math.max(Math.abs(u), 3)); car.slideAngle = beta;
     // ---- gearbox ----
     if (car.shiftT > 0) car.shiftT -= dt;
     if (car.gear > 0) {
@@ -971,25 +926,6 @@ const SIM = (function () {
     let FxSum = 0, FySum = 0, Mz = 0;
     const wet = env.wet;
     const delta = car.steer;
-    // ---- electronic stability control (player assist, off unless the driving mode enables it) ----
-    // Works like a road-car ESC: when the car rotates faster than its path (oversteer) or the body slip
-    // angle grows past a threshold, the outside front brake is applied to create a correcting yaw moment.
-    // It acts only through tyre forces, so it costs speed and is limited by grip.
-    escB[0] = escB[1] = escB[2] = escB[3] = 0; car.escAct = 0;
-    if (inp.esc > 0 && speed > 7 && car.gear >= 0 && !(car.drift > 0.05) && Math.abs(u) > 4) {
-      const rPath = car.ayL / u;
-      const bEx = Math.max(0, Math.abs(beta) - (inp.escBeta || 0.1));
-      let e = (r - rPath) - 2.5 * Math.sign(beta) * bEx;
-      if (Math.abs(e) > 0.08) {
-        e -= Math.sign(e) * 0.08;
-        const Mz = -sp.Iz * 9 * inp.esc * e;
-        // only counter rotation that would grow the slide (never add rotation the driver did not ask for)
-        if (Math.sign(Mz) === -Math.sign(r) || bEx > 0) {
-          const F = Math.min(Math.abs(Mz) / sp.tw, 7500 * inp.esc);
-          escB[Mz > 0 ? 1 : 0] = F; car.escAct = F / 7500;
-        }
-      }
-    }
     const cd = Math.cos(delta), sd = Math.sin(delta);
     for (let i = 0; i < 4; i++) {
       const xi = WHEEL_X[i], yi = WHEEL_Y[i];
@@ -1008,7 +944,7 @@ const SIM = (function () {
       // longitudinal demand
       let fx = 0;
       if (!front) fx += fDrive * 0.5 - fHarvest * 0.5;
-      const bw = (front ? bF * bias * 0.5 : Math.max(0, bF * (1 - bias) * 0.5 - fHarvest * 0.5)) + escB[i];
+      const bw = front ? bF * bias * 0.5 : Math.max(0, bF * (1 - bias) * 0.5 - fHarvest * 0.5);
       const rr = SURF_RR[surf] * Fz;
       const sgn = lon > 0.05 ? 1 : lon < -0.05 ? -1 : 0;
       if (sgn !== 0) fx -= (bw + rr) * sgn;
@@ -1020,6 +956,11 @@ const SIM = (function () {
       // driver aids (player only): per-wheel ABS and traction control keep demand just under the grip limit
       if (car.aids) {
         if (car.aids.abs && bw > 0 && sgn !== 0 && Math.abs(fx) > Fmax * 0.96 && Math.sign(fx) === -sgn) fx = -sgn * Fmax * 0.96;
+        // cornering brake control: while the car is turning, braking is capped per axle so the tyres keep
+        // part of their grip for cornering (friction circle). The rear is allowed to use more of its grip
+        // for braking than the front, so braking into a turn shifts the balance and helps the car rotate.
+        const cbc = front ? car.aids.cbcF : car.aids.cbcR;
+        if (cbc && bw > 0 && sgn !== 0 && Math.sign(fx) === -sgn && Math.abs(fx) > Fmax * cbc) fx = -sgn * Fmax * cbc;
         if (car.aids.tc && !front && fDrive > 0 && fx > Fmax * (car.aids.tc > 1 ? 0.93 : 1.0)) fx = Fmax * (car.aids.tc > 1 ? 0.93 : 1.0);
         // grip-aware traction control (assisted driving modes): drive is limited to what the friction
         // circle leaves after the cornering force the rear tyre is being asked for, so throttle cannot
@@ -1030,8 +971,6 @@ const SIM = (function () {
           if (fx > cap) fx = cap;
         }
       }
-      // while drifting the rear keeps part of its grip for sideways scrub (combined slip)
-      if (!front && car.drift > 0.01 && fx > 0) fx = Math.min(fx, Fmax * (1 - dc.driveCap * car.drift));
       let lc = 0, sliding = 0; car.lock[i] = 0; car.spin[i] = 0;
       let slipLong = 0;
       if (Math.abs(fx) > Fmax * 0.985) {
@@ -1043,7 +982,6 @@ const SIM = (function () {
         lc = Math.sqrt(Math.max(0, Fmax * Fmax - fx * fx));
         slipLong = Math.abs(fx) / (Fmax + 1) * 0.06 * Math.abs(lon);
       }
-      if (!front) lc *= rearLatMul;
       const alpha = Math.atan2(lat, Math.max(Math.abs(lon), 4.0));
       car.slipA[i] = alpha;
       let fy = -lc * Math.sin(sp.C * Math.atan(sp.B * alpha));
@@ -1060,6 +998,22 @@ const SIM = (function () {
       car.wheelRot[i] += lon / sp.Rw * dt * (car.lock[i] ? 0 : 1) + (car.spin[i] ? 25 * dt : 0);
     }
     FxSum -= drag;
+    // ---- stability control (player handling only, see PlayerHandling) ----
+    // Lets the car slide up to an allowed body slip angle and pushes back, with a yaw moment bounded by a
+    // fraction of the tyres' cornering grip, when the predicted slide goes past it. It never adds rotation
+    // the slide does not already have, so it catches spins and straightens the car after a slide.
+    car.stabMz = 0;
+    const Y = car.aids && car.aids.yaw;
+    if (Y && u > 4) {
+      const bRate = car.ayL / u - r; // d(beta)/dt
+      const bP = beta + Y.look * bRate;
+      const ex = bP - clamp(bP, -Y.allow, Y.allow);
+      if (ex !== 0) {
+        const lim = Y.max * (ld[0] + ld[1] + ld[2] + ld[3]) * car.tyreMu(0, wet) * sp.b;
+        const Ms = clamp(sp.Iz * Y.k * ex, -lim, lim);
+        Mz += Ms; car.stabMz = Ms;
+      }
+    }
     // integrate
     const ax = FxSum / m, ay = FySum / m;
     const fwx = c * FxSum - s * FySum, fwz = s * FxSum + c * FySum;
@@ -1093,6 +1047,110 @@ const SIM = (function () {
       if (!wet && car.tyre.c === 'W') wr *= 3.0;
       if (car.lock[i]) wr *= 3;
       car.tyre.wear[i] = Math.min(1, car.tyre.wear[i] + wr * dt);
+    }
+  }
+
+  /* ------------------------------------------------------------------
+     PLAYER HANDLING — the one driving model for the human driver.
+     Keyboard-friendly arcade controls on top of the full vehicle physics: it only decides the
+     steering angle, the pedals and the driver aids (ABS, cornering brake control, traction control,
+     stability control). The tyres, aero, weight transfer and collisions do the rest, every physics step.
+       W        accelerate (smooth throttle build-up, traction control)
+       S        brake (progressive); hold when stopped to reverse
+       A / D    steer — speed-sensitive, smoothed, aimed at a yaw rate the tyres can deliver
+       S + A/D  (with or without W) brake into the turn: the car slows, rotates more sharply and may
+                slide in a controlled way; let go of S and grip, direction and drive come back progressively
+     ------------------------------------------------------------------ */
+  const HANDLING = {
+    steerIn: [5.0, 2.0],      // keyboard steering build-up rate (1/s) at low / high speed
+    steerOut: [7.5, 5.0],     // recentring rate (1/s) at low / high speed
+    shape: [1.12, 1.6],       // input curve exponent at low / high speed (finer small corrections at speed)
+    gripUse: [1.0, 0.9],      // share of the cornering grip that full lock asks for, low / high speed
+    rotBoost: 0.4,            // extra yaw demand while braking into a turn
+    slideMax: [0.3, 0.09],    // allowed slide angle while braking into a turn, slow / fast corners (rad)
+    gripSlide: 0.05,          // allowed slide angle otherwise (rad)
+    kp: 0.07,                 // yaw-rate feedback (rad of front slip per rad/s)
+    kBeta: 3.2,               // yaw-rate correction per rad of excess slide (1/s)
+    thUp: 2.6, thDown: 9, brUp: 4.5, brDown: 3.2, // pedal ramps (1/s)
+    thBrake: 0.2,             // throttle kept while braking with W held (engine response for the exit)
+  };
+  class PlayerHandling {
+    constructor() { this.reset(); }
+    reset() { this.steer = 0; this.th = 0; this.br = 0; this.bt = 0; this.allow = HANDLING.gripSlide; this.revT = 0; this.rDes = 0; }
+    // raw: { steer -1..1, throttle 0..1, brake 0..1, analog } — called once per physics step
+    step(car, dt, sess, raw) {
+      const H = HANDLING, sp = SPEC, inp = car.input;
+      const spd = car.speed, u = car.u, vN = clamp((spd - 12) / 58, 0, 1), wet = sess.wet || 0;
+      // ---- steering input: progressive build-up, quicker recentring, slower at speed ----
+      const tgt = clamp(raw.steer, -1, 1);
+      if (raw.analog) this.steer += clamp(tgt - this.steer, -10 * dt, 10 * dt);
+      else {
+        const back = tgt === 0 || (this.steer !== 0 && Math.sign(tgt) !== Math.sign(this.steer));
+        const rate = back ? lerp(H.steerOut[0], H.steerOut[1], vN) : lerp(H.steerIn[0], H.steerIn[1], vN) * (0.65 + 0.7 * Math.abs(this.steer));
+        this.steer += clamp(tgt - this.steer, -rate * dt, rate * dt);
+      }
+      const sA = Math.abs(this.steer), shaped = Math.sign(this.steer) * Math.pow(sA, lerp(H.shape[0], H.shape[1], vN));
+      // ---- pedals: W + S together brakes, keeping a little throttle so the engine is ready for the exit ----
+      const thRaw = clamp(raw.throttle, 0, 1), brRaw = clamp(raw.brake, 0, 1);
+      const thTgt = brRaw > 0.1 ? Math.min(thRaw, H.thBrake) : thRaw;
+      if (raw.analog) { this.th = thTgt; this.br = brRaw; }
+      else { this.th += clamp(thTgt - this.th, -H.thDown * dt, H.thUp * dt); this.br += clamp(brRaw - this.br, -H.brDown * dt, H.brUp * dt); }
+      let th = this.th, br = this.br;
+      // reverse when stopped and holding the brake
+      if (spd < 1.0 && brRaw > 0.5 && thRaw < 0.1 && sess.lightsOut) { this.revT += dt; if (this.revT > 0.5) car.gear = -1; }
+      else if (thRaw > 0.1 || u > 1.5) { this.revT = 0; if (car.gear === -1) car.gear = 1; }
+      const rev = car.gear === -1;
+      if (rev) { th = br; br = 0; }
+      // ---- grip available right now (tyres, rain, surface, downforce) ----
+      let sm = 0; for (let i = 0; i < 4; i++) sm += SURF_MU[car.surf[i]]; sm /= 4;
+      const mu = Math.max(0.4, car.gripEstimate(wet)) * sm;
+      const kA = 0.5 * RHO * car.effClA() / car.mass;
+      const uu = Math.max(u, 3);
+      const rGrip = mu * (G + kA * uu * uu) / uu;
+      const rGeom = uu * Math.tan(0.9 * sp.maxLock) / sp.L;
+      // ---- braking into a turn: rotation and an allowed, controlled slide ----
+      const turn = clamp((sA - 0.15) / 0.5, 0, 1);
+      const btT = !rev && car.gear > 0 && spd > 8 ? clamp(this.br * 1.25, 0, 1) * turn : 0;
+      this.bt += clamp(btT - this.bt, -1.6 * dt, 3 * dt);
+      const slideMax = lerp(H.slideMax[0], H.slideMax[1], clamp((spd - 15) / 50, 0, 1)) * (1 - 0.25 * wet);
+      const allowT = H.gripSlide + (slideMax - H.gripSlide) * this.bt;
+      // the allowance shrinks progressively after the brake is released: traction comes back, not snaps back
+      this.allow += clamp(allowT - this.allow, -0.4 * dt, 1.2 * dt);
+      // ---- steering: aim the front wheels at the yaw rate the driver asks for ----
+      const rCap = Math.min(rGrip * lerp(H.gripUse[0], H.gripUse[1], vN) * (1 + H.rotBoost * (1 - 0.6 * vN) * this.bt), rGeom);
+      const rDes = shaped * rCap; this.rDes = rDes;
+      const beta = Math.atan2(car.v, Math.max(Math.abs(u), 3));
+      const excess = beta - clamp(beta, -this.allow, this.allow);
+      const rRef = rDes + H.kBeta * excess;     // a slide past the allowance asks for less rotation (counter-steer)
+      const betaF = Math.atan2(car.v + car.r * sp.a, uu); // direction the front axle is travelling
+      const q = clamp(Math.abs(rRef) / Math.max(rGrip, 0.05), 0, 0.98);
+      const aFF = Math.sign(rRef) * Math.tan(Math.asin(q) / sp.C) / sp.B; // front slip for that cornering force
+      const aMax = sp.aPk * 1.05;
+      const alpha = clamp(aFF + H.kp * (rRef - car.r), -aMax, aMax);
+      let delta = betaF + alpha;
+      const wLow = clamp((spd - 4) / 4, 0, 1); // walking pace and reversing: plain steering
+      if (rev || u < 1) delta = this.steer * sp.maxLock;
+      else delta = lerp(this.steer * sp.maxLock, delta, wLow);
+      inp.steer = clamp(delta / sp.maxLock, -1, 1);
+      // ---- traction on the exit: throttle follows the remaining slide ----
+      if (!rev && car.gear > 0) {
+        th = Math.min(th, 1 - 0.75 * clamp((Math.abs(beta) - 0.07) / 0.22, 0, 1));
+        const rear = Math.abs(car.slipA[2] + car.slipA[3]) / 2;
+        if (rear > 0.1 && spd > 8) th *= clamp(1 - (rear - 0.1) * 6, 0.25, 1);
+      }
+      inp.throttle = th; inp.brake = br; inp.auto = true;
+      // ---- aids (per-wheel work happens in the physics) ----
+      // cornering brake control: the more the car is turning, the more grip is kept for cornering. In slow
+      // corners the rear may brake harder than the front (rotation); at speed less so, and as soon as the
+      // slide heads past what is allowed the rear brake is released to let the tyres bite again
+      const util = clamp(Math.abs(car.ayL) / (mu * (G + kA * uu * uu)), 0, 1);
+      const cw = Math.max(util, 0.8 * turn);
+      const bP = beta + 0.12 * (car.ayL / uu - car.r);
+      const over = clamp((Math.abs(bP) - 0.7 * this.allow) / Math.max(0.3 * this.allow, 0.02), 0, 1);
+      const A = car.aids && car.aids.yaw ? car.aids : (car.aids = { abs: true, tc: 2, tcf: 0.95, cbcF: 0, cbcR: 0, yaw: { allow: 0, look: 0.12, k: 80, max: 0.3 } });
+      A.abs = true; A.tc = 2; A.tcf = 0.95;
+      A.cbcF = lerp(0.96, 0.62, cw); A.cbcR = lerp(0.96, lerp(0.86, 0.62, vN), cw) * (1 - 0.6 * over);
+      A.yaw.allow = this.allow;
     }
   }
 
@@ -1869,6 +1927,7 @@ const SIM = (function () {
       for (const car of this.cars) {
         if (car.ai) car.ai.update(dt, this.step);
         else if (car.isPlayer && (car.pit || car.autoDrive)) car.autopilot.update(dt, this.step);
+        else if (car.isPlayer && car.control && !car.inGarage) car.control(dt, this); // human driver, every physics step
       }
       // physics
       const env = { wet: this.wet, wearScale: this.wearScale, fuelRate: this.fuelRate, pitLimiter: false };
@@ -2274,7 +2333,7 @@ const SIM = (function () {
     return (neg ? '-' : plus ? '+' : '') + str;
   }
 
-  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, fmtTime, clamp, lerp, makeRng, stepCarPhysics, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
+  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, fmtTime, clamp, lerp, makeRng, stepCarPhysics, PlayerHandling, HANDLING, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
 })();
 // ==SIM-END==
 if (typeof module !== 'undefined') module.exports = SIM;
@@ -3663,14 +3722,16 @@ const clamp = SIM.clamp, lerp = SIM.lerp, fmt = SIM.fmtTime;
 const SETTINGS_KEY = 'apexgp.settings.v1';
 const DEFAULTS = {
   laps: 8, difficulty: 75, quali: 'on', qualiMin: 8, field: 20, weather: 'dry', tyreWear: 'normal', mandatory: 'auto', damage: 'on',
-  startTyre: 'auto', name: 'J. Dalton', team: 0, driveMode: 'beginner', cornerGuide: 'auto', gearbox: 'auto', tc: 'medium', abs: 'on', steerAssist: 'on', racingLine: 'braking',
+  startTyre: 'auto', name: 'J. Dalton', team: 0, cornerGuide: 'on', racingLine: 'braking',
   camera: 'chase', quality: 'high', volume: 70, units: 'kmh', showFps: 'off', quickGrid: 'random', speedBlur: 'on',
 };
 let S = Object.assign({}, DEFAULTS);
 try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
+// settings from older versions (driving modes, gearbox and aid toggles) no longer exist: one driving system for everyone
+for (const k of ['driveMode', 'gearbox', 'tc', 'abs', 'steerAssist']) delete S[k];
+if (S.cornerGuide === 'auto') S.cornerGuide = 'on';
 const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
 const SCHEMA = [
-  { k: 'driveMode', label: 'Driving mode', type: 'seg', wide: true, opts: [['beginner', 'Beginner'], ['balanced', 'Balanced'], ['sim', 'Simulation']], desc: () => (DRIVE_MODES[S.driveMode] || DRIVE_MODES.beginner).desc },
   { k: 'laps', label: 'Race length (laps)', type: 'seg', opts: [3, 5, 8, 12, 20, 30] },
   { k: 'difficulty', label: 'AI difficulty', type: 'range', min: 0, max: 100, fmt: (v) => v < 25 ? `Novice (${v})` : v < 50 ? `Club (${v})` : v < 75 ? `Pro (${v})` : v < 92 ? `Expert (${v})` : `Legend (${v})` },
   { k: 'quali', label: 'Qualifying (Play)', type: 'seg', opts: [['on', 'On'], ['off', 'Off']] },
@@ -3684,11 +3745,7 @@ const SCHEMA = [
   { k: 'name', label: 'Driver name', type: 'text' },
   { k: 'team', label: 'Team', type: 'select', opts: () => SIM.TEAMS.map((t, i) => [i, t.full]) },
   { k: 'quickGrid', label: 'Quick race grid slot', type: 'seg', opts: [['random', 'Random'], ['back', 'Back'], ['middle', 'Middle'], ['pole', 'Pole']] },
-  { k: 'gearbox', label: 'Gearbox', type: 'seg', opts: [['auto', 'Automatic'], ['manual', 'Manual']], desc: () => S.driveMode === 'beginner' ? 'Beginner always shifts for you.' : 'Manual: E / Q to shift.' },
-  { k: 'tc', label: 'Traction control', type: 'seg', opts: [['off', 'Off'], ['medium', 'Medium'], ['full', 'Full']], desc: () => S.driveMode === 'beginner' ? 'Beginner uses full, grip-aware traction control.' : S.driveMode === 'balanced' ? 'Balanced uses at least Medium.' : 'Simulation uses exactly this setting.' },
-  { k: 'abs', label: 'Anti-lock brakes', type: 'seg', opts: [['on', 'On'], ['off', 'Off']], desc: () => S.driveMode === 'sim' ? 'Simulation uses exactly this setting.' : 'Always on in Beginner and Balanced.' },
-  { k: 'steerAssist', label: 'Steering assist', type: 'seg', opts: [['on', 'On'], ['off', 'Off']], desc: () => S.driveMode === 'sim' ? 'Maps full lock to the tyre grip limit and helps catch slides (the original assist).' : 'Built into Beginner and Balanced.' },
-  { k: 'cornerGuide', label: 'Corner guide (next corner & speed)', type: 'seg', opts: [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], desc: () => 'Auto shows it in Beginner and Balanced.' },
+  { k: 'cornerGuide', label: 'Corner guide (next corner & speed)', type: 'seg', opts: [['on', 'On'], ['off', 'Off']] },
   { k: 'racingLine', label: 'Racing line', type: 'seg', opts: [['off', 'Off'], ['braking', 'Braking'], ['full', 'Full']] },
   { k: 'camera', label: 'Default camera', type: 'seg', opts: [['chase', 'Chase'], ['far', 'Far chase'], ['cockpit', 'Cockpit']] },
   { k: 'quality', label: 'Graphics quality', type: 'seg', opts: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']] },
@@ -3818,187 +3875,48 @@ function readPad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : []; const p = pads && Array.from(pads).find(x => x && x.connected);
   if (!p) return null;
   const b = (i) => p.buttons[i] ? p.buttons[i].value : 0; const pressed = (i) => p.buttons[i] && p.buttons[i].pressed && !padPrev[i];
-  const out = { steer: Math.abs(p.axes[0]) > 0.06 ? p.axes[0] : 0, throttle: b(7), brake: b(6), up: pressed(0), down: pressed(1), drs: pressed(2), cam: pressed(3), start: pressed(9), ot: b(5) > 0.5, box: pressed(4), drift: !!(p.buttons[10] && p.buttons[10].pressed) };
+  const out = { steer: Math.abs(p.axes[0]) > 0.06 ? p.axes[0] : 0, throttle: b(7), brake: b(6), drs: pressed(2), cam: pressed(3), start: pressed(9), ot: b(5) > 0.5, box: pressed(4) };
   padPrev = p.buttons.map(x => x.pressed);
   return out;
 }
 
-/* ---------------- player driving assists ---------------- */
-let DRIFT_ANGLE = 0.3, DRIFT_GAIN = 0.08, DRIFT_CATCH = 0.3;
-/* ---------------- driving modes (player only) ----------------
-   All three modes drive the same physical car. They differ only in how the player's inputs are
-   turned into steering / throttle / brake commands and in which bounded aids are switched on:
-   corner-speed assistance (through the brake and throttle pedals), steering filtering, traction
-   control, ABS, the ESC-style stability brake (physics, per-wheel brake forces) and drift tuning. */
-const DRIVE_MODES = {
-  beginner: {
-    key: 'beginner', name: 'Beginner', tag: 'Arcade',
-    desc: 'Hold W through most corners: the car brakes for the corners ahead, shifts gears, controls wheelspin and catches slides. You steer and choose the line. Space + W + A/D: assisted sharp turn.',
-    tcMin: 2, tcf: 0.92, tcTrim: 0.075, absForce: true, autoGear: true, counter: 0.95, esc: 1.0, escBeta: 0.07,
-    assist: 'full', muK: 0.8, decK: 0.45, rateLo: 4.4, rateHi: 1.6, drift: 'assist', autoDrs: true,
-  },
-  balanced: {
-    key: 'balanced', name: 'Balanced', tag: 'Assisted',
-    desc: 'Brake for the slow corners yourself. Traction control, ABS and a stability system step in when you overdo it, and corner speed is only trimmed when you are far too fast. Drifting needs timing.',
-    tcMin: 1, tcf: 1.0, tcTrim: 0.1, absForce: true, autoGear: false, counter: 0.7, esc: 0.45, escBeta: 0.12,
-    assist: 'limited', muK: 1.0, decK: 0.9, rateLo: 4.8, rateHi: 2.1, drift: 'skill', autoDrs: false,
-  },
-  sim: {
-    key: 'sim', name: 'Simulation', tag: 'Realistic',
-    desc: 'The raw car: real braking distances, wheelspin, lock-ups, understeer and oversteer. No corner braking, drift or spin assistance — only the aids you enable in Race Settings (TC, ABS, steering assist, gearbox).',
-    tcMin: 0, tcf: 0, tcTrim: 0, absForce: false, autoGear: false, counter: 0.85, esc: 0, escBeta: 0,
-    assist: 'none', muK: 0.95, decK: 1, rateLo: 0, rateHi: 0, drift: 'none', autoDrs: false,
-  },
-};
-// physics drift tuning per mode (see stepCarPhysics); 'assist' is heavily stabilised and leaves the slide quickly
-const DRIFT_CFG = {
-  assist: { loss: 0.42, a0: 0.26, win: 0.1, restore: 1.3, damp: 5.5, kb: 18, inRate: 2.6, outRate: 2.4, driveCap: 0.55, maxTgt: 0.32 },
-  skill: { loss: 0.44, a0: 0.32, win: 0.14, restore: 1.25, damp: 2.4, kb: 9, inRate: 4, outRate: 1.2, driveCap: 0.45, maxTgt: 0.42 },
-};
-const driveMode = () => DRIVE_MODES[S.driveMode] || DRIVE_MODES.beginner;
-
-// Corner anticipation from the real circuit geometry: the highest speed the car may carry right now and
-// still make every bend in the next ~340 m at its own lateral offset, braking at a fraction (decK) of the
-// grip its tyres currently have (temperature, wear, compound, rain). Also reports the slowest point ahead.
-function cornerAllowance(car, sess, muK, decK, out) {
-  const t = sess.track, hw = t.halfW;
-  const mu = Math.max(0.5, car.gripEstimate(sess.wet || 0)) * muK;
-  const kA = 0.5 * SIM.RHO * car.effClA() / car.mass;
-  const c = decK * mu, d0 = clamp(car.d, -hw - 1, hw + 1);
-  let allow = 120, vMin = 120, minJ = 0;
-  for (let j = 0; j <= 170; j += 2) {
-    const i = t.wrapI(car.idx + j); const dist = j * SIM.DS;
-    const dEff = d0 * Math.max(0, 1 - dist / 90);           // the car may move across the track for later bends
-    const k0 = t.kappa[i]; const k = Math.abs(k0 / Math.max(0.35, 1 - k0 * dEff));
-    const den = k - mu * kA; const vc = den <= 1e-6 ? 120 : Math.min(120, Math.sqrt(mu * SIM.G / den));
-    // braking with downforce: d(v^2)/ds = -2 c (g + kA v^2)  ->  closed form backwards from the bend
-    const w = (vc * vc + SIM.G / kA) * Math.exp(2 * c * kA * dist) - SIM.G / kA;
-    const v = Math.sqrt(Math.max(0, w));
-    if (v < allow) allow = v;
-    if (vc < vMin) { vMin = vc; minJ = j; }
-  }
-  out.allow = allow; out.vMin = vMin; out.minDist = minJ * SIM.DS; out.minIdx = t.wrapI(car.idx + minJ);
-  return out;
+/* ---------------- player driving ----------------
+   One driving system for every player (SIM.PlayerHandling): W accelerate, S brake, A/D steer, and S with
+   A/D (W may stay held) to brake into a turn, rotate the car and slide it in a controlled way. The handling
+   runs inside the physics loop, once per physics step, so it behaves the same at any frame rate. */
+function readDriveInput() {
+  const pad = G.pad;
+  let steer = (KEYS.KeyD || KEYS.ArrowRight ? 1 : 0) - (KEYS.KeyA || KEYS.ArrowLeft ? 1 : 0);
+  let throttle = KEYS.KeyW || KEYS.ArrowUp ? 1 : 0, brake = KEYS.KeyS || KEYS.ArrowDown ? 1 : 0;
+  let analog = false;
+  if (pad && Math.abs(pad.steer) > 0) { steer = pad.steer * Math.abs(pad.steer) ** 0.4; analog = true; }
+  if (pad) { throttle = Math.max(throttle, pad.throttle); brake = Math.max(brake, pad.brake); }
+  return { steer, throttle, brake, analog };
 }
-
 class PlayerControl {
-  constructor() { this.steer = 0; this.th = 0; this.br = 0; this.revT = 0; this.drsReq = false; this.ersMode = 1; this.tcCap = 1; this.absMod = 1; this.ca = { allow: 120, vMin: 120, minDist: 0, minIdx: 0 }; this.dPhase = 'idle'; this.dT = 0; this.dSpeed = 0; this.autoBr = 0; this.modeKey = null; }
+  constructor(car) {
+    this.car = car; this.handling = new SIM.PlayerHandling(); this.drsReq = false; this.ersMode = 1;
+    car.control = (dt, sess) => { if (!car.autoDrive && !car.pit) this.handling.step(car, dt, sess, readDriveInput()); };
+  }
+  get steer() { return this.handling.steer; }
+  // once per frame: the discrete controls (DRS, ERS)
   apply(car, dt, sess) {
-    const M = driveMode(); const inp = car.input; const pad = G.pad; const SP = SIM.SPEC;
-    if (this.modeKey !== M.key) { this.modeKey = M.key; this.dPhase = 'idle'; inp.drift = false; }
-    let steerRaw = (KEYS.KeyD || KEYS.ArrowRight ? 1 : 0) - (KEYS.KeyA || KEYS.ArrowLeft ? 1 : 0);
-    let thRaw = KEYS.KeyW || KEYS.ArrowUp ? 1 : 0, brRaw = KEYS.KeyS || KEYS.ArrowDown ? 1 : 0;
-    const analog = pad && (Math.abs(pad.steer) > 0 || pad.throttle > 0.02 || pad.brake > 0.02);
-    if (analog) { steerRaw = pad.steer * Math.abs(pad.steer) ** 0.4; thRaw = Math.max(thRaw, pad.throttle); brRaw = Math.max(brRaw, pad.brake); }
-    // ---- steering input filter: keyboard is rate-limited; the assisted modes slow it down at speed ----
-    if (analog && pad.steer) this.steer = steerRaw;
-    else {
-      const back = steerRaw === 0 || Math.sign(steerRaw) !== Math.sign(this.steer);
-      let rate;
-      if (M.key === 'sim') rate = back ? 5.5 : 2.4 + 1.5 * Math.abs(this.steer);
-      else { const vN = clamp((car.speed - 8) / 62, 0, 1); rate = back ? 6.0 : lerp(M.rateLo, M.rateHi, vN) + 1.0 * Math.abs(this.steer); }
-      this.steer += clamp(steerRaw - this.steer, -rate * dt, rate * dt);
-    }
-    let cmd = this.steer * SP.maxLock;
-    const betaF = Math.atan2(car.v + car.r * SP.a, Math.max(car.u, 3));
-    // ---- drift / assisted sharp turn (Space + W + A/D; not available in Simulation) ----
-    const spaceHeld = !!(KEYS.Space || (pad && pad.drift));
-    const wantsDrift = M.drift !== 'none' && spaceHeld && thRaw > 0.3 && Math.abs(steerRaw) > 0.15 && car.gear > 0 && sess.lightsOut && !car.pit && car.speed > 9;
-    if (M.drift === 'none') { inp.drift = false; inp.driftCfg = undefined; this.dPhase = 'idle'; }
-    else {
-      inp.driftCfg = DRIFT_CFG[M.drift];
-      // phases: entry (tail released, speed starts to bleed off) -> rotate -> hold (stabilised) -> exit (grip restored)
-      if (wantsDrift && (this.dPhase === 'idle' || this.dPhase === 'exit')) { this.dPhase = 'entry'; this.dT = 0; this.dSpeed = car.speed; this.dEntry = car.speed; }
-      if (!wantsDrift && (this.dPhase === 'entry' || this.dPhase === 'rotate' || this.dPhase === 'hold')) { this.dPhase = 'exit'; this.dT = 0; }
-      this.dT += dt;
-      const ang = Math.abs(car.driftAngle || 0), tgt = Math.abs(car.driftTgt || 0);
-      if (this.dPhase === 'entry' && (ang > 0.5 * Math.max(tgt, 0.1) || this.dT > 0.6)) this.dPhase = 'rotate';
-      if (this.dPhase === 'rotate' && Math.abs(ang - tgt) < 0.05 && this.dT > 0.25) this.dPhase = 'hold';
-      if (this.dPhase === 'exit' && ((car.drift || 0) < 0.08 && ang < 0.07 || this.dT > 2.5)) this.dPhase = 'idle';
-    }
-    const driftHeld = wantsDrift && this.dPhase !== 'idle' && this.dPhase !== 'exit';
-    inp.drift = driftHeld;
-    const drifting = M.drift !== 'none' && (driftHeld || (car.drift || 0) > 0.15);
-    if (drifting && car.speed > 6) {
-      // the steering input sets the slide angle you want; the front wheels point along the direction
-      // of travel (automatic opposite lock) with a little extra lock toward the corner
-      inp.driftTarget = driftHeld ? -this.steer * DRIFT_ANGLE : 0;
-      const err = (car.driftAngle || 0) - (car.driftTgt != null && driftHeld ? car.driftTgt : 0);
-      const gain = M.drift === 'assist' ? 0.1 : DRIFT_GAIN, catchK = M.drift === 'assist' ? 0.42 : 0.2;
-      cmd = clamp(betaF + (driftHeld ? this.steer * gain : this.steer * 0.03) + catchK * err, -SP.maxLock, SP.maxLock);
-    } else if ((M.key !== 'sim' || S.steerAssist === 'on') && car.speed > 5) {
-      // full deflection maps to the front tyres' grip limit; small inputs stay linear
-      const aPk = SP.aPk * (M.key === 'beginner' ? 0.95 : 1.05);
-      const lim = Math.abs(betaF) + aPk + 0.01; const scale = Math.min(1, lim / SP.maxLock);
-      cmd = clamp(this.steer * SP.maxLock * scale + betaF * 0.3 * (1 - Math.abs(this.steer)), betaF - aPk, betaF + aPk);
-      if (Math.abs(this.steer) < 0.02) cmd *= 0.5;
-      // counter-steer help when the rear steps out (Beginner strong, Balanced moderate; in Simulation this
-      // is the original optional Steering assist and only runs when that setting is on)
-      if (M.counter > 0) {
-        const rearSlip = (car.slipA[2] + car.slipA[3]) / 2; const overs = Math.abs(rearSlip) - (M.key === 'beginner' ? 0.06 : 0.08);
-        if (overs > 0) { const w = clamp(overs * 12, 0, M.counter); cmd = lerp(cmd, betaF - Math.sign(car.r) * 0.03, w); }
-      }
-    } else if (car.speed > 5) cmd /= 1 + car.speed / 70;
-    inp.steer = clamp(cmd / SP.maxLock, -1, 1);
-    // ---- throttle & brake ramps ----
-    if (analog) { this.th = thRaw; this.br = brRaw; }
-    else { this.th += clamp(thRaw - this.th, -7 * dt, 4 * dt); this.br += clamp(brRaw - this.br, -9 * dt, 6 * dt); }
-    let th = this.th, br = this.br;
-    // reverse when stopped and holding brake
-    if (car.speed < 1.0 && brRaw > 0.5 && thRaw < 0.1 && sess.lightsOut) { this.revT += dt; if (this.revT > 0.5) car.gear = -1; } else if (thRaw > 0.1 || car.u > 1.5) { this.revT = 0; if (car.gear === -1) car.gear = 1; }
-    if (car.gear === -1) { th = br; br = 0; }
-    // ---- corner-speed assistance (through the pedals, never by moving the car) ----
-    this.autoBr = 0; this.cornerOver = 0;
-    cornerAllowance(car, sess, M.muK, M.decK, this.ca);
-    if (M.assist !== 'none' && car.gear > 0 && sess.lightsOut && !car.pit && car.speed > 4) {
-      const vA = this.ca.allow; let ab = 0;
-      if (M.assist === 'full') {
-        const over = car.speed - vA;
-        if (over > 0) { ab = clamp(0.12 + over * 0.12, 0, 1); th = 0; }
-        else if (over > -2.5) th = Math.min(th, clamp(-over / 2.5, 0, 1));
-        // off the asphalt: keep it gentle so the car can rejoin
-        if (car.surf[2] >= 3 || car.surf[3] >= 3) th = Math.min(th, 0.55);
-      } else {
-        const over = car.speed - vA * 1.04;
-        if (over > 0) { ab = clamp(over * 0.08, 0, 0.55); th = Math.min(th, 0.3); }
-      }
-      this.autoBr = ab; this.cornerOver = car.speed - vA; br = Math.max(br, ab);
-    }
-    // assisted sharp turn: bleed speed off progressively while the turn is held
-    if (M.drift === 'assist' && driftHeld) {
-      const floor = Math.max(11, 0.55 * this.dEntry);
-      this.dSpeed = Math.max(floor, Math.min(this.dSpeed, car.speed) - 5.5 * dt);
-      const over = car.speed - this.dSpeed;
-      if (over > 0.5) { br = Math.max(br, clamp(over * 0.12, 0, 0.5)); th = Math.min(th, 0.25); } else th = Math.min(th, 0.5);
-    }
-    if (M.drift === 'assist' && this.dPhase === 'exit') th = Math.min(th, 0.45 + 0.55 * clamp(1 - Math.abs(car.driftAngle || 0) / 0.25, 0, 1));
-    // ---- traction control / ABS (per-wheel limiting happens in the physics) ----
-    const userTc = S.tc === 'full' ? 2 : S.tc === 'medium' ? 1 : 0;
-    const tcLvl = drifting ? 1 : Math.max(M.tcMin, userTc);
-    car.aids = { abs: M.absForce || S.abs === 'on', tc: tcLvl, tcf: drifting ? 0 : M.tcf };
-    if (tcLvl > 0 && car.gear > 0 && !drifting) {
-      const rear = Math.abs(car.slipA[2] + car.slipA[3]) / 2; const thr = M.tcTrim || (tcLvl > 1 ? 0.09 : 0.13);
-      if (rear > thr && car.speed > 8) th *= clamp(1 - (rear - thr) * 7, 0.15, 1);
-    }
-    // ---- stability control (bounded per-wheel braking in the physics) ----
-    inp.esc = M.esc; inp.escBeta = M.escBeta;
-    inp.throttle = th; inp.brake = br;
-    // gearbox
-    inp.auto = M.autoGear || S.gearbox === 'auto' || car.gear === -1;
-    if (takePress('KeyE') || (pad && pad.up)) inp.gearUp = true;
-    if (takePress('KeyQ') || (pad && pad.down)) inp.gearDown = true;
-    // DRS: press to open when available (Beginner opens it automatically on the straights)
+    const pad = G.pad;
+    // DRS: G (or Space on a straight) opens it when available; braking closes it
     if (takePress('KeyG') || (takePress('Space') && car.drsAvail && Math.abs(this.steer) < 0.2) || (pad && pad.drs)) this.drsReq = true;
-    if (M.autoDrs && car.drsAvail && Math.abs(this.steer) < 0.15 && !driftHeld) this.drsReq = true;
     if (!car.drsAvail || car.input.brake > 0.1) this.drsReq = false;
-    inp.drs = this.drsReq;
+    car.input.drs = this.drsReq;
     // ERS
     if (takePress('KeyX')) { this.ersMode = (this.ersMode + 1) % 3; }
-    inp.ers = (KEYS.ShiftLeft || KEYS.ShiftRight || (pad && pad.ot)) ? 2 : this.ersMode;
+    car.input.ers = (KEYS.ShiftLeft || KEYS.ShiftRight || (pad && pad.ot)) ? 2 : this.ersMode;
+    void dt; void sess;
   }
 }
-// clear player-only assist inputs when the autopilot takes over (pit lane, after the flag)
-function clearPlayerAssists(car) { const inp = car.input; inp.drift = false; inp.driftTarget = 0; inp.driftCfg = undefined; inp.esc = 0; }
+// hand the car to the autopilot (pit lane, after the flag): drop the player-only aids so the AI drives the raw car
+function clearPlayerAssists(car) {
+  car.aids = { abs: true, tc: 2, tcf: 0.95 };
+  if (G.pc) { const h = G.pc.handling; h.reset(); h.th = car.input.throttle; h.br = car.input.brake; }
+}
 
 /* ---------------- camera rig ---------------- */
 class CameraRig {
@@ -4189,7 +4107,7 @@ function startSession(cfg) {
   G.focus = G.player || G.session.cars[0];
   G.focusIdx = G.session.cars.indexOf(G.focus);
   G.camRig.setMode(G.attract ? 'tv' : cfg.spectate ? 'tv' : (S.camera === 'cockpit' ? 'cockpit' : S.camera === 'far' ? 'far' : 'chase'));
-  if (G.player) { G.pc = new PlayerControl(); G.pc.ersMode = 1; G.player.boxCompound = null; }
+  if (G.player) { G.pc = new PlayerControl(G.player); G.player.boxCompound = null; }
   G.smoke.clear(); G.spray.clear(); G.sparks.clear();
   $('hud').classList.toggle('hidden', !!G.attract);
   $('menu').classList.toggle('hidden', !G.attract);
@@ -4258,7 +4176,6 @@ const LED_N = 15;
 function initHud() {
   const leds = $('leds'); for (let k = 0; k < LED_N; k++) leds.appendChild(document.createElement('i'));
   G.ledEls = Array.from(leds.children);
-  renderModePickers();
   const opts = $('boxOpts'); for (const c of ['S', 'M', 'H', 'W']) { const d = document.createElement('div'); d.className = 'opt'; d.dataset.c = c; d.innerHTML = `<span class="cmp" style="--c:${SIM.COMPOUNDS[c].color}">${c}</span>${SIM.COMPOUNDS[c].name} <kbd>${'SMHW'.indexOf(c) + 1}</kbd>`; opts.appendChild(d); }
   G.mm = { cvs: $('minimap'), ctx: $('minimap').getContext('2d') };
   G.tel = { cvs: $('telCanvas'), ctx: $('telCanvas').getContext('2d'), g: $('gCanvas').getContext('2d'), buf: [] };
@@ -4380,9 +4297,8 @@ function updateHud(dt) {
   const cd = $('chipDrs'); cd.className = 'chip' + (p.drsOpen ? ' on' : p.drsAvail ? ' avail' : '');
   cd.textContent = sess.type === 'race' && !sess.drsEnabled ? 'DRS OFF' : 'DRS';
   $('chipLim').style.display = p.pit && G.track.inLimiter(p.s) ? '' : 'none'; $('chipLim').className = 'chip warn';
-  const dr = $('chipDrift'); const ph = p === G.player && G.pc ? G.pc.dPhase : 'idle';
-  if (((p.drift || 0) > 0.2 || ph === 'entry') && p.speed > 6) { dr.style.display = ''; dr.textContent = (ph === 'exit' ? 'GRIP ' : ph === 'entry' ? 'TURN-IN ' : 'DRIFT ') + Math.round(Math.abs(p.driftAngle || 0) * 57.3) + '°'; } else dr.style.display = 'none';
-  $('modeRow').style.display = G.player && G.mode !== 'spectate' ? '' : 'none';
+  const dr = $('chipDrift'); const sa = Math.abs(p.slideAngle || 0);
+  if (sa > 0.08 && p.speed > 6) { dr.style.display = ''; dr.textContent = 'SLIDE ' + Math.round(sa * 57.3) + '°'; } else dr.style.display = 'none';
   updateCornerGuide(p, sess);
   const fuelLaps = sess.type === 'race' ? (p.fuel / 1.95 - (sess.totalLaps - p.laps)) : p.fuel / 1.95;
   const cf = $('chipFuel'); cf.textContent = sess.type === 'race' ? 'FUEL ' + (fuelLaps >= 0 ? '+' : '') + fuelLaps.toFixed(1) : 'FUEL ' + p.fuel.toFixed(1) + 'kg'; cf.className = 'chip' + (sess.type === 'race' && fuelLaps < 0 ? ' warn' : '');
@@ -4625,65 +4541,31 @@ function director(dt) {
 }
 
 /* ---------------- menus & overlays ---------------- */
-/* ---------------- driving mode UI ---------------- */
-const MODE_COL = { beginner: '#21c55d', balanced: '#f5a623', sim: '#e10600' };
-function setDriveMode(k) {
-  if (!DRIVE_MODES[k]) return;
-  const changed = S.driveMode !== k; S.driveMode = k; saveSettings();
-  renderModePickers(); if (!$('settings').classList.contains('hidden')) buildSettingsUI();
-  if (changed && G.player && G.session && !G.attract) pushMsg('Driving mode: ' + DRIVE_MODES[k].name, 'info', 2);
-}
-function renderModePickers() {
-  const cur = driveMode();
-  document.querySelectorAll('.modepick[data-mp]').forEach((el) => {
-    el.innerHTML = '';
-    const h = document.createElement('div'); h.className = 'mp-h'; h.innerHTML = '<span>Driving mode</span><span style="color:' + MODE_COL[cur.key] + '">' + cur.name + '</span>'; el.appendChild(h);
-    const row = document.createElement('div'); row.className = 'mp-row';
-    ['beginner', 'balanced', 'sim'].forEach((k, n) => {
-      const M = DRIVE_MODES[k]; const b = document.createElement('button');
-      b.className = k === cur.key ? 'sel' : ''; b.style.setProperty('--mc', MODE_COL[k]); b.title = M.desc;
-      b.innerHTML = `${M.name}<small>${M.tag}</small><span class="bars">${[0, 1, 2].map(q => `<i class="${q <= n ? 'on' : ''}"></i>`).join('')}</span>`;
-      b.onclick = (e) => { e.stopPropagation(); setDriveMode(k); };
-      row.appendChild(b);
-    });
-    el.appendChild(row);
-    const d = document.createElement('div'); d.className = 'mp-desc'; d.textContent = cur.desc; el.appendChild(d);
-  });
-  const cm = $('ctrlMode');
-  if (cm) {
-    const L = {
-      beginner: ['<b>Hold W</b> — the car brakes for the corners ahead and keeps the speed safe; you can still brake with <b>S</b>.', '<b>A / D</b> steer — smoothed and limited to the grip available at speed.', '<b>Space + W + A/D</b> — assisted sharp turn: the car slows, swings round and straightens when you let go.', 'Gears, DRS, traction control, ABS and spin prevention are automatic.'],
-      balanced: ['<b>Brake with S</b> before the slow corners — help only arrives if you are far too fast.', '<b>A / D</b> steer with moderate stability help; traction control and ABS stay on.', '<b>Space + W + A/D</b> — drift: needs the right entry speed and steering to hold the angle.', 'Gearbox follows Race Settings (manual: E / Q). DRS: G or Space on a straight.'],
-      sim: ['No corner braking, drift or spin assistance — your inputs go straight to the car.', 'Wheelspin, lock-ups, understeer and oversteer are yours to manage; braking points matter.', 'Only the aids set in Race Settings apply: traction control, ABS, steering assist, gearbox.', 'DRS: G or Space on a straight. ERS: Shift (overtake), X (mode).'],
-    }[cur.key];
-    cm.innerHTML = `<h4>${cur.name} mode</h4><ul>${L.map(x => '<li>' + x + '</li>').join('')}</ul>`;
-  }
-  const mt = $('modeTxt'); if (mt) { mt.textContent = cur.name; mt.parentElement.style.setProperty('--mcol', MODE_COL[cur.key]); }
-}
 const TUT_KEY = 'apexgp.tutorial.v1';
 function showTutorial() {
-  const M = driveMode(); const k = (...x) => x.map(q => `<kbd>${q}</kbd>`).join(' ');
-  const rows = {
-    beginner: [[k('W'), '<b>Accelerate — just hold it.</b> The car slows itself for corners and keeps the speed safe.'], [k('A', 'D'), '<b>Steer.</b> You pick the direction and the line; steering is smoothed at speed.'], [k('S'), '<b>Brake</b> (optional) — for extra margin, traffic or overtakes. Hold it when stopped to reverse.'], [k('Space') + ' + ' + k('W') + ' + ' + k('A'), '<b>Assisted sharp turn.</b> The car bleeds off speed and swings round; release Space to regain grip.']],
-    balanced: [[k('W'), '<b>Accelerate.</b> Traction control keeps wheelspin in check.'], [k('S'), '<b>Brake before slow corners</b> — follow the red racing line and the corner guide.'], [k('A', 'D'), '<b>Steer.</b> Moderate stability help catches small slides.'], [k('Space') + ' + ' + k('W') + ' + ' + k('A'), '<b>Drift.</b> Enter slowly enough and hold the angle with steering.']],
-    sim: [[k('W') + ' ' + k('S'), '<b>Throttle and brake</b> — no automatic corner braking.'], [k('A', 'D'), '<b>Steer.</b> Too much speed or lock and the tyres let go.'], [k('E', 'Q'), 'Gears when the gearbox is set to Manual.'], [k('G') + ' ' + k('Shift'), 'DRS on the straights, ERS overtake boost.']],
-  }[M.key];
-  $('tutSub').innerHTML = `<span style="color:${MODE_COL[M.key]}">${M.name} mode</span> · change it any time from the pause menu (Esc)`;
+  const k = (...x) => x.map(q => `<kbd>${q}</kbd>`).join(' ');
+  const rows = [
+    [k('W'), '<b>Accelerate.</b> Hold it through the ordinary corners and just steer.'],
+    [k('A', 'D'), '<b>Steer.</b> Smooth and progressive: quick in hairpins, calmer at high speed. Let go and the car straightens.'],
+    [k('S'), '<b>Brake</b> before the slow corners (hold it when stopped to reverse).'],
+    [k('W') + ' + ' + k('S') + ' + ' + k('A') + '/' + k('D'), '<b>Brake into a sharp turn.</b> The car slows, rotates harder and can slide. Release ' + k('S') + ' and keep ' + k('W') + ': grip comes back and you power out.'],
+  ];
+  $('tutSub').textContent = 'Gears, traction control, ABS and stability control are automatic';
   $('tutKeys').innerHTML = rows.map(([a, b]) => `<div class="kk">${a}</div><div>${b}</div>`).join('');
-  $('tutTip').innerHTML = 'The coloured line on the track shows where to go (green: accelerate, yellow: lift, red: brake) — toggle it with <kbd>L</kbd>. The panel at the top names the next corner and a safe speed. <kbd>R</kbd> puts the car back on track, <kbd>C</kbd> changes camera.';
+  $('tutTip').innerHTML = 'Too fast into a corner and the car runs wide — brake earlier, or brake while turning to tighten the line. The coloured line on the track shows where to go (green: accelerate, yellow: lift, red: brake) — toggle it with <kbd>L</kbd>. The panel at the top names the next corner and a safe speed. <kbd>R</kbd> puts the car back on track, <kbd>C</kbd> changes camera.';
   $('tutorial').classList.remove('hidden'); G.tutorial = true;
 }
 function closeTutorial() { $('tutorial').classList.add('hidden'); G.tutorial = false; try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { /* ignore */ } }
 // next corner, a safe speed for it and whether the current speed needs a lift or the brakes
 function updateCornerGuide(p, sess) {
-  const el = $('cornerGuide'); const M = driveMode();
-  const on = S.cornerGuide === 'on' || (S.cornerGuide === 'auto' && M.key !== 'sim');
+  const el = $('cornerGuide');
+  const on = S.cornerGuide !== 'off';
   if (!on || !G.player || G.focus !== G.player || G.mode === 'spectate' || p.pit || p.inGarage || p.autoDrive || p.finished || !sess.lightsOut || p.gear < 0) { el.classList.add('hidden'); return; }
   const t = G.track; let best = null;
   for (const c of t.corners) { const dist = t.dS(p.s, c.apex * SIM.DS); if (dist > 0 && dist < 380 && (!best || dist < best.dist)) best = { c, dist }; }
   if (!best) { el.classList.add('hidden'); return; }
   const { c, dist } = best;
-  const mu = Math.max(0.5, p.gripEstimate(sess.wet || 0)) * (M.key === 'beginner' ? M.muK : 0.95); const kA = 0.5 * SIM.RHO * p.effClA() / p.mass;
+  const mu = Math.max(0.5, p.gripEstimate(sess.wet || 0)) * 0.95; const kA = 0.5 * SIM.RHO * p.effClA() / p.mass;
   let rec = 120; for (let i = c.start; i !== c.end; i = t.wrapI(i + 1)) { const k = Math.abs(t.kappa[i]); const den = k - mu * kA; if (den > 1e-6) rec = Math.min(rec, Math.sqrt(mu * SIM.G / den)); }
   if (rec > p.speed * 1.02 && !c.brakeZone) { el.classList.add('hidden'); return; }
   const v = p.speed, cap = mu * (SIM.G + kA * v * v); const need = (v * v - rec * rec) / (2 * Math.max(dist, 1));
@@ -4694,7 +4576,6 @@ function updateCornerGuide(p, sess) {
   $('cgName').textContent = 'T' + c.num + ' ' + c.name.toUpperCase();
   $('cgDist').textContent = Math.round(dist) + ' m';
   $('cgSpd').textContent = Math.round(speedUnit(rec)); $('cgUnit').textContent = S.units === 'mph' ? 'MPH' : 'KM/H';
-  $('cgTag').classList.toggle('hidden', !(G.pc && G.pc.autoBr > 0.05));
 }
 function hideAllOverlays() { for (const id of ['settings', 'controls', 'pause', 'results', 'tutorial']) $(id).classList.add('hidden'); G.tutorial = false; }
 function togglePause() {
@@ -4716,7 +4597,7 @@ function buildSettingsUI() {
       for (const o of f.opts) {
         const [val, txt] = Array.isArray(o) ? o : [o, String(o)];
         const b = document.createElement('button'); b.textContent = txt; if (String(S[f.k]) === String(val)) b.classList.add('sel');
-        b.onclick = () => { if (f.k === 'driveMode') { setDriveMode(val); return; } S[f.k] = typeof val === 'number' ? val : val; saveSettings(); buildSettingsUI(); if (f.k === 'volume') G.audio.setVolume(S.volume); };
+        b.onclick = () => { S[f.k] = typeof val === 'number' ? val : val; saveSettings(); buildSettingsUI(); if (f.k === 'volume') G.audio.setVolume(S.volume); };
         seg.appendChild(b);
       }
       wrap.appendChild(seg);
@@ -4777,7 +4658,7 @@ function onAction(act) {
     case 'spectate': startSpectate(); G.director = true; break;
     case 'settings': buildSettingsUI(); $('settings').classList.remove('hidden'); $('pause').classList.add('hidden'); break;
     case 'settingsClose': $('settings').classList.add('hidden'); if (G.paused) $('pause').classList.remove('hidden'); if (G.mode === 'menu' && G.worldWet !== (S.weather === 'wet') || G.mode === 'menu' && G.worldQ !== qualityLevel()) startAttract(); break;
-    case 'settingsDefault': S = Object.assign({}, DEFAULTS); saveSettings(); buildSettingsUI(); renderModePickers(); break;
+    case 'settingsDefault': S = Object.assign({}, DEFAULTS); saveSettings(); buildSettingsUI(); break;
     case 'controls': $('controls').classList.remove('hidden'); $('pause').classList.add('hidden'); break;
     case 'controlsClose': $('controls').classList.add('hidden'); if (G.paused) $('pause').classList.remove('hidden'); break;
     case 'restart': G.paused = false; hideAllOverlays(); restartSession(); break;
