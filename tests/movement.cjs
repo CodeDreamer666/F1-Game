@@ -340,3 +340,227 @@ test('respawn discards queued taps while preserving currently held pedals', () =
   assert.equal(keyboard.step(dt).throttle, 1);
   assert.equal(keyboard.step(dt).steer, 0);
 });
+
+// ---------------------------------------------------------------------------
+// Collision damage, failures, pit repairs and retirement (same rules for every car).
+// ---------------------------------------------------------------------------
+const circuit = new SIM.Track(SIM.TRACK_DEF);
+const STRAIGHT = 1100;
+// a race session whose cars are not driven, so impacts can be staged on the real circuit
+function crashLab(level, n = 2, seed = 3) {
+  const entries = SIM.DRIVERS.slice(0, n).map(driver => ({ driver }));
+  const S = new SIM.Session(circuit, { type: 'race', laps: 5, entries, seed, spectate: true, damage: level });
+  S.lightsOut = true; S.time = 20; for (const c of S.cars) { c.ai = null; c.started = true; }
+  return S;
+}
+function place(car, s, d, v, yaw = 0) {
+  car.placeAt(circuit, s, d, 0); car.psi += yaw; car.vx = Math.cos(car.psi) * v; car.vz = Math.sin(car.psi) * v; car.r = 0;
+  Object.assign(car.input, { throttle: 0, brake: 0, steer: 0 }); car.gear = 6;
+}
+const simulate = (S, sec) => { for (let k = 0; k < sec * 240; k++) S.fixedStep(1 / 240); };
+const worst = (car) => Math.max(...car.damage.c);
+function sideSwipe(level, lateral, v = 60) {
+  const S = crashLab(level); const [A, B] = S.cars;
+  place(A, STRAIGHT, -1.0, v); place(B, STRAIGHT, 1.05, v);
+  A.vx -= Math.sin(A.psi) * lateral; A.vz += Math.cos(A.psi) * lateral;
+  simulate(S, 0.6); return [A, B];
+}
+function rearEnd(level, closing, v = 50, seed = 3) {
+  const S = crashLab(level, 2, seed); const [A, B] = S.cars;
+  place(B, STRAIGHT + 7, 0, v); place(A, STRAIGHT, 0, v + closing);
+  simulate(S, 0.8); return [A, B, S];
+}
+function wallHit(level, v, angle = 0.5) {
+  const S = crashLab(level, 1); const [A] = S.cars;
+  const w = circuit.walls(circuit.wrapI(Math.round(STRAIGHT / SIM.DS)), STRAIGHT, false, { l: 0, r: 0, innerPit: 0 });
+  place(A, STRAIGHT, w.r - 3.2, v, angle);
+  simulate(S, 1.2); return [A, S];
+}
+
+test('gentle wheel-to-wheel contact at similar speeds causes no damage on any level', () => {
+  for (const level of ['reduced', 'standard', 'realistic']) {
+    for (const lateral of [0.8, 1.5, 3]) {
+      const [A, B] = sideSwipe(level, lateral);
+      assert.ok(worst(A) < 0.01 && worst(B) < 0.01, `${level} ${lateral} m/s`);
+      assert.ok(!A.damage.anyPuncture() && !B.damage.anyPuncture());
+      assert.ok(!A.retiring && !B.retiring);
+    }
+  }
+});
+
+test('damage follows the relative impact speed, not how fast the cars are going', () => {
+  const [fastA, fastB] = rearEnd('standard', 3, 80);
+  assert.ok(worst(fastA) < 0.02 && worst(fastB) < 0.02, 'a 3 m/s tap at 290 km/h is harmless');
+  const [slowA, slowB] = rearEnd('standard', 12, 25);
+  assert.ok(slowA.damage.fw > 0.2, 'a 12 m/s rear-end at 90 km/h breaks the front wing');
+  assert.ok(slowB.damage.c[2] > 0.05, 'and damages the rear wing it hit');
+  const order = [3, 6, 10, 15, 25].map(dv => rearEnd('standard', dv)[0].damage.fw);
+  for (let k = 1; k < order.length; k++) assert.ok(order[k] >= order[k - 1]);
+});
+
+test('wall impacts: a moderate hit damages the wing, a heavy one ends the race', () => {
+  const [light] = wallHit('standard', 20);
+  assert.ok(light.damage.fw > 0.1 && !light.retiring && light.damage.maxSus < 0.1);
+  const [medium] = wallHit('standard', 45);
+  assert.ok(medium.damage.detached[1] && medium.damage.maxSus > 0.15 && !medium.retiring);
+  const [heavy, S] = wallHit('standard', 60);
+  assert.ok(heavy.retiring && heavy.damage.failed === 'suspension');
+  simulate(S, 25);
+  assert.ok(heavy.dnf && heavy.dnfReason === 'Suspension', 'the car stops and is classified DNF');
+});
+
+test('the damage setting changes real outcomes: Reduced < Standard < Realistic', () => {
+  const fw = (level) => rearEnd(level, 10)[0].damage.fw;
+  assert.ok(fw('reduced') < fw('standard') && fw('standard') < fw('realistic'));
+  assert.ok(!wallHit('reduced', 60)[0].retiring, 'Reduced keeps a heavily damaged car running');
+  assert.ok(wallHit('realistic', 60)[0].retiring);
+  for (const level of ['reduced', 'standard', 'realistic']) {
+    for (const lateral of [1.5, 3]) assert.ok(worst(sideSwipe(level, lateral)[0]) < 0.01);
+  }
+});
+
+test('repeated minor knocks accumulate, and a weakened part gives way sooner', () => {
+  const lv = SIM.DAMAGE_LEVELS.standard;
+  const D = new SIM.CarDamage();
+  for (let k = 0; k < 12; k++) D.applyImpact(2000, 2.6, 0.5, 0.2, lv); // each below the wing's damage threshold
+  assert.ok(D.c[1] > 0.1, 'stress from repeated contact adds up');
+  const fresh = new SIM.CarDamage(), worn = new SIM.CarDamage();
+  worn.c[1] = 0.5; const before = worn.c[1];
+  fresh.applyImpact(5000, 2.6, 0.5, 0.2, lv); worn.applyImpact(5000, 2.6, 0.5, 0.2, lv);
+  assert.ok(worn.c[1] - before > fresh.c[1], 'the same hit does more to an already damaged wing');
+});
+
+test('punctures need a cutting contact with a real speed difference', () => {
+  let cut = 0, rub = 0;
+  for (let seed = 1; seed <= 120; seed++) {
+    const S = crashLab('standard', 2, seed); const [A, B] = S.cars;
+    const ev = (vn, vt) => ({ vn, vt, x: B.x, z: B.z });
+    const tyreRL = [-SIM.SPEC.b, -0.75, 0.6], wingTip = [2.8, 0.7, 0.6];
+    S.damageCar(B, 3000, 2000, tyreRL, ev(6, 9), A, wingTip); if (B.damage.anyPuncture()) cut++;
+    const C = S.cars[0]; C.damage.reset();
+    S.damageCar(C, 600, 300, [SIM.SPEC.a, 0.8, 1], ev(1.5, 0.5), B, [-SIM.SPEC.b, -0.8, 1]); if (C.damage.anyPuncture()) rub++;
+  }
+  assert.ok(cut > 10 && cut < 100, `wing endplate into a tyre at speed: ${cut}/120 punctures`);
+  assert.equal(rub, 0, 'wheels rubbing at similar speed never puncture');
+});
+
+test('damage changes the handling: understeer, pull, rear instability, punctures, power', () => {
+  const steerFor = (setup, seconds = 1, steer = 1, speed = 55) => { const r = rig(speed); setup(r.car.damage); r.car.damage.computePerf(); return run(r, raw(steer, 1), seconds); };
+  const clean = steerFor(() => {});
+  const noWing = steerFor(D => { D.c[0] = D.c[1] = 1; });
+  assert.ok(noWing.car.psi < clean.car.psi * 0.85, 'a lost front wing turns in less (understeer)');
+  const pull = steerFor(D => { D.c[5] = 0.5; }, 1.5, 0);
+  assert.ok(pull.car.psi > 0.03, 'bent front-right suspension pulls the car right with no steering');
+  const pullL = steerFor(D => { D.c[4] = 0.5; }, 1.5, 0);
+  assert.ok(pullL.car.psi < -0.03, 'and front-left pulls left');
+  const flat = new SIM.CarDamage(); flat.punct[2] = 1; flat.punctRate[2] = 1; flat.computePerf();
+  assert.ok(flat.perf.brake < 1 && flat.perf.traction < 1 && flat.perf.rearStab < 1 && flat.perf.topMul < 1 && flat.pullRate(40) < 0);
+  const rear = new SIM.CarDamage(); rear.c[2] = 0.8; rear.computePerf();
+  assert.ok(rear.perf.rearStab < 0.7, 'rear wing damage lowers rear stability');
+  const floor = new SIM.CarDamage(); floor.c[3] = 1; floor.computePerf();
+  assert.ok(floor.perf.clAMul < 0.7 && floor.turnMul(60) < floor.turnMul(10), 'floor damage costs downforce, mostly at speed');
+  const pu = new SIM.CarDamage(); pu.c[8] = 0.7; pu.computePerf();
+  assert.ok(pu.perf.power < 0.8 && pu.perf.misfire > 0);
+  const top = (D) => { const r = rig(60); D(r.car.damage); r.car.damage.computePerf(); return run(r, raw(0, 1), 6).car.speed; };
+  assert.ok(top(D => { D.c[8] = 0.8; }) < top(() => {}) - 2, 'a damaged power unit is slower on the straight');
+});
+
+test('damaged cooling overheats the power unit, which derates and then wears out', () => {
+  const S = crashLab('standard', 1); const [A] = S.cars;
+  A.damage.c[9] = 0.85; A.damage.computePerf();
+  A.throttle = 1; A.rpm = 11500; A.speed = 70;
+  for (let k = 0; k < 900; k++) A.damage.tick(A, 0.1, S); // 90 s flat out
+  assert.ok(A.damage.engT > 135, 'runs hot: ' + A.damage.engT.toFixed(0));
+  assert.ok(A.damage.perf.power < 0.9, 'engine protection cuts power');
+  assert.ok(A.damage.c[8] > 0.05, 'and the power unit wears');
+  const B = crashLab('standard', 1).cars[0]; B.throttle = 1; B.rpm = 11500; B.speed = 70;
+  for (let k = 0; k < 900; k++) B.damage.tick(B, 0.1, S);
+  assert.ok(B.damage.engT < 112 && B.damage.c[8] === 0, 'a healthy car stays cool');
+});
+
+test('fires are rare and need a plausible cause; Reduced never has them', () => {
+  const fires = (level, prep, trials = 1500) => {
+    let n = 0;
+    for (let k = 0; k < trials; k++) {
+      const S = crashLab(level, 1, 100 + k); const [A] = S.cars; prep(A);
+      S.checkFailures(A, A._E || 0); if (A.damage.fire > 0) n++;
+    }
+    return n / trials;
+  };
+  const engineDies = (A) => { A.damage.c[8] = 1; };
+  const hotFailure = (A) => { A.damage.c[8] = 1; A.damage.engT = 150; };
+  assert.equal(fires('reduced', hotFailure, 300), 0);
+  assert.ok(fires('standard', engineDies) < 0.05, 'a plain engine failure rarely burns');
+  const hot = fires('realistic', hotFailure);
+  assert.ok(hot > 0.1 && hot < 0.45, 'an engine failing hot is the plausible fire case: ' + hot);
+  assert.equal(fires('realistic', (A) => { A.damage.c[0] = 1; A._E = 40000; }, 300), 0, 'wing damage never starts a fire');
+});
+
+test('pit stops: tyres 2–4 s, front wing with tyres 7–12 s; structural damage is not repaired', () => {
+  const stop = (prep, seed) => {
+    const entries = [{ driver: SIM.DRIVERS[0] }, { driver: SIM.DRIVERS[1], isPlayer: true }];
+    const S = new SIM.Session(circuit, { type: 'race', laps: 2, entries, seed, damage: 'standard' });
+    const p = S.player; p.autoDrive = true; p.boxRequest = true; p.boxCompound = 'H';
+    let P = null;
+    for (let f = 0; f < 60 * 150 && !S.over; f++) {
+      p.autopilot.boxThisLap = p.boxRequest; S.update(1 / 60, 1, 1e9);
+      if (!P && p.pit && p.pit.phase === 'in') prep(p);
+      if (p.pit && p.pit.phase === 'stopped') P = p.pit;
+      if (P && p.pit && p.pit.phase === 'out') break;
+    }
+    return [P, p];
+  };
+  const [tyres] = stop(() => {}, 11);
+  assert.ok(tyres.total >= 2 && tyres.total <= 4.5 && !tyres.fwT, 'tyre-only stop ' + tyres.total.toFixed(2));
+  const [wing, car] = stop((p) => { p.damage.c[0] = 0.7; p.damage.c[1] = 0.4; p.damage.c[6] = 0.3; p.damage.c[3] = 0.4; p.damage.computePerf(); }, 12);
+  assert.ok(wing.total >= 7 && wing.total <= 12, 'front wing + tyres ' + wing.total.toFixed(2));
+  assert.equal(car.damage.fw, 0, 'new front wing fitted');
+  assert.ok(car.damage.c[6] >= 0.3 && car.damage.c[3] >= 0.4, 'suspension and floor damage remain');
+  assert.equal(car.tyre.c, 'H');
+});
+
+test('a retired car stops, stays out and never corrupts timing or results', () => {
+  const S = new SIM.Session(circuit, { type: 'race', laps: 2, entries: SIM.DRIVERS.slice(0, 6).map(driver => ({ driver })), seed: 5, spectate: true, damage: 'standard' });
+  let victim = null;
+  for (let f = 0; f < 60 * 400 && !S.over; f++) {
+    S.update(1 / 60, 1, 1e9);
+    if (!victim && S.lightsOut && S.time - S.lightsOutTime > 30) {
+      victim = S.cars.find(c => c.position === 2);
+      victim.damage.c[8] = 1; S.checkFailures(victim, 0);
+      assert.ok(victim.retiring && victim.damage.perf.power === 0);
+    }
+    if (victim && victim.dnf) assert.ok(victim.speed === 0 || victim.ghost, 'a retired car does not move again');
+  }
+  assert.ok(S.over && victim.dnf && victim.dnfReason);
+  const last = S.results[S.results.length - 1];
+  assert.equal(last.car, victim, 'the retirement is classified last');
+  assert.equal(last.points, 0);
+  for (const r of S.results) {
+    assert.ok(Number.isFinite(r.dist) && (r.dnf || Number.isFinite(r.time)));
+    if (!r.dnf) assert.equal(r.laps, 2);
+  }
+  assert.equal(new Set(S.results.map(r => r.pos)).size, 6);
+});
+
+test('bots pit for damage when the repair is worth it, limp in with a puncture, and race on with a scratch', () => {
+  const S = new SIM.Session(circuit, { type: 'race', laps: 12, entries: SIM.DRIVERS.slice(0, 2).map(driver => ({ driver })), seed: 9, spectate: true, damage: 'standard' });
+  S.lightsOut = true; S.lightsOutTime = 0; S.time = 30;
+  const [A, B] = S.cars;
+  A.damage.c[0] = A.damage.c[1] = 0.8; A.damage.computePerf(); A.ai.assessDamage();
+  assert.ok(A.ai.boxThisLap, 'a badly damaged wing with many laps left is worth a stop');
+  B.damage.c[0] = 0.06; B.damage.computePerf(); B.ai.assessDamage();
+  assert.ok(!B.ai.boxThisLap, 'a scratched endplate is not');
+  S.totalLaps = 1; A.ai.boxThisLap = false; A.ai.damageStop = false; A.ai.assessDamage();
+  assert.ok(!A.ai.boxThisLap, 'on the last lap the stop would cost more than it saves');
+  B.damage.puncture(3, false); B.ai.assessDamage();
+  assert.ok(B.ai.boxThisLap, 'a puncture always means pitting');
+});
+
+test('damage persists through a respawn and is gone in the next session', () => {
+  const S = crashLab('standard', 1); const [A] = S.cars;
+  A.damage.c[0] = 0.6; A.damage.c[5] = 0.3; A.damage.computePerf();
+  S.marshalReset(A);
+  assert.equal(A.damage.c[0], 0.6); assert.equal(A.damage.c[5], 0.3);
+  const fresh = crashLab('standard', 1).cars[0];
+  assert.ok(fresh.damage.isClean());
+});
