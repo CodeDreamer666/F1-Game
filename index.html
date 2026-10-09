@@ -249,7 +249,7 @@
     <button class="btn" data-act="settings">Race Settings</button>
     <button class="btn" data-act="controls">Controls</button>
     <button class="btn" data-act="restart" id="btnRestart" disabled>Restart <small id="restartWhat">No session</small></button>
-    <div class="menu-foot">Race with 19 AI drivers, lateral tyre grip, collisions, fuel, ERS and tyre wear.<br>Keyboard or gamepad. Press <kbd>Esc</kbd> in-session for the pause menu.</div>
+    <div class="menu-foot">Race with 19 AI drivers, collisions, fuel, ERS and tyre wear.</div>
   </div>
   <div class="circuit-card panel">
     <div class="country">Circuit</div>
@@ -976,7 +976,8 @@ const SIM = (function () {
       }
     }
     // Arcade longitudinal response for manual player control. This is a force,
-    // not a velocity/position rewrite; lateral tyre forces and impacts still act.
+    // not a velocity/position rewrite. Arcade yaw/slide forces below replace
+    // the summed lateral tyre forces; collision impulses still act.
     // The measured reference launches much harder than the simulation drivetrain
     // and its braking force falls with speed. Autopilot/AI retain their drivetrain.
     if (car.aids && car.aids.arcade) {
@@ -989,6 +990,15 @@ const SIM = (function () {
       const braking = car.brake * Math.max(H.brakeFloor, Math.abs(u) * H.brakeRate);
       const coast = H.coastRate * u + Math.sign(u) * Math.max(0, rollingResistance / m - 0.15);
       FxSum = m * (drive - coast - Math.sign(u) * braking);
+      // Match the planted arcade car's rapid rotation and automatic slide catch.
+      // Apply angular/lateral accelerations at 240 Hz; never snap its pose or
+      // velocity, so contact impulses and steering-release momentum remain real.
+      if (!env.holdStart) {
+        const A = car.aids;
+        Mz = sp.Iz * ((A.turnRate - r) * A.turnResponse + 0.6 * r);
+        const targetV = Math.max(u, 0) * Math.tan(A.slideTarget);
+        FySum = m * (u * r + (targetV - v) * A.lateralResponse);
+      }
       if (env.pitLimiter && u > track.pit.limit) FxSum = Math.min(FxSum, -m * (u - track.pit.limit) * 4);
     }
     // integrate
@@ -1034,14 +1044,51 @@ const SIM = (function () {
      PLAYER HANDLING — planted arcade steering for the human driver.
      Pedals are manual: steering never applies brakes or imposes a corner speed target.
      S brakes only. W + S + a steering direction requests a controlled, speed-sensitive drift.
-     Runs at the physics rate; arcade longitudinal force, lateral tyre grip and collisions.
+     Runs at the physics rate; arcade pedal, yaw and slide forces, with collisions.
      ------------------------------------------------------------------ */
+  // Preserve input segments that begin and end between rendered frames. The
+  // physics loop consumes them in order, so a brief tap is not lost at low FPS.
+  class KeyboardDriveInput {
+    constructor() { this.reset(); }
+    reset() { this.keys = {}; this.at = 0; this.sampled = true; this.pending = []; }
+    clearPending() { this.pending = []; this.sampled = true; }
+    read() {
+      const k = this.keys;
+      return {
+        steer: (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0),
+        throttle: k.KeyW || k.ArrowUp ? 1 : 0,
+        brake: k.KeyS || k.ArrowDown ? 1 : 0,
+        analog: false,
+      };
+    }
+    setKey(code, down, time) {
+      if (!['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) return;
+      const before = this.read(); this.keys[code] = down; const after = this.read();
+      if (before.steer === after.steer && before.throttle === after.throttle && before.brake === after.brake) return;
+      const held = time - this.at;
+      if (!this.sampled && held >= PHYS_DT && (before.steer || before.throttle || before.brake)) {
+        this.pending.push({ input: before, left: Math.min(held, 0.15) });
+      }
+      this.at = time; this.sampled = false;
+    }
+    step(dt) {
+      const pulse = this.pending[0];
+      if (pulse) {
+        pulse.left -= dt;
+        if (pulse.left <= 1e-9) this.pending.shift();
+        return pulse.input;
+      }
+      this.sampled = true;
+      return this.read();
+    }
+  }
   const HANDLING = {
     acceleration: 21.5, topSpeed: 90, coastRate: 0.07, brakeRate: 0.46, brakeFloor: 1.5,
-    steerIn: [8.0, 5.0], steerOut: [12.0, 10.0],
-    shape: [1.0, 1.2], gripUse: [0.88, 0.78],
+    turnRate: [1.0, 0.90], turnIn: 40, turnOut: 12, driftTurn: 1.35,
+    lateralGrip: 40, lateralSlide: 12,
+    shape: [1.0, 1.2],
     gripSlide: 0.035, kp: 0.09, kBeta: 4.5,
-    driftAngle: [0.30, 0.10], driftIn: 4, driftOut: 3, driftThrottle: 0.18,
+    driftAngle: [0.12, 0.08], driftIn: 10, driftOut: 10, driftThrottle: 0.18,
     thUp: 4.5, thDown: 14, brUp: 12, brDown: 16,
   };
   class PlayerHandling {
@@ -1052,9 +1099,9 @@ const SIM = (function () {
       const H = HANDLING, sp = SPEC, inp = car.input;
       const spd = car.speed, u = car.u, vN = clamp((spd - 12) / 58, 0, 1), wet = sess.wet || 0;
       const tgt = clamp(raw.steer, -1, 1);
-      const back = tgt === 0 || (this.steer !== 0 && Math.sign(tgt) !== Math.sign(this.steer));
-      const rate = raw.analog ? 12 : lerp(...(back ? H.steerOut : H.steerIn), vN);
-      this.steer += clamp(tgt - this.steer, -rate * dt, rate * dt);
+      // Digital input acts immediately. Yaw response below supplies the short
+      // entry/return transient; stacking a pedal-style input ramp hid brief taps.
+      this.steer = raw.analog ? this.steer + clamp(tgt - this.steer, -12 * dt, 12 * dt) : tgt;
       const sA = Math.abs(this.steer);
       const shaped = Math.sign(this.steer) * Math.pow(sA, lerp(...H.shape, vN));
       const thRaw = clamp(raw.throttle, 0, 1), brRaw = clamp(raw.brake, 0, 1);
@@ -1067,7 +1114,7 @@ const SIM = (function () {
         this.th += clamp(thTgt - this.th, -H.thDown * dt, H.thUp * dt);
         this.br += clamp(brRaw - this.br, -H.brDown * dt, H.brUp * dt);
       }
-      let th = brRaw > 0.05 && !driftHeld ? 0 : this.th;
+      const th = brRaw > 0.05 && !driftHeld ? 0 : this.th;
       const br = this.br;
       // The player's S key never selects reverse or applies reverse drive torque.
       if (car.gear < 1) car.gear = 1;
@@ -1075,8 +1122,11 @@ const SIM = (function () {
       const mu = Math.max(0.4, car.gripEstimate(wet)) * sm;
       const kA = 0.5 * RHO * car.effClA() / car.mass, uu = Math.max(u, 3);
       const rGrip = mu * (G + kA * uu * uu) / uu;
-      const rGeom = uu * Math.tan(0.9 * sp.maxLock) / sp.L;
-      const rCap = Math.min(rGrip * lerp(...H.gripUse, vN), rGeom);
+      const rGeom = Math.max(0, u) * Math.tan(0.9 * sp.maxLock) / sp.L;
+      // The reference rotates promptly, rather than waiting for the full tyre
+      // model to build yaw. Preserve speed sensitivity and stationary behavior.
+      const turnGrip = clamp(mu / 1.6, 0.45, 1.05);
+      const rCap = Math.min(lerp(...H.turnRate, vN) * turnGrip * lerp(1, H.driftTurn, this.drift), rGeom);
       const rDes = shaped * rCap; this.rDes = rDes;
       const beta = Math.atan2(car.v, Math.max(Math.abs(u), 3));
       const driftAngle = lerp(...H.driftAngle, vN);
@@ -1089,15 +1139,15 @@ const SIM = (function () {
       const alpha = clamp(aFF + H.kp * (rRef - car.r), -sp.aPk, sp.aPk);
       const delta = betaF + alpha;
       inp.steer = clamp(u < 1 ? this.steer : lerp(this.steer * sp.maxLock, delta, clamp((spd - 4) / 4, 0, 1)) / sp.maxLock, -1, 1);
-      if (car.gear > 0) {
-        const rear = Math.abs(car.slipA[2] + car.slipA[3]) / 2;
-        if (rear > 0.1 && spd > 8) th *= clamp(1 - (rear - 0.1) * 6, 0.25, 1);
-      }
       inp.throttle = th; inp.brake = br; inp.auto = true;
       const util = clamp(Math.abs(car.ayL) / (mu * (G + kA * uu * uu)), 0, 1);
       const cornerUse = Math.max(util, 0.8 * sA);
       const A = car.aids && car.aids.yaw ? car.aids : (car.aids = { yaw: {} });
       A.arcade = true; A.abs = true; A.tc = 2; A.tcf = 0.95;
+      A.turnRate = rDes;
+      A.turnResponse = tgt === 0 ? H.turnOut : H.turnIn;
+      A.slideTarget = betaTarget;
+      A.lateralResponse = lerp(H.lateralGrip, H.lateralSlide, this.drift);
       A.cbcF = lerp(0.96, 0.58, cornerUse);
       A.cbcR = lerp(0.92, lerp(0.52, 0.78, this.drift), cornerUse);
       // Release rear grip for entry, then let it recover as the requested slide angle is reached.
@@ -2287,7 +2337,7 @@ const SIM = (function () {
     return (neg ? '-' : plus ? '+' : '') + str;
   }
 
-  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, fmtTime, clamp, lerp, makeRng, stepCarPhysics, PlayerHandling, HANDLING, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
+  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, fmtTime, clamp, lerp, makeRng, stepCarPhysics, PlayerHandling, KeyboardDriveInput, HANDLING, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
 })();
 // ==SIM-END==
 if (typeof module !== 'undefined') module.exports = SIM;
@@ -3754,8 +3804,9 @@ class AudioEngine {
 
 /* ---------------- input ---------------- */
 const KEYS = {};
+const DRIVE_KEYS = new SIM.KeyboardDriveInput();
 const PRESSED = {}; // edge triggered
-window.__setKey = (k, v) => { KEYS[k] = v; }; // used by automated tests
+window.__setKey = (k, v) => { KEYS[k] = v; DRIVE_KEYS.setKey(k, v, performance.now() / 1000); }; // used by automated tests
 window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   const k = e.code;
@@ -3765,10 +3816,11 @@ window.addEventListener('keydown', (e) => {
     if (k === 'Escape') PRESSED[k] = true;
     return;
   }
-  if (!KEYS[k]) PRESSED[k] = true; KEYS[k] = true;
+  if (!KEYS[k]) PRESSED[k] = true; KEYS[k] = true; DRIVE_KEYS.setKey(k, true, performance.now() / 1000);
 });
-window.addEventListener('keyup', (e) => { KEYS[e.code] = false; });
+window.addEventListener('keyup', (e) => { KEYS[e.code] = false; DRIVE_KEYS.setKey(e.code, false, performance.now() / 1000); });
 function clearKeys() {
+  DRIVE_KEYS.reset();
   for (const k in KEYS) KEYS[k] = false;
   for (const k in PRESSED) PRESSED[k] = false;
 }
@@ -3788,10 +3840,9 @@ function readPad() {
    One driving system for every player (SIM.PlayerHandling): W accelerate, S brake, A/D steer, and S with
    A/D with W + S to drift; S on its own is brake-only, including at a standstill. The handling
    runs inside the physics loop, once per physics step, so it behaves the same at any frame rate. */
-function readDriveInput() {
+function readDriveInput(dt) {
   const pad = G.pad;
-  let steer = (KEYS.KeyD || KEYS.ArrowRight ? 1 : 0) - (KEYS.KeyA || KEYS.ArrowLeft ? 1 : 0);
-  let throttle = KEYS.KeyW || KEYS.ArrowUp ? 1 : 0, brake = KEYS.KeyS || KEYS.ArrowDown ? 1 : 0;
+  let { steer, throttle, brake } = DRIVE_KEYS.step(dt);
   let analog = false;
   if (pad && Math.abs(pad.steer) > 0) { steer = pad.steer * Math.abs(pad.steer) ** 0.4; analog = true; }
   if (pad) { throttle = Math.max(throttle, pad.throttle); brake = Math.max(brake, pad.brake); }
@@ -3800,7 +3851,7 @@ function readDriveInput() {
 class PlayerControl {
   constructor(car) {
     this.car = car; this.handling = new SIM.PlayerHandling(); this.drsReq = false; this.ersMode = 1;
-    car.control = (dt, sess) => { if (!car.autoDrive && !car.pit) this.handling.step(car, dt, sess, readDriveInput()); };
+    car.control = (dt, sess) => { if (!car.autoDrive && !car.pit) this.handling.step(car, dt, sess, readDriveInput(dt)); };
   }
   get steer() { return this.handling.steer; }
   // once per frame: the discrete controls (DRS, ERS)
@@ -4392,7 +4443,7 @@ function handleKeys(dt) {
     p.u = p.v = p.speed = p.steer = p.throttle = p.brake = p.slideAngle = 0;
     p.axL = p.ayL = 0;
     const ersMode = G.pc.ersMode; G.pc = new PlayerControl(p); G.pc.ersMode = ersMode;
-    p.input.throttle = 0; p.input.brake = 0; p.input.steer = 0; clearPlayerAssists(p);
+    p.input.throttle = 0; p.input.brake = 0; p.input.steer = 0; clearPlayerAssists(p); DRIVE_KEYS.clearPending();
     G.camRig.init = false; pushMsg('Car respawned on track', 'warn', 2);
   }
   if (sess.type === 'quali') {

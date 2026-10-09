@@ -81,8 +81,8 @@ test('W+S+steering produces a bounded drift; S+steering stays planted', () => {
   const brake = run(rig(30), raw(1, 0, 1), 1);
   for (const direction of [-1, 1]) {
     const drift = run(rig(30), raw(direction, 1, 1), 1);
-    assert.ok(drift.maxSlip > 0.15 && drift.maxSlip < 0.5);
-    assert.ok(drift.maxSlip > brake.maxSlip + 0.1);
+    assert.ok(drift.maxSlip > 0.06 && drift.maxSlip < 0.15);
+    assert.ok(drift.maxSlip > brake.maxSlip + 0.05);
     assert.ok(drift.car.psi * direction > 0.4);
     assert.ok(drift.car.speed < 25 && drift.car.u > 0);
   }
@@ -197,4 +197,113 @@ test('ERS and DRS still improve arcade speed; loose surfaces slow acceleration',
     SIM.stepCarPhysics(gravel.car, dt, { ...track, surfaceAt: () => 3 }, env);
   }
   assert.ok(gravel.car.speed < standard.car.speed);
+});
+
+
+test('short digital steering taps produce prompt micro-adjustments at road speeds', () => {
+  for (const speed of [15, 30, 60]) {
+    for (const direction of [-1, 1]) {
+      const short = run(rig(speed), raw(direction, 1), 0.06);
+      assert.ok(short.car.psi * direction > 0.025);
+      const reference = run(rig(speed), raw(direction, 1), 0.19);
+      const angle = reference.car.psi * direction * 180 / Math.PI;
+      assert.ok(angle > 7 && angle < 12, `speed ${speed}: ${angle} degrees`);
+      const entryRate = reference.car.r;
+      run(reference, raw(0, 1), 0.3);
+      assert.ok(Math.abs(reference.car.r) < Math.abs(entryRate) * 0.06);
+    }
+  }
+});
+
+test('automatic drift tightens the arc promptly and releases without manual countersteer', () => {
+  for (const direction of [-1, 1]) {
+    const turn = run(rig(30), raw(direction, 1), 0.4);
+    const drift = run(rig(30), raw(direction, 1, 1), 0.4);
+    assert.ok(Math.abs(drift.car.psi) > Math.abs(turn.car.psi) * 1.15);
+    assert.ok(drift.maxSlip > 0.05 && drift.maxSlip < 0.15);
+    const speed = drift.car.speed;
+    run(drift, raw(0, 1), 0.35);
+    assert.equal(drift.handling.drift, 0);
+    assert.ok(Math.abs(drift.car.slideAngle) < 0.015);
+    assert.ok(drift.car.speed > speed);
+  }
+});
+
+test('all 16 WASD states and their arrow equivalents reach the same controller inputs', () => {
+  for (let bits = 0; bits < 16; bits++) {
+    const expected = raw((bits & 8 ? 1 : 0) - (bits & 4 ? 1 : 0), bits & 1 ? 1 : 0, bits & 2 ? 1 : 0);
+    for (const keys of [['KeyW', 'KeyS', 'KeyA', 'KeyD'], ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']]) {
+      const keyboard = new SIM.KeyboardDriveInput();
+      keys.forEach((key, i) => keyboard.setKey(key, !!(bits & 1 << i), 0));
+      const input = keyboard.step(dt);
+      for (const k of ['steer', 'throttle', 'brake', 'analog']) assert.equal(input[k], expected[k]);
+    }
+  }
+});
+
+test('a tap entirely between rendered frames still turns the real car', () => {
+  const keyboard = new SIM.KeyboardDriveInput();
+  keyboard.setKey('KeyW', true, 0);
+  keyboard.step(dt);
+  keyboard.setKey('KeyA', true, 1);
+  keyboard.setKey('KeyA', false, 1.06);
+  const r = rig(30);
+  for (let i = 0; i < 60; i++) run(r, keyboard.step(dt), dt);
+  assert.ok(r.car.psi < -0.06);
+  assert.equal(keyboard.pending.length, 0);
+  assert.equal(keyboard.step(dt).steer, 0);
+});
+
+test('buffered three-key drift preserves the combination and clears on reset', () => {
+  const keyboard = new SIM.KeyboardDriveInput();
+  for (const k of ['KeyW', 'KeyS', 'KeyD']) keyboard.setKey(k, true, 1);
+  for (const k of ['KeyD', 'KeyS', 'KeyW']) keyboard.setKey(k, false, 1.08);
+  const r = rig(30);
+  for (let i = 0; i < 20; i++) run(r, keyboard.step(dt), dt);
+  assert.ok(r.handling.drift > 0.5 && r.car.psi > 0.05);
+  keyboard.reset();
+  assert.equal(keyboard.pending.length, 0);
+  assert.equal(keyboard.step(dt).steer, 0);
+  assert.equal(keyboard.step(dt).throttle, 0);
+  assert.equal(keyboard.step(dt).brake, 0);
+});
+
+test('a steering hold already consumed by physics gets no extra buffered turn', () => {
+  const keyboard = new SIM.KeyboardDriveInput();
+  keyboard.setKey('KeyA', true, 0);
+  assert.equal(keyboard.step(dt).steer, -1);
+  keyboard.setKey('KeyA', false, 1);
+  assert.equal(keyboard.pending.length, 0);
+  assert.equal(keyboard.step(dt).steer, 0);
+});
+
+
+test('all moving key combinations have the expected turn, brake and drift behavior', () => {
+  for (let bits = 0; bits < 16; bits++) {
+    const keyboard = new SIM.KeyboardDriveInput();
+    ['KeyW', 'KeyS', 'KeyA', 'KeyD'].forEach((k, i) => keyboard.setKey(k, !!(bits & 1 << i), 0));
+    const input = keyboard.step(dt), r = run(rig(30), input, 0.4);
+    if (input.steer) assert.ok(r.car.psi * input.steer > 0.1);
+    else assert.equal(r.car.psi, 0);
+    const drift = input.throttle && input.brake && input.steer;
+    assert.equal(r.handling.drift > 0, !!drift);
+    if (input.brake && !drift) {
+      assert.equal(r.car.input.throttle, 0);
+      assert.ok(r.car.speed < 30);
+    }
+    assert.ok(r.car.u > 0);
+  }
+});
+
+test('respawn discards queued taps while preserving currently held pedals', () => {
+  const keyboard = new SIM.KeyboardDriveInput();
+  keyboard.setKey('KeyW', true, 0);
+  keyboard.step(dt);
+  keyboard.setKey('KeyD', true, 1);
+  keyboard.setKey('KeyD', false, 1.06);
+  assert.ok(keyboard.pending.length);
+  keyboard.clearPending();
+  assert.equal(keyboard.pending.length, 0);
+  assert.equal(keyboard.step(dt).throttle, 1);
+  assert.equal(keyboard.step(dt).steer, 0);
 });
