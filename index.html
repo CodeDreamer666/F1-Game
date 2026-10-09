@@ -295,17 +295,17 @@
     <h2>Con<span>trols</span></h2>
     <div class="sub">Super Star Car-style keyboard controls: WASD / arrows to drive, Space to respawn, C to change camera. Gamepad: left stick steer, RT throttle, LT brake, X DRS, Y camera, Start pause.</div>
     <div class="ctrl-mode" id="ctrlMode"><h4>Driving</h4><ul>
-      <li><b>W</b> accelerates smoothly — hold it through ordinary corners and steer with <b>A / D</b>.</li>
+      <li><b>W</b> accelerates. Use light <b>A / D</b> taps for quick corrections; holding a steering key sheds speed through a tighter turn.</li>
       <li>Steering is speed-sensitive: sharp at hairpin speeds, calmer and more stable at high speed. Release the key and the car straightens.</li>
-      <li><b>S</b> brakes progressively. Brake while steering (<b>W</b> can stay held) and the car rotates more sharply and can slide in a controlled way.</li>
-      <li>Let go of <b>S</b> with <b>W</b> held and the tyres regain grip, the car straightens and accelerates out of the corner.</li>
-      <li>Gears, traction control, ABS and stability control are automatic. No drift button — the slide comes from braking and steering.</li>
+      <li><b>S</b> only brakes, including at a standstill. Hold <b>W + S + A / D</b> to slow down and drift into a turn.</li>
+      <li>Release <b>W</b> to coast through a bend. Release <b>A / D</b> to straighten, then hold <b>W</b> to accelerate out.</li>
+      <li>Release <b>S</b> to end the drift and regain grip. Hold <b>W</b> to accelerate out; gears and grip assistance are automatic.</li>
     </ul></div>
     <div class="keys">
       <div>Accelerate <span><kbd>W</kbd><kbd>↑</kbd></span></div>
-      <div>Brake / reverse <span><kbd>S</kbd><kbd>↓</kbd></span></div>
+      <div>Brake <span><kbd>S</kbd><kbd>↓</kbd></span></div>
       <div>Steer <span><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></span></div>
-      <div>Brake into a turn (controlled slide) <span><kbd>W</kbd> + <kbd>S</kbd> + <kbd>A</kbd>/<kbd>D</kbd></span></div>
+      <div>Controlled drift <span><kbd>W</kbd> + <kbd>S</kbd> + <kbd>A</kbd>/<kbd>D</kbd></span></div>
       <div>DRS (when available) <span><kbd>G</kbd></span></div>
       <div>ERS overtake (hold) <span><kbd>Shift</kbd></span></div>
       <div>ERS mode cycle <span><kbd>X</kbd></span></div>
@@ -957,8 +957,8 @@ const SIM = (function () {
       if (car.aids) {
         if (car.aids.abs && bw > 0 && sgn !== 0 && Math.abs(fx) > Fmax * 0.96 && Math.sign(fx) === -sgn) fx = -sgn * Fmax * 0.96;
         // cornering brake control: while the car is turning, braking is capped per axle so the tyres keep
-        // part of their grip for cornering (friction circle). The rear is allowed to use more of its grip
-        // for braking than the front, so braking into a turn shifts the balance and helps the car rotate.
+        // part of their grip for cornering (friction circle). Both axles reserve lateral grip
+        // so the car stays planted when the player brakes and steers together.
         const cbc = front ? car.aids.cbcF : car.aids.cbcR;
         if (cbc && bw > 0 && sgn !== 0 && Math.sign(fx) === -sgn && Math.abs(fx) > Fmax * cbc) fx = -sgn * Fmax * cbc;
         if (car.aids.tc && !front && fDrive > 0 && fx > Fmax * (car.aids.tc > 1 ? 0.93 : 1.0)) fx = Fmax * (car.aids.tc > 1 ? 0.93 : 1.0);
@@ -985,6 +985,7 @@ const SIM = (function () {
       const alpha = Math.atan2(lat, Math.max(Math.abs(lon), 4.0));
       car.slipA[i] = alpha;
       let fy = -lc * Math.sin(sp.C * Math.atan(sp.B * alpha));
+      if (!front && car.aids && car.aids.rearLat != null) fy *= car.aids.rearLat;
       if (car.lock[i]) fy = -lc * Math.sign(lat) * Math.min(1, Math.abs(lat) / 2);
       car.util[i] = Math.abs(alpha) / sp.aPk;
       // slip power (W) for temperature and wear
@@ -1051,106 +1052,91 @@ const SIM = (function () {
   }
 
   /* ------------------------------------------------------------------
-     PLAYER HANDLING — the one driving model for the human driver.
-     Keyboard-friendly arcade controls on top of the full vehicle physics: it only decides the
-     steering angle, the pedals and the driver aids (ABS, cornering brake control, traction control,
-     stability control). The tyres, aero, weight transfer and collisions do the rest, every physics step.
-       W        accelerate (smooth throttle build-up, traction control)
-       S        brake (progressive); hold when stopped to reverse
-       A / D    steer — speed-sensitive, smoothed, aimed at a yaw rate the tyres can deliver
-       S + A/D  (with or without W) brake into the turn: the car slows, rotates more sharply and may
-                slide in a controlled way; let go of S and grip, direction and drive come back progressively
+     PLAYER HANDLING — planted arcade steering for the human driver.
+     Steering demand controls corner speed: long holds scrub speed, light taps preserve it.
+     S brakes only. W + S + a steering direction requests a controlled, speed-sensitive drift.
+     Runs at the physics rate; acceleration, tyre grip and collisions still use the vehicle model.
      ------------------------------------------------------------------ */
   const HANDLING = {
-    steerIn: [5.0, 2.0],      // keyboard steering build-up rate (1/s) at low / high speed
-    steerOut: [7.5, 5.0],     // recentring rate (1/s) at low / high speed
-    shape: [1.12, 1.6],       // input curve exponent at low / high speed (finer small corrections at speed)
-    gripUse: [1.0, 0.9],      // share of the cornering grip that full lock asks for, low / high speed
-    rotBoost: 0.4,            // extra yaw demand while braking into a turn
-    slideMax: [0.3, 0.09],    // allowed slide angle while braking into a turn, slow / fast corners (rad)
-    gripSlide: 0.05,          // allowed slide angle otherwise (rad)
-    kp: 0.07,                 // yaw-rate feedback (rad of front slip per rad/s)
-    kBeta: 3.2,               // yaw-rate correction per rad of excess slide (1/s)
-    thUp: 2.6, thDown: 9, brUp: 4.5, brDown: 3.2, // pedal ramps (1/s)
-    thBrake: 0.2,             // throttle kept while braking with W held (engine response for the exit)
+    steerIn: [6.0, 3.5], steerOut: [10.0, 7.5],
+    shape: [1.0, 1.2], gripUse: [0.88, 0.78],
+    gripSlide: 0.035, kp: 0.09, kBeta: 4.5,
+    driftAngle: [0.30, 0.10], driftIn: 4, driftOut: 3, driftThrottle: 0.18,
+    thUp: 4.5, thDown: 14, brUp: 12, brDown: 16,
+    cornerSpeed: [88, 21], cornerBrake: 0.65, cornerGain: 0.055,
   };
   class PlayerHandling {
     constructor() { this.reset(); }
-    reset() { this.steer = 0; this.th = 0; this.br = 0; this.bt = 0; this.allow = HANDLING.gripSlide; this.revT = 0; this.rDes = 0; }
-    // raw: { steer -1..1, throttle 0..1, brake 0..1, analog } — called once per physics step
+    reset() { this.steer = 0; this.th = 0; this.br = 0; this.rDes = 0; this.autoBr = 0; this.drift = 0; }
+    // raw: { steer -1..1, throttle 0..1, brake 0..1, analog }
     step(car, dt, sess, raw) {
       const H = HANDLING, sp = SPEC, inp = car.input;
       const spd = car.speed, u = car.u, vN = clamp((spd - 12) / 58, 0, 1), wet = sess.wet || 0;
-      // ---- steering input: progressive build-up, quicker recentring, slower at speed ----
       const tgt = clamp(raw.steer, -1, 1);
-      if (raw.analog) this.steer += clamp(tgt - this.steer, -10 * dt, 10 * dt);
-      else {
-        const back = tgt === 0 || (this.steer !== 0 && Math.sign(tgt) !== Math.sign(this.steer));
-        const rate = back ? lerp(H.steerOut[0], H.steerOut[1], vN) : lerp(H.steerIn[0], H.steerIn[1], vN) * (0.65 + 0.7 * Math.abs(this.steer));
-        this.steer += clamp(tgt - this.steer, -rate * dt, rate * dt);
-      }
-      const sA = Math.abs(this.steer), shaped = Math.sign(this.steer) * Math.pow(sA, lerp(H.shape[0], H.shape[1], vN));
-      // ---- pedals: W + S together brakes, keeping a little throttle so the engine is ready for the exit ----
+      const back = tgt === 0 || (this.steer !== 0 && Math.sign(tgt) !== Math.sign(this.steer));
+      const rate = raw.analog ? 12 : lerp(...(back ? H.steerOut : H.steerIn), vN);
+      this.steer += clamp(tgt - this.steer, -rate * dt, rate * dt);
+      const sA = Math.abs(this.steer);
+      const shaped = Math.sign(this.steer) * Math.pow(sA, lerp(...H.shape, vN));
       const thRaw = clamp(raw.throttle, 0, 1), brRaw = clamp(raw.brake, 0, 1);
-      const thTgt = brRaw > 0.1 ? Math.min(thRaw, H.thBrake) : thRaw;
+      // Only the explicit three-key combination drifts; S alone always brakes.
+      const driftHeld = thRaw > 0.5 && brRaw > 0.5 && Math.abs(tgt) > 0.15 && spd > 8 && u > 4 && sess.lightsOut && !car.pit;
+      this.drift += clamp((driftHeld ? 1 : 0) - this.drift, -H.driftOut * dt, H.driftIn * dt);
+      const thTgt = brRaw > 0.05 ? (driftHeld ? Math.min(thRaw, H.driftThrottle) : 0) : thRaw;
       if (raw.analog) { this.th = thTgt; this.br = brRaw; }
-      else { this.th += clamp(thTgt - this.th, -H.thDown * dt, H.thUp * dt); this.br += clamp(brRaw - this.br, -H.brDown * dt, H.brUp * dt); }
-      let th = this.th, br = this.br;
-      // reverse when stopped and holding the brake
-      if (spd < 1.0 && brRaw > 0.5 && thRaw < 0.1 && sess.lightsOut) { this.revT += dt; if (this.revT > 0.5) car.gear = -1; }
-      else if (thRaw > 0.1 || u > 1.5) { this.revT = 0; if (car.gear === -1) car.gear = 1; }
-      const rev = car.gear === -1;
-      if (rev) { th = br; br = 0; }
-      // ---- grip available right now (tyres, rain, surface, downforce) ----
+      else {
+        this.th += clamp(thTgt - this.th, -H.thDown * dt, H.thUp * dt);
+        this.br += clamp(brRaw - this.br, -H.brDown * dt, H.brUp * dt);
+      }
+      let th = brRaw > 0.05 && !driftHeld ? 0 : this.th, br = this.br;
+      // The player's S key never selects reverse or applies reverse drive torque.
+      if (car.gear < 1) car.gear = 1;
       let sm = 0; for (let i = 0; i < 4; i++) sm += SURF_MU[car.surf[i]]; sm /= 4;
       const mu = Math.max(0.4, car.gripEstimate(wet)) * sm;
-      const kA = 0.5 * RHO * car.effClA() / car.mass;
-      const uu = Math.max(u, 3);
+      const kA = 0.5 * RHO * car.effClA() / car.mass, uu = Math.max(u, 3);
       const rGrip = mu * (G + kA * uu * uu) / uu;
       const rGeom = uu * Math.tan(0.9 * sp.maxLock) / sp.L;
-      // ---- braking into a turn: rotation and an allowed, controlled slide ----
-      const turn = clamp((sA - 0.15) / 0.5, 0, 1);
-      const btT = !rev && car.gear > 0 && spd > 8 ? clamp(this.br * 1.25, 0, 1) * turn : 0;
-      this.bt += clamp(btT - this.bt, -1.6 * dt, 3 * dt);
-      const slideMax = lerp(H.slideMax[0], H.slideMax[1], clamp((spd - 15) / 50, 0, 1)) * (1 - 0.25 * wet);
-      const allowT = H.gripSlide + (slideMax - H.gripSlide) * this.bt;
-      // the allowance shrinks progressively after the brake is released: traction comes back, not snaps back
-      this.allow += clamp(allowT - this.allow, -0.4 * dt, 1.2 * dt);
-      // ---- steering: aim the front wheels at the yaw rate the driver asks for ----
-      const rCap = Math.min(rGrip * lerp(H.gripUse[0], H.gripUse[1], vN) * (1 + H.rotBoost * (1 - 0.6 * vN) * this.bt), rGeom);
+      const rCap = Math.min(rGrip * lerp(...H.gripUse, vN), rGeom);
       const rDes = shaped * rCap; this.rDes = rDes;
       const beta = Math.atan2(car.v, Math.max(Math.abs(u), 3));
-      const excess = beta - clamp(beta, -this.allow, this.allow);
-      const rRef = rDes + H.kBeta * excess;     // a slide past the allowance asks for less rotation (counter-steer)
-      const betaF = Math.atan2(car.v + car.r * sp.a, uu); // direction the front axle is travelling
-      const q = clamp(Math.abs(rRef) / Math.max(rGrip, 0.05), 0, 0.98);
-      const aFF = Math.sign(rRef) * Math.tan(Math.asin(q) / sp.C) / sp.B; // front slip for that cornering force
-      const aMax = sp.aPk * 1.05;
-      const alpha = clamp(aFF + H.kp * (rRef - car.r), -aMax, aMax);
-      let delta = betaF + alpha;
-      const wLow = clamp((spd - 4) / 4, 0, 1); // walking pace and reversing: plain steering
-      if (rev || u < 1) delta = this.steer * sp.maxLock;
-      else delta = lerp(this.steer * sp.maxLock, delta, wLow);
-      inp.steer = clamp(delta / sp.maxLock, -1, 1);
-      // ---- traction on the exit: throttle follows the remaining slide ----
-      if (!rev && car.gear > 0) {
-        th = Math.min(th, 1 - 0.75 * clamp((Math.abs(beta) - 0.07) / 0.22, 0, 1));
+      const driftAngle = lerp(...H.driftAngle, vN);
+      const betaTarget = -this.steer * driftAngle * this.drift;
+      const excess = this.drift > 0 ? beta - betaTarget : beta - clamp(beta, -H.gripSlide, H.gripSlide);
+      const rRef = rDes + H.kBeta * excess;
+      const betaF = Math.atan2(car.v + car.r * sp.a, uu);
+      const q = clamp(Math.abs(rRef) / Math.max(rGrip, 0.05), 0, 0.95);
+      const aFF = Math.sign(rRef) * Math.tan(Math.asin(q) / sp.C) / sp.B;
+      const alpha = clamp(aFF + H.kp * (rRef - car.r), -sp.aPk, sp.aPk);
+      const delta = betaF + alpha;
+      inp.steer = clamp(u < 1 ? this.steer : lerp(this.steer * sp.maxLock, delta, clamp((spd - 4) / 4, 0, 1)) / sp.maxLock, -1, 1);
+      // Speed assistance follows steering, never the racing line or the next track corner.
+      // A quick correction keeps speed; sustained lock reduces drive and applies gentle braking.
+      this.autoBr = 0;
+      if (car.gear > 0 && sess.lightsOut && !car.pit && sA > 0.08) {
+        const turn = Math.pow(clamp((sA - 0.08) / 0.92, 0, 1), 0.85);
+        const target = lerp(...H.cornerSpeed, turn) * clamp(Math.sqrt(mu / 1.6), 0.65, 1.05);
+        const over = spd - target;
+        if (over > 0) {
+          this.autoBr = clamp(over * H.cornerGain, 0, H.cornerBrake);
+          br = Math.max(br, this.autoBr); th = 0;
+        } else th = Math.min(th, clamp(-over / 4, 0, 1));
+      }
+      if (car.gear > 0) {
         const rear = Math.abs(car.slipA[2] + car.slipA[3]) / 2;
         if (rear > 0.1 && spd > 8) th *= clamp(1 - (rear - 0.1) * 6, 0.25, 1);
       }
       inp.throttle = th; inp.brake = br; inp.auto = true;
-      // ---- aids (per-wheel work happens in the physics) ----
-      // cornering brake control: the more the car is turning, the more grip is kept for cornering. In slow
-      // corners the rear may brake harder than the front (rotation); at speed less so, and as soon as the
-      // slide heads past what is allowed the rear brake is released to let the tyres bite again
       const util = clamp(Math.abs(car.ayL) / (mu * (G + kA * uu * uu)), 0, 1);
-      const cw = Math.max(util, 0.8 * turn);
-      const bP = beta + 0.12 * (car.ayL / uu - car.r);
-      const over = clamp((Math.abs(bP) - 0.7 * this.allow) / Math.max(0.3 * this.allow, 0.02), 0, 1);
-      const A = car.aids && car.aids.yaw ? car.aids : (car.aids = { abs: true, tc: 2, tcf: 0.95, cbcF: 0, cbcR: 0, yaw: { allow: 0, look: 0.12, k: 80, max: 0.3 } });
+      const cornerUse = Math.max(util, 0.8 * sA);
+      const A = car.aids && car.aids.yaw ? car.aids : (car.aids = { yaw: {} });
       A.abs = true; A.tc = 2; A.tcf = 0.95;
-      A.cbcF = lerp(0.96, 0.62, cw); A.cbcR = lerp(0.96, lerp(0.86, 0.62, vN), cw) * (1 - 0.6 * over);
-      A.yaw.allow = this.allow;
+      A.cbcF = lerp(0.96, 0.58, cornerUse);
+      A.cbcR = lerp(0.92, lerp(0.52, 0.78, this.drift), cornerUse);
+      // Release rear grip for entry, then let it recover as the requested slide angle is reached.
+      const bite = clamp(Math.abs(beta) / Math.max(driftAngle, 0.05), 0, 1);
+      A.rearLat = lerp(1, lerp(0.55, 1.05, bite), this.drift);
+      A.yaw.allow = lerp(H.gripSlide, driftAngle + 0.03, this.drift);
+      A.yaw.look = 0.12; A.yaw.k = 100; A.yaw.max = 0.45;
     }
   }
 
@@ -3891,7 +3877,7 @@ function readPad() {
 
 /* ---------------- player driving ----------------
    One driving system for every player (SIM.PlayerHandling): W accelerate, S brake, A/D steer, and S with
-   A/D (W may stay held) to brake into a turn, rotate the car and slide it in a controlled way. The handling
+   A/D with W + S to drift; S on its own is brake-only, including at a standstill. The handling
    runs inside the physics loop, once per physics step, so it behaves the same at any frame rate. */
 function readDriveInput() {
   const pad = G.pad;
@@ -4358,7 +4344,7 @@ function updateHud(dt) {
   if (G.player && G.player.inGarage && sess.type === 'quali' && !sess.sessionOver) { hint.textContent = 'Press W (or throttle) to leave the garage · K to skip the session'; hint.classList.remove('hidden'); }
   else if (G.player && sess.type === 'race' && !sess.lightsOut) { hint.textContent = 'Hold the throttle for a good launch when the lights go out'; hint.classList.remove('hidden'); }
   else if (G.player && G.player.autoDrive && !G.player.finished && !G.player.pit) { hint.textContent = 'Auto-pilot: heading to the pit lane'; hint.classList.remove('hidden'); }
-  else if (G.player && sess.lightsOut && !G.player.pit && !G.player.finished && G.player.speed < 3 && Math.abs(Math.atan2(Math.sin(G.player.psi - G.track.heading[G.player.idx]), Math.cos(G.player.psi - G.track.heading[G.player.idx]))) > 1.6) { hint.textContent = 'Facing the wrong way? Hold S to reverse and steer round, or press Space to respawn on track'; hint.classList.remove('hidden'); }
+  else if (G.player && sess.lightsOut && !G.player.pit && !G.player.finished && G.player.speed < 3 && Math.abs(Math.atan2(Math.sin(G.player.psi - G.track.heading[G.player.idx]), Math.cos(G.player.psi - G.track.heading[G.player.idx]))) > 1.6) { hint.textContent = 'Facing the wrong way? Press Space to respawn on track'; hint.classList.remove('hidden'); }
   else hint.classList.add('hidden');
   $('fps').classList.toggle('hidden', S.showFps !== 'on');
   $('telemetry').classList.toggle('hidden', !G.showTel);
@@ -4507,6 +4493,8 @@ function handleKeys(dt) {
   const reset = takePress('KeyR');
   if ((respawn || reset) && !p.pit && sess.lightsOut && !p.inGarage && !p.finished && !p.dnf) {
     sess.marshalReset(p);
+    p.u = p.v = p.speed = p.steer = p.throttle = p.brake = p.slideAngle = 0;
+    p.axL = p.ayL = 0;
     const ersMode = G.pc.ersMode; G.pc = new PlayerControl(p); G.pc.ersMode = ersMode;
     p.input.throttle = 0; p.input.brake = 0; p.input.steer = 0; clearPlayerAssists(p);
     G.camRig.init = false; pushMsg('Car respawned on track', 'warn', 2);
@@ -4562,10 +4550,10 @@ const TUT_KEY = 'apexgp.tutorial.v1';
 function showTutorial() {
   const k = (...x) => x.map(q => `<kbd>${q}</kbd>`).join(' ');
   const rows = [
-    [k('W'), '<b>Accelerate.</b> Hold it through the ordinary corners and just steer.'],
-    [k('A', 'D'), '<b>Steer.</b> Smooth and progressive: quick in hairpins, calmer at high speed. Let go and the car straightens.'],
-    [k('S'), '<b>Brake</b> before the slow corners (hold it when stopped to reverse).'],
-    [k('W') + ' + ' + k('S') + ' + ' + k('A') + '/' + k('D'), '<b>Brake into a sharp turn.</b> The car slows, rotates harder and can slide. Release ' + k('S') + ' and keep ' + k('W') + ': grip comes back and you power out.'],
+    [k('W'), '<b>Accelerate.</b> Release it to coast and shed speed through a bend.'],
+    [k('A', 'D'), '<b>Steer.</b> Tap for quick corrections; hold for a tighter turn that scrubs speed. Let go and the car straightens.'],
+    [k('S'), '<b>Brake only.</b> Responds quickly and holds the car stopped; it never drives backwards.'],
+    [k('W') + ' + ' + k('S') + ' + ' + k('A') + '/' + k('D'), '<b>Controlled drift.</b> Hold all three inputs to slow down and slide around the turn. Release ' + k('S') + ' with ' + k('W') + ' held to regain grip and accelerate out.'],
   ];
   $('tutSub').textContent = 'Gears, traction control, ABS and stability control are automatic';
   $('tutKeys').innerHTML = rows.map(([a, b]) => `<div class="kk">${a}</div><div>${b}</div>`).join('');

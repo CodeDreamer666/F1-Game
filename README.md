@@ -14,23 +14,23 @@ An internet connection is needed the first time to fetch Three.js and the Titill
 
 ## Driving
 
-There is one driving system for every player, built for the keyboard and inspired by the simple controls of arcade racers such as Super Star Car, with smoother, tighter steering. It runs on top of the same vehicle physics the AI uses, so tyre grip, downforce, weight transfer, tyre temperature and wear, rain, kerbs and collisions all still apply.
+The player has one keyboard-friendly arcade driving model. This implementation aims to reproduce Super Star Car's planted handling, steering slowdown and responsive braking, with the requested W+S+A/D drift and brake-only S behavior. The reference's internal tuning and exact input timing have not been measured, so this is a behavioral approximation.
 
-| Keys | What happens |
+| Input | Movement |
 |---|---|
-| `W` | Accelerate. Throttle builds smoothly and traction control prevents wheelspin. Hold it through the ordinary corners and just steer. |
-| `S` | Brake, progressively. Hold it when stopped to reverse. |
-| `A` / `D` | Steer. The steering is smoothed and speed-sensitive: sharp enough for hairpins at low speed, calmer at high speed. Full lock always stays within the grip the tyres have, and the car straightens itself when you let go. |
-| `W` + `S` + `A`/`D` | Brake into a sharp corner. Braking takes priority, but the engine stays ready. The car slows, rotates harder and can slide in a controlled way, more in slow corners and less in fast ones, where downforce holds it. Release `S` while still holding `W` and the tyres regain grip, the car straightens and it accelerates out of the corner. |
+| `W` | Accelerate smoothly in the current heading. |
+| Release `W` | Coast and slow down through engine braking and drag. |
+| `W` + `A`/`D` | Accelerate and turn. Brief taps make corrections; sustained steering sheds speed and tightens the turn. |
+| `S` | Brake quickly and hold the car stopped. Never reverse. |
+| `W` + `S` | Braking takes priority. The engine does not fight the brakes. |
+| `S` + `A`/`D` | Brake and turn with stable grip. |
+| `W` + `S` + `A`/`D` | Enter a controlled drift, losing speed during the turn. Release S to regain grip and accelerate out. |
+| Release `A`/`D` | Steering recentres quickly and the car settles into its current direction. |
+| `A` + `D` | The opposing steering inputs cancel. |
 
-How it works:
-- **Steering**: the keys set how hard you want to turn. The game picks the front-wheel angle that produces that yaw rate with the grip available (tyres, rain, surface, downforce). This gives a predictable response with no snapping, and automatic opposite lock when the rear steps out.
-- **Braking while turning**: cornering brake control keeps part of each tyre's grip for cornering. In slow corners the rear brakes harder than the front, so braking into a turn rotates the car. The rear brake eases off when the slide grows past what is allowed.
-- **Stability control**: the car may slide to a limited angle, larger while you brake into a turn. Past that, a correcting yaw moment (bounded by tyre grip) catches it. After you release the brake, the allowed angle shrinks gradually, so grip returns smoothly instead of snapping.
-- **Automatic**: gearbox, traction control, ABS and stability control. There is no drift button and no scripted animation. Slides come from braking and steering through the tyre model.
-- **Consequences**: a corner taken far too fast still runs wide onto the kerbs, grass or gravel, and walls still cause damage.
+Corner speed assistance follows the player's steering demand, not a scripted path or racing-line target. The player still chooses where to drive. Tyre grip, surfaces, aero and collisions remain in the vehicle model. The handling runs inside the 240 Hz physics loop, independently of the rendering frame rate.
 
-The handling runs inside the 240 Hz physics loop, so it behaves the same at any frame rate.
+Reference: [Super Star Car on Poki](https://poki.com/en/g/super-star-car) for bindings and [Drifted's hands-on review](https://www.drifted.com/super-star-car/) for movement observations.
 
 Visual guidance (all optional):
 - A colour-changing racing line (`L`).
@@ -55,9 +55,9 @@ The core keyboard controls follow Super Star Car on Poki: WASD or arrow keys to 
 
 | Action | Keys |
 |---|---|
-| Throttle / brake (reverse when stopped) | `W` `S` or `↑` `↓` |
+| Throttle / brake only | `W` `S` or `↑` `↓` |
 | Steer | `A` `D` or `←` `→` |
-| Brake into a turn (controlled slide) | `W` + `S` + `A`/`D` |
+| Controlled drift | `W` + `S` + `A`/`D` |
 | DRS | `G` |
 | ERS overtake (hold) / cycle ERS mode | `Shift` / `X` |
 | Box this lap, then pick tyres | `P`, then `1`–`4` |
@@ -68,3 +68,7 @@ The core keyboard controls follow Super Star Car on Poki: WASD or arrow keys to 
 | Qualifying: skip to the end | `K` |
 
 Gamepads are supported (left stick steer, right trigger throttle, left trigger brake, X DRS, Y camera, Start pause).
+
+## Movement checks
+
+Run `node --test tests/movement.cjs` to check acceleration, coasting, brake-only S, steering taps, direction changes, three-key drift, drift recovery and consistency at different frame rates using the actual physics engine.
