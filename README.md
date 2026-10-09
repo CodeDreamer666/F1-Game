@@ -14,7 +14,7 @@ An internet connection is needed the first time to fetch Three.js and the Titill
 
 ## Driving
 
-The player has one keyboard-friendly arcade driving model. This implementation aims to reproduce Super Star Car's planted handling and responsive braking, with the requested W+S+A/D drift and brake-only S behavior. The reference's internal tuning and exact input timing have not been measured, so this is a behavioral approximation.
+The player has one keyboard-friendly arcade driving model. The handling is tuned from playing Super Star Car on Poki: stronger acceleration, light coasting, speed-dependent braking and fast, planted steering. The requested W+S+A/D drift and brake-only S behavior are retained. See [reference measurements](tests/reference/poki-measurements.md) for the captured HUD values, comparison and measurement limits.
 
 | Input | Movement |
 |---|---|
@@ -28,15 +28,15 @@ The player has one keyboard-friendly arcade driving model. This implementation a
 | Release `A`/`D` | Steering recentres quickly and the car settles into its current direction. |
 | `A` + `D` | The opposing steering inputs cancel. |
 
-Throttle and braking are controlled by the player's inputs. Steering never applies the brakes or imposes a corner speed target. Tyre grip, surfaces, aero and collisions remain in the vehicle model. The handling runs inside the 240 Hz physics loop, independently of the rendering frame rate.
+Throttle and braking are controlled by the player's inputs. Steering never applies the brakes or imposes a corner speed target. Player acceleration and braking use an arcade longitudinal force curve. Surface resistance, fuel exhaustion, DRS and the pit limiter still affect it. Steering, lateral tyre grip and collisions remain in the vehicle model; AI and pit autopilot retain the simulation drivetrain. The handling runs inside the 240 Hz physics loop, independently of the rendering frame rate.
 
-Reference: [Super Star Car on Poki](https://poki.com/en/g/super-star-car) for bindings and [Drifted's hands-on review](https://www.drifted.com/super-star-car/) for movement observations.
+Reference: [Super Star Car on Poki](https://poki.com/en/g/super-star-car) for bindings and the directly observed handling.
 
 ## What's inside
 
 - **Circuit**: Lakeside Alpine Circuit (4.67 km, 8 corners, 2 DRS zones) with kerbs, gravel, painted run-off, braking-zone skid marks, ad-board walls, catch fences, grandstands with crowds, a pit lane with team garages, a start gantry with working lights, marshal light panels, rolling forested terrain, an animated lake, a castle, a village and snow-capped mountains.
 - **Graphics**: HDR rendering with multisampling, bloom, ACES tone mapping and colour grading; reflections captured from the real scenery; team liveries; contact shadows; stable sun shadows; optional speed blur; dynamic resolution to hold the frame rate. Low quality turns post-processing off.
-- **Physics** (240 Hz, identical for all cars): four-wheel tyre model (Pacejka-style lateral force, friction circle, load sensitivity, lock-ups and wheelspin), downforce and drag (DRS, slipstream, dirty air, wing damage), longitudinal and lateral weight transfer, 8-speed gearbox, ERS deploy/harvest, fuel mass and consumption, tyre temperature and wear (soft, medium, hard, wet), surface grip, wall and car-to-car collisions.
+- **Physics** (240 Hz; player arcade longitudinal response, simulation drivetrain for AI): four-wheel tyre model (Pacejka-style lateral force, friction circle, load sensitivity, lock-ups and wheelspin), downforce and drag (DRS, slipstream, dirty air, wing damage), longitudinal and lateral weight transfer, 8-speed gearbox, ERS deploy/harvest, fuel mass and consumption, tyre temperature and wear (soft, medium, hard, wet), surface grip, wall and car-to-car collisions.
 - **AI drivers**: 19 opponents, each with pace, consistency, braking, racecraft, aggression, risk, tyre-management, strategy and start ratings. They plan their own racing line, compute braking points from their current grip, learn each corner as they go, choose lanes around traffic, use slipstream, DRS and ERS to attack, defend the inside, give room, respect yellow and blue flags, make mistakes (late braking, lock-ups, running wide, snap oversteer), recover from spins, and plan and react to pit strategy (undercut, covering, damage stops).
 - **Race weekend**: qualifying with out-laps and a session clock, standing starts, sector timing (purple/green/yellow), time gaps, track-limit warnings, penalties (track limits, causing a collision, overtaking under yellow), yellow flags, pit stops with double-stacking, chequered flag and classified results with points.
 - **Modes**: race weekend (qualifying + race), quick race, and spectator mode with car switching, five cameras, an auto-director and up to 4× time.
@@ -64,4 +64,4 @@ Gamepads are supported (left stick steer, right trigger throttle, left trigger b
 
 ## Movement checks
 
-Run `node --test tests/movement.cjs` to check acceleration, coasting, brake-only S, steering without automatic braking or throttle cuts, direction changes, three-key drift, drift recovery and consistency at different frame rates using the actual physics engine.
+Run `node tests/movement.cjs` to check acceleration, coasting, brake-only S, steering without automatic braking or throttle cuts, direction changes, three-key drift, drift recovery and consistency at different frame rates using the actual physics engine.

@@ -124,10 +124,6 @@
   #qtimer { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 6px 18px; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
   #fps { position: absolute; right: 8px; top: 2px; font-size: 11px; color: #8f8; text-shadow: 0 0 3px #000; }
 
-  /* ---------------- DRIVING HELP ---------------- */
-  .field .desc { font-size: 12px; line-height: 1.4; color: #8f98a8; margin-top: 6px; }
-  .field.wide { grid-column: 1 / -1; }
-
   /* ---------------- MENUS ---------------- */
   .screen { position: fixed; inset: 0; z-index: 20; display: flex; }
   #menu { background: linear-gradient(90deg, rgba(5,6,9,.92) 0%, rgba(5,6,9,.75) 36%, rgba(5,6,9,.05) 70%); }
@@ -236,7 +232,7 @@
   <div id="msgs"></div>
   <div id="lights" class="panel hidden"><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div></div>
   <div id="pitstop" class="panel hidden"><div class="t">PIT STOP</div><b class="num" id="pitTime">0.0 s</b></div>
-  <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP <span style="color:var(--dim);font-size:12px">(P to cancel)</span></div><div class="opts" id="boxOpts"></div></div>
+  <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP</div><div class="opts" id="boxOpts"></div></div>
   <div id="telemetry" class="panel hidden"><canvas id="telCanvas" width="900" height="240"></canvas><canvas id="gCanvas" width="280" height="240"></canvas></div>
   <div id="specbar" class="panel hidden"></div>
   <div id="qtimer" class="panel hidden"></div>
@@ -253,7 +249,7 @@
     <button class="btn" data-act="settings">Race Settings</button>
     <button class="btn" data-act="controls">Controls</button>
     <button class="btn" data-act="restart" id="btnRestart" disabled>Restart <small id="restartWhat">No session</small></button>
-    <div class="menu-foot">All cars — yours and the 19 AI drivers — run on the same vehicle physics: tyre grip, downforce, drag, weight transfer, fuel, ERS and tyre wear.<br>Keyboard or gamepad. Press <kbd>Esc</kbd> in-session for the pause menu.</div>
+    <div class="menu-foot">Race with 19 AI drivers, lateral tyre grip, collisions, fuel, ERS and tyre wear.<br>Keyboard or gamepad. Press <kbd>Esc</kbd> in-session for the pause menu.</div>
   </div>
   <div class="circuit-card panel">
     <div class="country">Circuit</div>
@@ -887,7 +883,7 @@ const SIM = (function () {
     // ---- brakes ----
     const bF = car.brake * sp.brakeMax;
     const bias = sp.brakeBias;
-    let FxSum = 0, FySum = 0, Mz = 0;
+    let FxSum = 0, FySum = 0, Mz = 0, rollingResistance = 0;
     const wet = env.wet;
     const delta = car.steer;
     const cd = Math.cos(delta), sd = Math.sin(delta);
@@ -909,7 +905,7 @@ const SIM = (function () {
       let fx = 0;
       if (!front) fx += fDrive * 0.5 - fHarvest * 0.5;
       const bw = front ? bF * bias * 0.5 : Math.max(0, bF * (1 - bias) * 0.5 - fHarvest * 0.5);
-      const rr = SURF_RR[surf] * Fz;
+      const rr = SURF_RR[surf] * Fz; rollingResistance += rr;
       const sgn = lon > 0.05 ? 1 : lon < -0.05 ? -1 : 0;
       if (sgn !== 0) fx -= (bw + rr) * sgn;
       else { // near standstill: brakes hold the car
@@ -979,6 +975,22 @@ const SIM = (function () {
         Mz += Ms; car.stabMz = Ms;
       }
     }
+    // Arcade longitudinal response for manual player control. This is a force,
+    // not a velocity/position rewrite; lateral tyre forces and impacts still act.
+    // The measured reference launches much harder than the simulation drivetrain
+    // and its braking force falls with speed. Autopilot/AI retain their drivetrain.
+    if (car.aids && car.aids.arcade) {
+      const H = HANDLING;
+      let surface = 0; for (let i = 0; i < 4; i++) surface += SURF_MU[car.surf[i]]; surface /= 4;
+      const top = H.topSpeed * (car.drsOpen ? 1.04 : 1) / Math.cbrt(car.dragMul * (1 + 0.05 * car.damage.wing));
+      const power = Math.max(0, 1 - Math.pow(Math.max(u, 0) / top, 3));
+      const boost = car.ersDeploy / (Math.max(u, 12) * m);
+      const drive = fuelOk && !env.holdStart ? (H.acceleration * car.team.power * power * car.throttle + boost) * surface : 0;
+      const braking = car.brake * Math.max(H.brakeFloor, Math.abs(u) * H.brakeRate);
+      const coast = H.coastRate * u + Math.sign(u) * Math.max(0, rollingResistance / m - 0.15);
+      FxSum = m * (drive - coast - Math.sign(u) * braking);
+      if (env.pitLimiter && u > track.pit.limit) FxSum = Math.min(FxSum, -m * (u - track.pit.limit) * 4);
+    }
     // integrate
     const ax = FxSum / m, ay = FySum / m;
     const fwx = c * FxSum - s * FySum, fwz = s * FxSum + c * FySum;
@@ -988,7 +1000,9 @@ const SIM = (function () {
     // standstill clamp
     const u2 = car.vx * c + car.vz * s, v2 = -car.vx * s + car.vz * c;
     if (Math.abs(u2) < 0.25 && Math.abs(v2) < 0.4 && (car.brake > 0.05 || car.throttle < 0.02) && car.gear !== -1 && !(car.throttle > 0.05 && car.brake < 0.05)) {
-      car.vx *= 0.5; car.vz *= 0.5; car.r *= 0.5;
+      if (car.aids && car.aids.arcade && car.brake > 0.05 && car.throttle < 0.02) {
+        car.vx = car.vz = car.r = 0;
+      } else { car.vx *= 0.5; car.vz *= 0.5; car.r *= 0.5; }
     }
     car.psi += car.r * dt;
     car.x += car.vx * dt; car.z += car.vz * dt;
@@ -998,6 +1012,7 @@ const SIM = (function () {
     car.axL += (axT - car.axL) * kf; car.ayL += (ayT - car.ayL) * kf;
     car.gLong = car.axL / G; car.gLat = car.ayL / G;
     car.u = u2; car.v = v2; car.speed = Math.hypot(car.vx, car.vz);
+    if (car.aids && car.aids.arcade && car.speed === 0) car.u = car.v = 0;
     // ---- tyres temperature / wear ----
     const comp = COMPOUNDS[car.tyre.c];
     const amb = wet ? 18 : 27;
@@ -1019,10 +1034,11 @@ const SIM = (function () {
      PLAYER HANDLING — planted arcade steering for the human driver.
      Pedals are manual: steering never applies brakes or imposes a corner speed target.
      S brakes only. W + S + a steering direction requests a controlled, speed-sensitive drift.
-     Runs at the physics rate; acceleration, tyre grip and collisions still use the vehicle model.
+     Runs at the physics rate; arcade longitudinal force, lateral tyre grip and collisions.
      ------------------------------------------------------------------ */
   const HANDLING = {
-    steerIn: [6.0, 3.5], steerOut: [10.0, 7.5],
+    acceleration: 21.5, topSpeed: 90, coastRate: 0.07, brakeRate: 0.46, brakeFloor: 1.5,
+    steerIn: [8.0, 5.0], steerOut: [12.0, 10.0],
     shape: [1.0, 1.2], gripUse: [0.88, 0.78],
     gripSlide: 0.035, kp: 0.09, kBeta: 4.5,
     driftAngle: [0.30, 0.10], driftIn: 4, driftOut: 3, driftThrottle: 0.18,
@@ -1081,7 +1097,7 @@ const SIM = (function () {
       const util = clamp(Math.abs(car.ayL) / (mu * (G + kA * uu * uu)), 0, 1);
       const cornerUse = Math.max(util, 0.8 * sA);
       const A = car.aids && car.aids.yaw ? car.aids : (car.aids = { yaw: {} });
-      A.abs = true; A.tc = 2; A.tcf = 0.95;
+      A.arcade = true; A.abs = true; A.tc = 2; A.tcf = 0.95;
       A.cbcF = lerp(0.96, 0.58, cornerUse);
       A.cbcR = lerp(0.92, lerp(0.52, 0.78, this.drift), cornerUse);
       // Release rear grip for entry, then let it recover as the requested slide angle is reached.
@@ -4366,7 +4382,7 @@ function handleKeys(dt) {
   }
   const p = G.player; if (!p) return;
   if (takePress('KeyP') || (G.pad && G.pad.box)) {
-    if (!p.pit) { p.boxRequest = !p.boxRequest; if (p.boxRequest) { p.boxCompound = p.boxCompound || defaultBoxCompound(p, sess); pushMsg('BOX THIS LAP — choose tyres with 1-4', 'pit', 2.5); } else { p.autoDrive = false; pushMsg('Pit stop cancelled', 'info', 1.5); } }
+    if (!p.pit) { p.boxRequest = !p.boxRequest; if (p.boxRequest) { p.boxCompound = p.boxCompound || defaultBoxCompound(p, sess); pushMsg('BOX THIS LAP', 'pit', 2.5); } else { p.autoDrive = false; pushMsg('Pit stop cancelled', 'info', 1.5); } }
   }
   for (const [k, c] of [['Digit1', 'S'], ['Digit2', 'M'], ['Digit3', 'H'], ['Digit4', 'W']]) if (takePress(k) && p.boxRequest) p.boxCompound = c;
   const respawn = takePress('Space');
@@ -4380,7 +4396,7 @@ function handleKeys(dt) {
     G.camRig.init = false; pushMsg('Car respawned on track', 'warn', 2);
   }
   if (sess.type === 'quali') {
-    if (p.inGarage && !sess.sessionOver && (KEYS.KeyW || KEYS.ArrowUp || (G.pad && G.pad.throttle > 0.3))) { sess.releaseFromGarage(p); pushMsg('Out lap — warm the tyres', 'info', 2.5); }
+    if (p.inGarage && !sess.sessionOver && (KEYS.KeyW || KEYS.ArrowUp || (G.pad && G.pad.throttle > 0.3))) { sess.releaseFromGarage(p); }
     if (takePress('KeyK')) skipQuali();
   }
   G.lookBack = !!KEYS.KeyB;
@@ -4441,7 +4457,6 @@ function buildSettingsUI() {
   for (const f of SCHEMA) {
     const wrap = document.createElement('div'); wrap.className = 'field' + (f.wide ? ' wide' : '');
     const lab = document.createElement('label'); lab.textContent = f.label; wrap.appendChild(lab);
-    if (f.desc) { const d = document.createElement('div'); d.className = 'desc'; d.textContent = f.desc(); wrap._desc = d; }
     if (f.type === 'seg') {
       const seg = document.createElement('div'); seg.className = 'seg';
       for (const o of f.opts) {

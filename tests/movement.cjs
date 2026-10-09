@@ -45,8 +45,8 @@ test('W accelerates; releasing it coasts rather than applying full brakes', () =
 test('S stops and holds the car without selecting reverse or generating drive', () => {
   for (const input of [raw(0, 0, 1), raw(1, 0, 1), raw(0, 1, 1)]) {
     const r = run(rig(30), input, 8);
-    assert.ok(r.car.speed < 0.01);
-    assert.ok(r.car.u >= -0.01);
+    assert.equal(r.car.speed, 0);
+    assert.equal(r.car.u, 0);
     assert.equal(r.car.gear, 1);
     assert.equal(r.car.input.throttle, 0);
   }
@@ -131,4 +131,70 @@ test('physics produces the same movement with 30, 60 and 120 Hz frame grouping',
   });
   assert.deepEqual(snapshots[0], snapshots[1]);
   assert.deepEqual(snapshots[1], snapshots[2]);
+});
+
+// Targets come from the usable HUD segments in reference/poki-measurements.md.
+// Allow for integer HUD rounding and the reference renderer's clock/display lag.
+test('arcade acceleration matches the observed 35–158 km/h segment', () => {
+  const r = run(rig(35 / 3.6), raw(0, 1), 1.85);
+  assert.ok(r.car.speed * 3.6 > 145 && r.car.speed * 3.6 < 170);
+});
+
+test('coasting matches the observed 191–183 km/h segment', () => {
+  const r = run(rig(191 / 3.6), raw(), 0.63);
+  assert.ok(r.car.speed * 3.6 > 178 && r.car.speed * 3.6 < 188);
+  assert.equal(r.car.input.brake, 0);
+});
+
+test('S sheds speed progressively like the observed 58–17 km/h segment', () => {
+  const r = run(rig(58 / 3.6), raw(0, 0, 1), 2.69);
+  assert.ok(r.car.speed * 3.6 > 13 && r.car.speed * 3.6 < 23);
+  run(r, raw(0, 0, 1), 6);
+  assert.ok(r.car.speed < 0.01 && r.car.u >= -0.01);
+});
+
+test('arcade force respects fuel exhaustion and the pit limiter', () => {
+  const empty = rig(20); empty.car.fuel = 0;
+  run(empty, raw(0, 1), 2);
+  assert.ok(empty.car.speed < 20);
+  const pit = rig(30);
+  for (let i = 0; i < 480; i++) {
+    pit.handling.step(pit.car, dt, { lightsOut: true, wet: 0 }, raw(0, 1));
+    SIM.stepCarPhysics(pit.car, dt, track, { ...env, pitLimiter: true });
+  }
+  assert.ok(pit.car.speed < track.pit.limit + 0.5);
+});
+
+test('AI and autopilot continue to use the simulation drivetrain', () => {
+  const baselineContext = { module: { exports: {} } };
+  const previous = require('node:child_process').execFileSync('git', ['show', '7e96a57:index.html'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' });
+  vm.runInNewContext(previous.match(/<script>([\s\S]*?)<\/script>/)[1], baselineContext);
+  const baseline = baselineContext.module.exports;
+  for (const isPlayer of [false, true]) {
+    const cars = [SIM, baseline].map(core => {
+      const car = new core.Car({ driver: core.DRIVERS[0], isPlayer }, {});
+      car.vx = car.u = car.speed = 30;
+      car.input = { ...car.input, throttle: 1, brake: 0, steer: 0.05, ers: 0 };
+      if (isPlayer) car.aids = { abs: true, tc: 2, tcf: 0.95 };
+      for (let i = 0; i < 480; i++) core.stepCarPhysics(car, dt, track, env);
+      return ['x', 'z', 'psi', 'speed', 'r'].map(k => car[k]);
+    });
+    assert.deepEqual(cars[0], cars[1]);
+  }
+});
+
+test('ERS and DRS still improve arcade speed; loose surfaces slow acceleration', () => {
+  const standard = run(rig(60), raw(0, 1), 2);
+  const boost = rig(60); boost.car.input.ers = 2;
+  run(boost, raw(0, 1), 2);
+  assert.ok(boost.car.speed > standard.car.speed);
+  const drs = rig(60); drs.car.drsOpen = true;
+  run(drs, raw(0, 1), 2);
+  assert.ok(drs.car.speed > standard.car.speed);
+  const gravel = rig(60);
+  for (let i = 0; i < 480; i++) {
+    gravel.handling.step(gravel.car, dt, { lightsOut: true, wet: 0 }, raw(0, 1));
+    SIM.stepCarPhysics(gravel.car, dt, { ...track, surfaceAt: () => 3 }, env);
+  }
+  assert.ok(gravel.car.speed < standard.car.speed);
 });
