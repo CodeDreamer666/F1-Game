@@ -1122,9 +1122,10 @@ const SIM = (function () {
       this.pitOnly = !!opts.pitOnly; // used for player autopilot
       const diff = race.difficulty;
       const p = this.p;
-      this.commit = lerp(0.86, 0.955, diff) - (1 - p.pace) * 0.05;
-      this.brakeCommit = lerp(0.84, 0.985, diff) * (0.965 + 0.035 * p.brake);
+      this.commit = lerp(0.72, 0.915, diff) - (1 - p.pace) * 0.05;
+      this.brakeCommit = lerp(0.72, 0.93, diff) * (0.965 + 0.035 * p.brake);
       this.mistakeScale = lerp(1.7, 0.55, diff);
+      this.segMax = 1 + 0.08 * diff * (0.6 + 0.4 * p.pace); // how far a driver will learn to push beyond the safe estimate
       this.reaction = lerp(0.42, 0.18, p.start) + rand(0, 0.08);
       this.laneD = 0; this.laneW = 0; this.laneWTarget = 0;
       this.steerI = 0; this.vEnv = 110; this.vLimit = 105; this.brakeMod = 1; this.tcCap = 1; this.tcTimer = 0;
@@ -1133,7 +1134,7 @@ const SIM = (function () {
       const nseg = Math.ceil(this.track.length / 50);
       this.segAdj = new Float32Array(nseg).fill(1);
       if (race.segBase) this.segAdj.set(race.segBase);
-      this.segStat = { seg: -1, maxU: 0, maxErr: 0, off: false };
+      this.segStat = { seg: -1, maxU: 0, maxErr: 0, off: false, maxSat: 0 };
       this.tick = car.id % 24;
       this.neighbors = []; this.attackTarget = null; this.defending = false; this.defMoveUsed = false; this.lastDefendCorner = -1;
       this.followTime = 0; this.plan = null; this.boxThisLap = false; this.lastPlanLap = -1;
@@ -1366,12 +1367,13 @@ const SIM = (function () {
         const clean = !this.neighbors.some(nn => nn.ds > -8 && nn.ds < 45 && !nn.o.pit);
         if (st.seg >= 0 && clean && !this.mistake && this.mode === 'race' && this.laneW < 0.3 && !car.pit && car.speed > 15 && !this.race.lap1Caution(car)) {
           const n = this.segAdj.length;
-          if (st.off || st.maxErr > 2.2 || st.maxU > 1.6) { this.segAdj[st.seg] = Math.max(0.82, this.segAdj[st.seg] - 0.02); for (let k = 1; k <= 3; k++) { const pv = (st.seg - k + n) % n; this.segAdj[pv] = Math.max(0.82, this.segAdj[pv] - 0.012 / k); } }
-          else if (st.maxU < 1.05 && st.maxErr < 0.9) this.segAdj[st.seg] = Math.min(1.08, this.segAdj[st.seg] + 0.006);
+          if (st.off || st.maxErr > 2.2 || st.maxU > 1.6 || st.maxSat > 0.03) { this.segAdj[st.seg] = Math.max(0.82, this.segAdj[st.seg] - 0.02); for (let k = 1; k <= 3; k++) { const pv = (st.seg - k + n) % n; this.segAdj[pv] = Math.max(0.82, this.segAdj[pv] - 0.012 / k); } }
+          else if (st.maxU < 1.05 && st.maxErr < 0.9 && st.maxSat < 0.01) this.segAdj[st.seg] = Math.min(this.segMax, this.segAdj[st.seg] + 0.006);
         }
-        st.seg = segI; st.maxU = 0; st.maxErr = 0; st.off = false;
+        st.seg = segI; st.maxU = 0; st.maxErr = 0; st.off = false; st.maxSat = 0;
       }
       const u = Math.max(car.util[0], car.util[1], car.util[2], car.util[3]);
+      if (this.steerSat > (st.maxSat || 0)) st.maxSat = this.steerSat;
       if (u > st.maxU) st.maxU = u; if (Math.abs(latErr) > st.maxErr) st.maxErr = Math.abs(latErr); if (offTrack) st.off = true;
     }
     recover(dt, hErr, offTrack) {
@@ -1972,7 +1974,7 @@ const SIM = (function () {
         const t = this.track; const ds = t.dS(A.s, B.s);
         const [rear, frontCar] = ds > 0 ? [A, B] : [B, A];
         const closing = rear.speed - frontCar.speed;
-        if (closing > 7 && Math.abs(t.dS(A.s, B.s)) > 3 && !rear.pit) {
+        if (closing > 9 && j > 5000 && Math.abs(t.dS(A.s, B.s)) > 3 && !rear.pit) {
           if (!rear.lastColPen || this.time - rear.lastColPen > 10) { rear.lastColPen = this.time; frontCar.victimAt = this.time; rear.pendingColPen = { victim: frontCar, t: this.time, v0: frontCar.speed }; }
         }
       }
@@ -2019,9 +2021,13 @@ const SIM = (function () {
           const idx = c.tpLast;
           const lt = lead.tp[idx + 200], ct = c.tp[idx + 200];
           c.lapsDown = Math.floor((lead.totalDist - c.totalDist) / t.length);
-          c.gapLeader = (lt != null && ct != null) ? ct - lt : 0;
-          const a = order[k - 1]; const at = a.tp[idx + 200];
-          c.intervalAhead = (at != null && ct != null) ? ct - at : 99;
+          let gl = (lt != null && ct != null) ? ct - lt : 0;
+          const ltN = lead.tp[idx + 201]; if (ltN != null) gl = Math.max(gl, this.time - ltN); // stale timing loops: lower bound
+          const a = order[k - 1];
+          c.gapLeader = Math.max(gl, a.gapLeader || 0);
+          const at = a.tp[idx + 200]; let iv = (at != null && ct != null) ? ct - at : 99;
+          const atN = a.tp[idx + 201]; if (atN != null) iv = Math.max(iv, this.time - atN);
+          c.intervalAhead = iv;
           if (c.finished && a.finished) c.intervalAhead = c.finishTime - a.finishTime;
         }
         // overtakes count & yellow flag overtakes
@@ -2045,7 +2051,7 @@ const SIM = (function () {
         for (const c of this.cars) {
           const pc = c.pendingColPen; if (!pc) continue;
           if (this.time - pc.t > 3) {
-            const v = pc.victim; if ((v.ai && v.ai.mode === 'recover') || v.spun || v.speed < pc.v0 - 18 || v.damage.wing > 0.3) this.addPenalty(c, 5, 'Causing a collision');
+            const v = pc.victim; if ((v.ai && v.ai.mode === 'recover') || v.spun || v.damage.wing > 0.35 || v.dnf) this.addPenalty(c, 5, 'Causing a collision');
             c.pendingColPen = null;
           }
         }
