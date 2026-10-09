@@ -165,22 +165,55 @@ test('arcade force respects fuel exhaustion and the pit limiter', () => {
   assert.ok(pit.car.speed < track.pit.limit + 0.5);
 });
 
-test('AI and autopilot continue to use the simulation drivetrain', () => {
-  const baselineContext = { module: { exports: {} } };
-  const previous = require('node:child_process').execFileSync('git', ['show', '7e96a57:index.html'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' });
-  vm.runInNewContext(previous.match(/<script>([\s\S]*?)<\/script>/)[1], baselineContext);
-  const baseline = baselineContext.module.exports;
-  for (const isPlayer of [false, true]) {
-    const cars = [SIM, baseline].map(core => {
-      const car = new core.Car({ driver: core.DRIVERS[0], isPlayer }, {});
-      car.vx = car.u = car.speed = 30;
-      car.input = { ...car.input, throttle: 1, brake: 0, steer: 0.05, ers: 0 };
-      if (isPlayer) car.aids = { abs: true, tc: 2, tcf: 0.95 };
-      for (let i = 0; i < 480; i++) core.stepCarPhysics(car, dt, track, env);
-      return ['x', 'z', 'psi', 'speed', 'r'].map(k => car[k]);
-    });
-    assert.deepEqual(cars[0], cars[1]);
+function headlessRace(count, cfg = {}) {
+  const realTrack = new SIM.Track(SIM.TRACK_DEF);
+  const entries = SIM.DRIVERS.slice(0, count).map(driver => ({ driver }));
+  return new SIM.Session(realTrack, { type: 'race', laps: 1, difficulty: 0.8, entries, seed: 7, spectate: true, ...cfg });
+}
+
+test('bots drive through the same arcade handling as the player', () => {
+  const sess = headlessRace(4);
+  for (let frame = 0; frame < 60 * 110 && !sess.over; frame++) {
+    sess.update(1 / 60, 1, 1e9);
+    if (!sess.lightsOut) continue;
+    for (const car of sess.cars) {
+      assert.ok(car.ai.handling instanceof SIM.PlayerHandling);
+      assert.equal(car.aids.arcade, true);
+      assert.ok(car.gear >= 1, 'bots never reverse, like the player');
+      assert.notEqual(car.ai.mode, 'recover');
+    }
   }
+  assert.ok(sess.over, 'every bot finished the lap');
+  for (const car of sess.cars) assert.ok(car.finished && !car.dnf && car.penaltyLog.length === 0);
+});
+
+test('a bot command reaches the car exactly as the same player input would', () => {
+  const player = rig(40), bot = rig(40);
+  const sess = { lightsOut: true, wet: 0 };
+  const ai = new SIM.AIDriver(bot.car, { track: { length: 1000 }, difficulty: 0.8 });
+  for (let step = 0; step < 720; step++) {
+    const cmd = { steer: Math.sin(step / 90), throttle: step % 300 < 200 ? 1 : 0, brake: step % 300 >= 240 ? 0.6 : 0, analog: true };
+    player.handling.step(player.car, dt, sess, cmd);
+    Object.assign(ai.cmd, cmd); ai.handling.step(bot.car, dt, sess, ai.cmd);
+    SIM.stepCarPhysics(player.car, dt, track, env);
+    SIM.stepCarPhysics(bot.car, dt, track, env);
+  }
+  assert.deepEqual(['x', 'z', 'psi', 'speed', 'r'].map(k => bot.car[k]), ['x', 'z', 'psi', 'speed', 'r'].map(k => player.car[k]));
+});
+
+test('the pit autopilot stops in the box using the arcade handling', () => {
+  const sess = headlessRace(2, { laps: 2, spectate: false, entries: [{ driver: SIM.DRIVERS[0] }, { driver: SIM.DRIVERS[1], isPlayer: true }] });
+  const p = sess.player; p.autoDrive = true; p.boxRequest = true; p.boxCompound = 'H';
+  let stopped = false;
+  for (let frame = 0; frame < 60 * 200 && !sess.over; frame++) {
+    p.autopilot.boxThisLap = p.boxRequest;
+    sess.update(1 / 60, 1, 1e9);
+    if (sess.lightsOut && !p.inGarage) assert.equal(p.aids.arcade, true);
+    if (p.pit && p.pit.phase === 'stopped') stopped = true;
+  }
+  assert.ok(stopped);
+  assert.equal(p.pitStops, 1);
+  assert.equal(p.tyre.c, 'H');
 });
 
 test('ERS and DRS still improve arcade speed; loose surfaces slow acceleration', () => {

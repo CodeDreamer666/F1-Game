@@ -796,7 +796,7 @@ const SIM = (function () {
       const wf = w < 0.7 ? 1 - 0.07 * w / 0.7 : Math.max(0.6, 0.93 - 0.9 * (w - 0.7));
       return mu * tf * wf;
     }
-    gripEstimate(wet) { const m = [0, 1, 2, 3].map(i => this.tyreMu(i, wet)); const f = (m[0] + m[1]) / 2, r = (m[2] + m[3]) / 2; return 0.5 * (f + r) / 2 + 0.5 * Math.min(f, r); }
+    gripEstimate(wet) { const f = (this.tyreMu(0, wet) + this.tyreMu(1, wet)) / 2, r = (this.tyreMu(2, wet) + this.tyreMu(3, wet)) / 2; return 0.5 * (f + r) / 2 + 0.5 * Math.min(f, r); }
     effClA() { return SPEC.clA * this.team.clA * this.downMul * (1 - 0.18 * this.damage.wing - 0.25 * this.damage.floor) * (this.drsOpen ? 0.9 : 1); }
     effCdA() { return SPEC.cdA * this.team.cdA * this.dragMul * (this.drsOpen ? 0.8 : 1) * (1 + 0.05 * this.damage.wing); }
   }
@@ -959,7 +959,7 @@ const SIM = (function () {
       car.wheelRot[i] += lon / sp.Rw * dt * (car.lock[i] ? 0 : 1) + (car.spin[i] ? 25 * dt : 0);
     }
     FxSum -= drag;
-    // ---- stability control (player handling only, see PlayerHandling) ----
+    // ---- stability control (arcade handling, see PlayerHandling) ----
     // Lets the car slide up to an allowed body slip angle and pushes back, with a yaw moment bounded by a
     // fraction of the tyres' cornering grip, when the predicted slide goes past it. It never adds rotation
     // the slide does not already have, so it catches spins and straightens the car after a slide.
@@ -975,11 +975,11 @@ const SIM = (function () {
         Mz += Ms; car.stabMz = Ms;
       }
     }
-    // Arcade longitudinal response for manual player control. This is a force,
+    // Arcade longitudinal response, shared by the player, the bots and the autopilot. This is a force,
     // not a velocity/position rewrite. Arcade yaw/slide forces below replace
     // the summed lateral tyre forces; collision impulses still act.
     // The measured reference launches much harder than the simulation drivetrain
-    // and its braking force falls with speed. Autopilot/AI retain their drivetrain.
+    // and its braking force falls with speed.
     if (car.aids && car.aids.arcade) {
       const H = HANDLING;
       let surface = 0; for (let i = 0; i < 4; i++) surface += SURF_MU[car.surf[i]]; surface /= 4;
@@ -1041,7 +1041,8 @@ const SIM = (function () {
   }
 
   /* ------------------------------------------------------------------
-     PLAYER HANDLING — planted arcade steering for the human driver.
+     PLAYER HANDLING — planted arcade steering. Every car uses it: the human driver presses the keys,
+     the bots (AIDriver) and the player's pit autopilot press the same controls through their own instance.
      Pedals are manual: steering never applies brakes or imposes a corner speed target.
      S brakes only. W + S + a steering direction requests a controlled, speed-sensitive drift.
      Runs at the physics rate; arcade pedal, yaw and slide forces, with collisions.
@@ -1091,9 +1092,43 @@ const SIM = (function () {
     driftAngle: [0.12, 0.08], driftIn: 10, driftOut: 10, driftThrottle: 0.18,
     thUp: 4.5, thDown: 14, brUp: 12, brDown: 16,
   };
+  // Yaw-rate ceiling of the arcade handling at speed u (m/s) for a grip level mu (tyre grip × surface).
+  // Full steering input requests this rate; partial input requests shape(input) × this rate.
+  const ARCADE_KGEOM = Math.tan(0.9 * SPEC.maxLock) / SPEC.L; // yaw rate per m/s of the steering lock
+  function arcadeTurnCap(u, mu, drift = 0, speed = u) {
+    const H = HANDLING, vN = clamp((speed - 12) / 58, 0, 1);
+    const turnGrip = clamp(mu / 1.6, 0.45, 1.05);
+    const rate = (H.turnRate[0] + (H.turnRate[1] - H.turnRate[0]) * vN) * turnGrip * (1 + (H.driftTurn - 1) * drift);
+    return Math.min(rate, Math.max(0, u) * ARCADE_KGEOM);
+  }
+  // Steering exponent of the arcade handling at speed u: steer input s requests sign(s) × |s|^exponent of the cap.
+  function arcadeSteerShape(u) { return lerp(...HANDLING.shape, clamp((u - 12) / 58, 0, 1)); }
+  // Highest speed at which the arcade handling can hold path curvature kap using the fraction `use` of its yaw ceiling
+  // (solves v = cap(v) × use / |kap|; the cap falls linearly between 12 and 70 m/s).
+  function arcadeCornerSpeed(kap, mu, use) {
+    const k = Math.abs(kap); if (k < 1e-5) return 110;
+    if (k >= ARCADE_KGEOM * use) return 4;
+    const [r0, r1] = HANDLING.turnRate, A = clamp(mu / 1.6, 0.45, 1.05) * use / k;
+    let v = A * r0;
+    if (v > 12) { const g = (r1 - r0) / 58; v = A * (r0 - 12 * g) / (1 - A * g); if (!(v > 0) || v > 70) v = A * r1; }
+    return Math.min(110, v);
+  }
+  // Arcade deceleration with full brake at speed u (brake + coast, rolling resistance ignored).
+  function arcadeBrakeDecel(u) { return Math.max(HANDLING.brakeFloor, u * HANDLING.brakeRate) + HANDLING.coastRate * u; }
+  // Highest speed from which full arcade braking (scaled by `use`) stops within dist metres.
+  function arcadeStopSpeed(dist, use = 1) {
+    if (dist <= 0) return 0;
+    const H = HANDLING, v0 = H.brakeFloor / H.brakeRate, a0 = arcadeBrakeDecel(v0) * use, d0 = v0 * v0 / (2 * a0);
+    return dist <= d0 ? Math.sqrt(2 * a0 * dist) : v0 + (H.brakeRate + H.coastRate) * use * (dist - d0);
+  }
   class PlayerHandling {
     constructor() { this.reset(); }
-    reset() { this.steer = 0; this.th = 0; this.br = 0; this.rDes = 0; this.drift = 0; }
+    reset() { this.steer = 0; this.th = 0; this.br = 0; this.rDes = 0; this.drift = 0; this.mu = 0; }
+    // grip the arcade steering works with: tyre grip on the surface under the car
+    grip(car, wet) {
+      let sm = 0; for (let i = 0; i < 4; i++) sm += SURF_MU[car.surf[i]]; sm /= 4;
+      return Math.max(0.4, car.gripEstimate(wet)) * sm;
+    }
     // raw: { steer -1..1, throttle 0..1, brake 0..1, analog }
     step(car, dt, sess, raw) {
       const H = HANDLING, sp = SPEC, inp = car.input;
@@ -1103,7 +1138,7 @@ const SIM = (function () {
       // entry/return transient; stacking a pedal-style input ramp hid brief taps.
       this.steer = raw.analog ? this.steer + clamp(tgt - this.steer, -12 * dt, 12 * dt) : tgt;
       const sA = Math.abs(this.steer);
-      const shaped = Math.sign(this.steer) * Math.pow(sA, lerp(...H.shape, vN));
+      const shaped = Math.sign(this.steer) * Math.pow(sA, arcadeSteerShape(spd));
       const thRaw = clamp(raw.throttle, 0, 1), brRaw = clamp(raw.brake, 0, 1);
       // Only the explicit three-key combination drifts; S alone always brakes.
       const driftHeld = thRaw > 0.5 && brRaw > 0.5 && Math.abs(tgt) > 0.15 && spd > 8 && u > 4 && sess.lightsOut && !car.pit;
@@ -1118,15 +1153,12 @@ const SIM = (function () {
       const br = this.br;
       // The player's S key never selects reverse or applies reverse drive torque.
       if (car.gear < 1) car.gear = 1;
-      let sm = 0; for (let i = 0; i < 4; i++) sm += SURF_MU[car.surf[i]]; sm /= 4;
-      const mu = Math.max(0.4, car.gripEstimate(wet)) * sm;
+      const mu = this.grip(car, wet); this.mu = mu;
       const kA = 0.5 * RHO * car.effClA() / car.mass, uu = Math.max(u, 3);
       const rGrip = mu * (G + kA * uu * uu) / uu;
-      const rGeom = Math.max(0, u) * Math.tan(0.9 * sp.maxLock) / sp.L;
       // The reference rotates promptly, rather than waiting for the full tyre
       // model to build yaw. Preserve speed sensitivity and stationary behavior.
-      const turnGrip = clamp(mu / 1.6, 0.45, 1.05);
-      const rCap = Math.min(lerp(...H.turnRate, vN) * turnGrip * lerp(1, H.driftTurn, this.drift), rGeom);
+      const rCap = arcadeTurnCap(u, mu, this.drift, spd);
       const rDes = shaped * rCap; this.rDes = rDes;
       const beta = Math.atan2(car.v, Math.max(Math.abs(u), 3));
       const driftAngle = lerp(...H.driftAngle, vN);
@@ -1307,9 +1339,12 @@ const SIM = (function () {
       this.segMax = 1 + 0.08 * diff * (0.6 + 0.4 * p.pace); // how far a driver will learn to push beyond the safe estimate
       this.reaction = lerp(0.42, 0.18, p.start) + rand(0, 0.08);
       this.laneD = 0; this.laneW = 0; this.laneWTarget = 0;
-      this.steerI = 0; this.vEnv = 110; this.vLimit = 105; this.brakeMod = 1; this.tcCap = 1; this.tcTimer = 0;
-      this.mode = 'race'; this.recoverT = 0; this.stuckT = 0; this.reverseT = 0; this.waitT = 0;
-      this.mistake = null; this.mistakeT = 0; this.lastBraking = false; this.lockT = 0; this.lastCornerRoll = -1;
+      this.vEnv = 110; this.vLimit = 105; this.yawUse = 0;
+      this.mode = 'race'; this.recoverT = 0; this.stuckT = 0; this.waitT = 0;
+      this.mistake = null; this.mistakeT = 0; this.lastCornerRoll = -1;
+      // The bot drives the player's car: it presses the same three controls (steer, throttle, brake)
+      // and they go through the same PlayerHandling the human driver uses.
+      this.handling = new PlayerHandling(); this.cmd = { steer: 0, throttle: 0, brake: 0, analog: true };
       const nseg = Math.ceil(this.track.length / 50);
       this.segAdj = new Float32Array(nseg).fill(1);
       if (race.segBase) this.segAdj.set(race.segBase);
@@ -1318,7 +1353,6 @@ const SIM = (function () {
       this.neighbors = []; this.attackTarget = null; this.defending = false; this.defMoveUsed = false; this.lastDefendCorner = -1;
       this.followTime = 0; this.plan = null; this.boxThisLap = false; this.lastPlanLap = -1;
       this.pressure = 0; this.blue = false; this.pushMode = 0;
-      this.steerOut = 0;
     }
     get diffComp() { return this.race.difficulty; }
     dPlanAt(i) {
@@ -1340,18 +1374,23 @@ const SIM = (function () {
       return lerp(k0, Math.abs(kl) > Math.abs(k0) ? kl : (k0 + kl) / 2, this.laneW);
     }
     update(dt, step) {
+      this.decide(dt, step);
+      this.handling.step(this.car, dt, this.race, this.cmd);
+    }
+    // the bot's driving decisions, written to this.cmd as the raw controls a player would press
+    decide(dt, step) {
       const car = this.car, race = this.race, t = this.track;
-      const inp = car.input; inp.auto = true;
+      const inp = this.cmd; car.input.auto = true;
       if (car.inGarage) { inp.throttle = 0; inp.brake = 1; inp.steer = 0; return; }
       const fresh = this.lastStep !== step - 1; this.lastStep = step;
       if ((step + this.tick) % 24 === 0 || fresh) this.tactical();
       if (fresh) { this.computeEnvelope(); this.vFollow = this.followLimit(this.neighbors, !!car.pit); this.laneW = 0; }
       // ---- race start hold ----
       if (race.type === 'race' && !race.lightsOut) {
-        inp.brake = 1; inp.throttle = 0.35; inp.steer = 0; car.gear = 1; return;
+        inp.brake = 1; inp.throttle = 0; inp.steer = 0; car.gear = 1; return;
       }
       if (race.type === 'race' && race.time - race.lightsOutTime < this.reaction && !this.pitOnly) {
-        inp.brake = 1; inp.throttle = 0.4; return;
+        inp.brake = 1; inp.throttle = 0; inp.steer = 0; return;
       }
       const speed = car.speed;
       // ---- recovery detection ----
@@ -1359,80 +1398,48 @@ const SIM = (function () {
       const offTrack = Math.abs(car.d) > t.halfW + 1.5 && !car.pit;
       if (this.mode !== 'recover' && !car.pit && (Math.abs(hErr) > 1.25 || (offTrack && speed < 8 && race.time > 5))) { this.mode = 'recover'; this.recoverT = 0; car.spun = Math.abs(hErr) > 1.25; }
       if (this.mode === 'recover') { this.recover(dt, hErr, offTrack); return; }
-      // ---- steering (pure pursuit) ----
+      // ---- steering (pure pursuit on the arcade yaw-rate steering) ----
+      // Full steering asks the handling for its yaw-rate ceiling; the bot presses the fraction it needs.
       const Ld = 9 + 0.34 * speed;
       const iL = t.wrapI(car.idx + Math.round(Ld / DS));
       const dT = this.dPlanAt(iL);
       const Px = t.cx[iL] + t.rx[iL] * dT, Pz = t.cz[iL] + t.rz[iL] * dT;
       const c = Math.cos(car.psi), s = Math.sin(car.psi);
-      const fx = car.x + c * 0.8, fz = car.z + s * 0.8;
-      const lx = (Px - fx) * c + (Pz - fz) * s, ly = -(Px - fx) * s + (Pz - fz) * c;
+      const lx = (Px - car.x) * c + (Pz - car.z) * s, ly = -(Px - car.x) * s + (Pz - car.z) * c;
       const dist = Math.max(4, Math.hypot(lx, ly));
       const alpha = Math.atan2(ly, lx);
-      let delta = Math.atan(2 * SPEC.L * Math.sin(alpha) / dist);
-      // add steady-state slip angle compensation (understeer gradient) and yaw damping
-      const rDes = speed * 2 * Math.sin(alpha) / dist;
-      delta += 0.0025 * rDes * speed * 0.35;
-      delta -= 0.055 * (car.r - rDes) * (0.75 + 0.5 * this.p.craft);
-      // lateral error integral (small)
       const dNow = this.dPlanAt(car.idx);
       const latErr = car.d - dNow;
-      this.steerI = clamp(this.steerI + latErr * dt * 0.002, -0.03, 0.03);
-      delta -= this.steerI;
-      // counter steer on big rear slip
-      const rearSlip = (car.slipA[2] + car.slipA[3]) / 2;
-      // never ask the front tyres for more than ~peak slip angle (drivers feel the limit)
-      if (speed > 6) {
-        const betaF = Math.atan2(car.v + car.r * SPEC.a, Math.max(car.u, 3));
-        const aPk = SPEC.aPk * (0.92 + 0.1 * this.p.craft);
-        const dc = clamp(delta, betaF - aPk, betaF + aPk);
-        this.steerSat = Math.abs(delta - dc); delta = dc;
-        // catch oversteer: steer into the slide (front slip toward zero / opposite)
-        const overs = Math.abs(rearSlip) - 0.075;
-        if (overs > 0) {
-          const w = clamp(overs * 14, 0, 1) * (0.65 + 0.35 * this.p.craft);
-          delta = lerp(delta, betaF - Math.sign(car.r) * 0.035, w);
-        }
-      } else this.steerSat = 0;
-      inp.steer = clamp(delta / SPEC.maxLock, -1, 1);
+      const rDes = Math.max(car.u, 0) * 2 * Math.sin(alpha) / dist;
+      const grip = this.handling.mu || this.handling.grip(car, race.wet); // as the handling measured it last step
+      const rCap = arcadeTurnCap(car.u, grip, 0, speed);
+      const use = Math.abs(rDes) / Math.max(rCap, 1e-3);
+      this.yawUse = use; this.steerSat = speed > 6 ? Math.max(0, use - 1) : 0;
+      inp.steer = rCap > 1e-3 ? Math.sign(rDes) * Math.pow(Math.min(1, use), 1 / arcadeSteerShape(speed)) : clamp(alpha * 2, -1, 1);
       // ---- speed envelope ----
       if ((step + this.tick) % 4 === 0) { this.computeEnvelope(); this.vFollow = this.followLimit(this.neighbors, !!car.pit); }
       let vT = Math.min(this.vEnv, this.vLimit, this.vFollow != null ? this.vFollow : 110);
-      if (this.muEst && this.mode === 'race') { const kNeed = 2 * Math.sin(alpha) / dist; vT = Math.min(vT, t.vCorner(kNeed, this.muEst * 1.04, this.kA)); }
+      if (this.cornerUse && this.mode === 'race') { const kNeed = 2 * Math.sin(alpha) / dist; vT = Math.min(vT, arcadeCornerSpeed(kNeed, grip, Math.min(1, this.cornerUse * 1.04))); }
       if (car.pit || this.pitting) vT = Math.min(vT, this.pitSpeed());
       if (race.type === 'race' && race.finishedFlag && car.finished) vT = Math.min(vT, 45);
       // ---- throttle / brake ----
       const dv = vT - speed;
-      // brake lock modulation
-      const lockF = car.lock[0] && car.lock[1], lockR = car.lock[2] || car.lock[3];
-      const noMod = this.mistake && this.mistake.type === 'lock' && this.mistakeT > 0;
-      const floorB = 0.25;
-      if ((lockF || lockR) && !noMod) { if (this.lockT <= 0) { this.brakeMod = Math.max(floorB, Math.min(this.brakeMod, car.brake) * (0.86 + 0.06 * this.p.brake)); this.lockT = 0.12 + 0.12 * (1 - this.p.brake); } }
-      else this.brakeMod = Math.min(1, this.brakeMod + dt * (0.8 + 0.8 * this.p.brake));
-      this.lockT -= dt;
-      // traction management
-      const spin = car.spin[2] || car.spin[3];
-      const noTC = this.mistake && this.mistake.type === 'throttle' && this.mistakeT > 0;
-      if (spin && !noTC) { this.tcCap = Math.max(0.25, this.tcCap - dt * (4 + 6 * this.p.craft)); this.tcTimer = 0.25; }
-      else { this.tcTimer -= dt; if (this.tcTimer <= 0) this.tcCap = Math.min(1, this.tcCap + dt * 1.5); }
+      const overBrake = this.mistake && this.mistake.type === 'lock' && this.mistakeT > 0;
+      const earlyThrottle = this.mistake && this.mistake.type === 'throttle' && this.mistakeT > 0;
       if (dv < -0.25) {
-        const want = clamp(-dv * 0.3 + 0.7, 0, 1);
-        inp.brake = Math.min(want, noMod ? 1 : this.brakeMod * (this.pedalOpt || 1)); inp.throttle = 0;
-        if (Math.abs(rearSlip) > 0.085 && !noMod) inp.brake *= clamp(1 - (Math.abs(rearSlip) - 0.085) * 8, 0.3, 1);
+        inp.brake = overBrake ? 1 : clamp(-dv * 0.3 + 0.7, 0, 1); inp.throttle = 0;
       } else {
         inp.brake = 0;
         let th = clamp(dv * 0.35 + 0.15, 0, 1);
-        // limit throttle when rear is sliding a lot (oversteer)
-        if (Math.abs(rearSlip) > 0.09) th *= clamp(1 - (Math.abs(rearSlip) - 0.09) * 6, 0.2, 1);
-        th = Math.min(th, noTC ? 1 : this.tcCap);
+        // out of steering: ease off, then brake lightly, until the turn is back within reach
         if (this.steerSat > 0.01) th *= clamp(1 - this.steerSat * 12, 0, 1);
-        if (this.steerSat > 0.12 && speed > 15) { th = 0; inp.brake = Math.min(0.25, (this.pedalOpt || 0.3) * 0.5); }
-        if (noTC && dv > 0) th = 1;
+        if (this.steerSat > 0.12 && speed > 15) { th = 0; inp.brake = 0.25; }
+        if (earlyThrottle && dv > 0) th = 1;
         inp.throttle = th;
       }
       // drs / ers
-      inp.drs = car.drsAvail;
-      inp.ers = this.ersMode();
+      car.input.drs = car.drsAvail;
+      car.input.ers = this.ersMode();
       // ---- mistake timers ----
       if (this.mistakeT > 0) { this.mistakeT -= dt; if (this.mistakeT <= 0) this.mistake = null; }
       const nc = t.nextCorner[car.idx];
@@ -1445,53 +1452,39 @@ const SIM = (function () {
     }
     headingError() { const t = this.track, car = this.car; let h = car.psi - t.heading[car.idx]; h = Math.atan2(Math.sin(h), Math.cos(h)); return h; }
     computeEnvelope() {
+      // Speed envelope for the arcade handling: corner speed comes from the steering's yaw-rate ceiling,
+      // braking from the arcade brake + coast deceleration.
       const car = this.car, t = this.track, race = this.race;
-      const m = car.mass; const clA = car.effClA() / (car.drsOpen ? 0.9 : 1); const kA = 0.5 * RHO * clA / m; const kD = 0.5 * RHO * car.effCdA() / m;
-      let muEst = car.gripEstimate(race.wet) * this.commit;
+      let commit = this.commit;
       // tyre management: back off slightly unless pushing
       if (race.type === 'race' && !this.pitOnly) {
         const mgmt = this.pushMode > 0 ? 0 : 0.012 * this.p.tyre * (this.attackTarget ? 0.3 : 1);
-        muEst *= 1 - mgmt;
-        if (race.lap1Caution(car)) muEst *= 0.975;
+        commit *= 1 - mgmt;
+        if (race.lap1Caution(car)) commit *= 0.975;
       }
-      if (race.type === 'quali' && this.qPhase === 'out') muEst *= 0.9;
-      if (race.wet) muEst *= 0.985;
+      if (race.type === 'quali' && this.qPhase === 'out') commit *= 0.9;
+      if (race.wet) commit *= 0.985;
+      // share of the steering's yaw-rate ceiling the driver will use in a corner (corner speed scales with
+      // it linearly, so the square root keeps the old grip-commitment spread between drivers)
+      const cornerUse = Math.sqrt(commit);
       let brakeC = this.brakeCommit; if (race.wet) brakeC *= 0.95;
       if (this.mistake && this.mistake.type === 'late' && this.mistakeT > 0) brakeC *= this.mistake.f;
+      const mu = car.gripEstimate(race.wet);
       const v = car.speed;
       const seg = (i) => this.segAdj[Math.floor(i * DS / 50) % this.segAdj.length];
-      const look = Math.min(180, 30 + Math.round(v * v / 55 / DS)) & ~1;
+      const look = Math.min(180, 30 + Math.round(v / ((HANDLING.brakeRate + HANDLING.coastRate) * brakeC) / DS)) & ~1;
       let vNext = 110;
       for (let j = look; j >= 0; j -= 2) {
         const i = t.wrapI(car.idx + j);
-        const kap = this.kappaAt(i);
-        const sa = seg(i);
-        let vc = t.vCorner(kap, muEst * sa, kA);
+        let vc = arcadeCornerSpeed(this.kappaAt(i), mu, Math.min(1, cornerUse * seg(i)));
         if (race.yellowAt(i) && !car.pit) vc *= 0.93;
         if (j === look) { vNext = vc; continue; }
         const dist = t.rlDist(i, t.wrapI(i + 2));
-        const vv = vNext; let va = vv, vm = vv;
-        for (let it = 0; it < 2; it++) {
-          const aTot = muEst * sa * (G + kA * vm * vm);
-          const aLat = vm * vm * Math.abs(kap);
-          const aLon = Math.sqrt(Math.max(aTot * aTot - aLat * aLat, 0.04 * aTot * aTot));
-          const aB = (aLon * 0.97 + kD * vm * vm) * brakeC;
-          va = Math.sqrt(vv * vv + 2 * aB * dist); vm = va;
-        }
-        vNext = Math.min(vc, va);
+        // above walking pace arcade braking sheds a fixed amount of speed per metre
+        vNext = Math.min(vc, vNext + (HANDLING.brakeRate + HANDLING.coastRate) * brakeC * dist);
       }
-      const vEnv = vNext;
-      this.muEst = muEst; this.kA = kA;
-      // optimal brake pedal: what the tyres can take at the current speed (drivers bleed off the pedal as downforce drops)
-      const q = 0.5 * RHO * v * v * clA, W = m * G;
-      const aMax = muEst * (W + q) / m;
-      const ffL = W * SPEC.b / SPEC.L + q * SPEC.aeroBal + m * aMax * SPEC.h / SPEC.L;
-      const frL = W * SPEC.a / SPEC.L + q * (1 - SPEC.aeroBal) - m * aMax * SPEC.h / SPEC.L;
-      const latFrac = Math.min(0.9, Math.abs(car.ayL) / Math.max(aMax, 1));
-      const g0 = car.gripEstimate(race.wet) * 0.98 * (1 - 0.35 * latFrac * latFrac);
-      const pF = g0 * ffL / (SPEC.brakeBias * SPEC.brakeMax), pR = g0 * Math.max(frL, 500) / ((1 - SPEC.brakeBias) * SPEC.brakeMax);
-      this.pedalOpt = clamp(Math.min(pF * 1.06, pR) * (0.95 + 0.06 * this.p.brake), 0.15, 1);
-      this.vEnv = vEnv;
+      this.cornerUse = cornerUse;
+      this.vEnv = vNext;
     }
     pitSpeed() {
       const car = this.car, t = this.track; const p = t.pit;
@@ -1500,14 +1493,14 @@ const SIM = (function () {
       if (q >= 0) {
         // approaching limiter line
         const toLim = p.E - 8 - q;
-        if (toLim > 0) v = Math.sqrt(p.limit * p.limit + 2 * 22 * toLim); else if (q <= p.len - p.X + 6) v = p.limit - 0.6;
+        if (toLim > 0) v = p.limit + (HANDLING.brakeRate + HANDLING.coastRate) * 0.85 * toLim; else if (q <= p.len - p.X + 6) v = p.limit - 0.6;
       } else if (this.pitting) {
         const toEntry = t.dS(s, p.entry0); const toLim = toEntry + p.E - 8;
-        if (toEntry > 0) v = Math.sqrt(p.limit * p.limit + 2 * 24 * Math.max(0, toLim));
+        if (toEntry > 0) v = p.limit + (HANDLING.brakeRate + HANDLING.coastRate) * 0.9 * Math.max(0, toLim);
       }
       if (car.pit && car.pit.phase === 'in') {
         const dd = t.dS(s, car.pit.stopS);
-        if (dd > -2) v = Math.min(v, Math.sqrt(2 * 7 * Math.max(0, dd - 0.6)));
+        if (dd > -2) v = Math.min(v, arcadeStopSpeed(dd - 0.6, 0.8));
       }
       return v;
     }
@@ -1551,20 +1544,14 @@ const SIM = (function () {
         }
         st.seg = segI; st.maxU = 0; st.maxErr = 0; st.off = false; st.maxSat = 0;
       }
-      const u = Math.max(car.util[0], car.util[1], car.util[2], car.util[3]);
+      const u = this.yawUse; // share of the steering's yaw-rate ceiling in use
       if (this.steerSat > (st.maxSat || 0)) st.maxSat = this.steerSat;
       if (u > st.maxU) st.maxU = u; if (Math.abs(latErr) > st.maxErr) st.maxErr = Math.abs(latErr); if (offTrack) st.off = true;
     }
     recover(dt, hErr, offTrack) {
-      const car = this.car, inp = this.car.input, t = this.track, race = this.race;
-      this.recoverT += dt; inp.drs = false; inp.ers = 0;
+      const car = this.car, inp = this.cmd, t = this.track, race = this.race;
+      this.recoverT += dt; car.input.drs = false; car.input.ers = 0;
       const speed = car.speed;
-      if (this.reverseT > 0) {
-        this.reverseT -= dt; car.gear = -1; inp.throttle = 0.6; inp.brake = 0; inp.steer = -Math.sign(hErr || 1) * 1; inp.auto = false;
-        if (this.reverseT <= 0) { car.gear = 1; inp.auto = true; }
-        return;
-      }
-      if (car.gear < 1) car.gear = 1;
       if (Math.abs(hErr) > 0.5 && speed > 6 && Math.abs(car.u) > 2 && this.recoverT < 4 && Math.abs(car.r) > 0.3) { // still spinning: both feet in
         inp.throttle = 0; inp.brake = 1; inp.steer = 0; return;
       }
@@ -1590,15 +1577,22 @@ const SIM = (function () {
       else { inp.throttle = 0; inp.brake = 0.5; }
       if (blocked) this.waitT += dt;
       // stuck detection (against wall etc.)
-      if (speed < 0.6 && inp.throttle > 0.1) { this.stuckT += dt; if (this.stuckT > 1.4) { this.reverseT = 1.6 + rand(0, 0.6); this.stuckT = 0; } }
+      // The arcade car never reverses and cannot turn on the spot, so like the player the bot respawns.
+      if (speed < 0.6 && inp.throttle > 0.1) { this.stuckT += dt; if (this.stuckT > 1.4) { this.respawn(); this.stuckT = 0; } }
       else this.stuckT = Math.max(0, this.stuckT - dt);
       // done?
       if (Math.abs(hErr) < 0.35 && Math.abs(car.d) < t.halfW + 0.5 && speed > 8 && !blocked) {
         this.mode = 'race'; this.laneD = car.d; this.laneW = 1; this.laneWTarget = 0; car.spun = false; this.recoverT = 0; this.waitT = 0;
       }
       if (this.recoverT > 22 + this.waitT * 0.5 && this.waitT < 30) { // marshal assistance
-        race.marshalReset(car); this.mode = 'race'; this.recoverT = 0; this.waitT = 0;
+        this.respawn(); this.mode = 'race'; this.recoverT = 0; this.waitT = 0;
       }
+    }
+    // same respawn as the player's R / Space key
+    respawn() {
+      const car = this.car; this.race.marshalReset(car);
+      car.u = car.v = car.speed = car.steer = car.throttle = car.brake = car.slideAngle = 0; car.axL = car.ayL = 0;
+      this.handling.reset(); this.cmd.steer = this.cmd.throttle = this.cmd.brake = 0;
     }
     tactical() {
       const car = this.car, race = this.race, t = this.track, p = this.p;
@@ -3867,9 +3861,9 @@ class PlayerControl {
     void dt; void sess;
   }
 }
-// hand the car to the autopilot (pit lane, after the flag): drop the player-only aids so the AI drives the raw car
+// hand the car to the autopilot (pit lane, after the flag). The autopilot drives through the same
+// arcade handling as the player; the player's handling restarts from the current pedals when control returns.
 function clearPlayerAssists(car) {
-  car.aids = { abs: true, tc: 2, tcf: 0.95 };
   if (G.pc) { const h = G.pc.handling; h.reset(); h.th = car.input.throttle; h.br = car.input.brake; }
 }
 
