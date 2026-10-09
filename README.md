@@ -42,4 +42,4 @@ Gamepads are supported (left stick, triggers, A/B gears, X DRS, Y camera, left-s
 
 ### Drifting
 
-Hold `Space` together with the throttle to break the rear loose. While you hold it, steering sets how far the car slides (up to roughly 17–24° in slow corners, much less at high speed because downforce pins the rear), and the front wheels apply opposite lock automatically. Release `Space` and the car straightens itself. Drifting heats and wears the rear tyres and is slower than the racing line, like in a real F1 car.
+Hold `Space` together with the throttle to break the rear loose. While you hold it, steering sets how far the car slides (up to roughly 17–24° in slow corners, much less at high speed because downforce pins the rear), and the front wheels apply opposite lock automatically. Release `Space` and the car straightens itself. Sliding heats and wears the rear tyres, so long drifts cost tyre life.
