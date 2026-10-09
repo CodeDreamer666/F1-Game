@@ -51,17 +51,19 @@ Visual guidance (all optional):
 
 ## Controls
 
+The core keyboard controls follow Super Star Car on Poki: WASD or arrow keys to drive, `Space` to respawn, and `C` to change the camera. Extra race features use the keys below.
+
 | Action | Keys |
 |---|---|
 | Throttle / brake (reverse when stopped) | `W` `S` or `↑` `↓` |
 | Steer | `A` `D` or `←` `→` |
 | Brake into a turn (controlled slide) | `W` + `S` + `A`/`D` |
-| DRS | `G` (or `Space` on a straight) |
+| DRS | `G` |
 | ERS overtake (hold) / cycle ERS mode | `Shift` / `X` |
 | Box this lap, then pick tyres | `P`, then `1`–`4` |
 | Camera / look back | `C` / `B` |
 | Full leaderboard / telemetry / racing line | `Tab` / `T` / `L` |
-| Reset car to track | `R` |
+| Respawn car on track | `Space` (or `R`) |
 | Pause menu | `Esc` |
 | Qualifying: skip to the end | `K` |
 

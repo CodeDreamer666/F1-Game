@@ -293,7 +293,7 @@
 <div id="controls" class="overlay hidden">
   <div class="dialog">
     <h2>Con<span>trols</span></h2>
-    <div class="sub">Keyboard (gamepad: left stick steer, RT throttle, LT brake, X DRS, Y camera, Start pause).</div>
+    <div class="sub">Super Star Car-style keyboard controls: WASD / arrows to drive, Space to respawn, C to change camera. Gamepad: left stick steer, RT throttle, LT brake, X DRS, Y camera, Start pause.</div>
     <div class="ctrl-mode" id="ctrlMode"><h4>Driving</h4><ul>
       <li><b>W</b> accelerates smoothly — hold it through ordinary corners and steer with <b>A / D</b>.</li>
       <li>Steering is speed-sensitive: sharp at hairpin speeds, calmer and more stable at high speed. Release the key and the car straightens.</li>
@@ -306,7 +306,7 @@
       <div>Brake / reverse <span><kbd>S</kbd><kbd>↓</kbd></span></div>
       <div>Steer <span><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></span></div>
       <div>Brake into a turn (controlled slide) <span><kbd>W</kbd> + <kbd>S</kbd> + <kbd>A</kbd>/<kbd>D</kbd></span></div>
-      <div>DRS (when available) <span><kbd>G</kbd> / <kbd>Space</kbd></span></div>
+      <div>DRS (when available) <span><kbd>G</kbd></span></div>
       <div>ERS overtake (hold) <span><kbd>Shift</kbd></span></div>
       <div>ERS mode cycle <span><kbd>X</kbd></span></div>
       <div>Box this lap / tyre <span><kbd>P</kbd> + <kbd>1</kbd>-<kbd>4</kbd></span></div>
@@ -315,7 +315,7 @@
       <div>Full leaderboard <span><kbd>Tab</kbd></span></div>
       <div>Telemetry panel <span><kbd>T</kbd></span></div>
       <div>Racing line assist <span><kbd>L</kbd></span></div>
-      <div>Reset car to track <span><kbd>R</kbd></span></div>
+      <div>Respawn car on track <span><kbd>Space</kbd><kbd>R</kbd></span></div>
       <div>Mute audio <span><kbd>M</kbd></span></div>
       <div>Pause menu <span><kbd>Esc</kbd></span></div>
       <div>Spectator: switch car <span><kbd>←</kbd><kbd>→</kbd> / <kbd>[</kbd><kbd>]</kbd></span></div>
@@ -3864,11 +3864,20 @@ window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   const k = e.code;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(k)) e.preventDefault();
+  if (e.repeat) return;
   if (G.tutorial && (k === 'Enter' || k === 'Space' || k === 'Escape')) { closeTutorial(); e.preventDefault(); return; }
+  if (G.tutorial || G.paused || G.attract) {
+    if (k === 'Escape') PRESSED[k] = true;
+    return;
+  }
   if (!KEYS[k]) PRESSED[k] = true; KEYS[k] = true;
 });
 window.addEventListener('keyup', (e) => { KEYS[e.code] = false; });
-window.addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
+function clearKeys() {
+  for (const k in KEYS) KEYS[k] = false;
+  for (const k in PRESSED) PRESSED[k] = false;
+}
+window.addEventListener('blur', clearKeys);
 const takePress = (k) => { if (PRESSED[k]) { PRESSED[k] = false; return true; } return false; };
 let padPrev = [];
 function readPad() {
@@ -3902,8 +3911,8 @@ class PlayerControl {
   // once per frame: the discrete controls (DRS, ERS)
   apply(car, dt, sess) {
     const pad = G.pad;
-    // DRS: G (or Space on a straight) opens it when available; braking closes it
-    if (takePress('KeyG') || (takePress('Space') && car.drsAvail && Math.abs(this.steer) < 0.2) || (pad && pad.drs)) this.drsReq = true;
+    // DRS: G opens it when available; braking closes it
+    if (takePress('KeyG') || (pad && pad.drs)) this.drsReq = true;
     if (!car.drsAvail || car.input.brake > 0.1) this.drsReq = false;
     car.input.drs = this.drsReq;
     // ERS
@@ -4099,6 +4108,7 @@ function tvCameras(track) {
 /* ---------------- sessions ---------------- */
 function startSession(cfg) {
   hideAllOverlays();
+  clearKeys();
   ensureWorld();
   G.events = []; G.session = new SIM.Session(G.track, cfg); G.lastSessionCfg = cfg;
   G.mode = cfg.spectate ? (G.attract ? 'menu' : 'spectate') : cfg.type;
@@ -4348,7 +4358,7 @@ function updateHud(dt) {
   if (G.player && G.player.inGarage && sess.type === 'quali' && !sess.sessionOver) { hint.textContent = 'Press W (or throttle) to leave the garage · K to skip the session'; hint.classList.remove('hidden'); }
   else if (G.player && sess.type === 'race' && !sess.lightsOut) { hint.textContent = 'Hold the throttle for a good launch when the lights go out'; hint.classList.remove('hidden'); }
   else if (G.player && G.player.autoDrive && !G.player.finished && !G.player.pit) { hint.textContent = 'Auto-pilot: heading to the pit lane'; hint.classList.remove('hidden'); }
-  else if (G.player && sess.lightsOut && !G.player.pit && !G.player.finished && G.player.speed < 3 && Math.abs(Math.atan2(Math.sin(G.player.psi - G.track.heading[G.player.idx]), Math.cos(G.player.psi - G.track.heading[G.player.idx]))) > 1.6) { hint.textContent = 'Facing the wrong way? Hold S to reverse and steer round, or press R to reset to the track'; hint.classList.remove('hidden'); }
+  else if (G.player && sess.lightsOut && !G.player.pit && !G.player.finished && G.player.speed < 3 && Math.abs(Math.atan2(Math.sin(G.player.psi - G.track.heading[G.player.idx]), Math.cos(G.player.psi - G.track.heading[G.player.idx]))) > 1.6) { hint.textContent = 'Facing the wrong way? Hold S to reverse and steer round, or press Space to respawn on track'; hint.classList.remove('hidden'); }
   else hint.classList.add('hidden');
   $('fps').classList.toggle('hidden', S.showFps !== 'on');
   $('telemetry').classList.toggle('hidden', !G.showTel);
@@ -4468,7 +4478,7 @@ function processEvents() {
 function handleKeys(dt) {
   const sess = G.session;
   if (takePress('Escape') || (G.pad && G.pad.start)) { if (G.mode !== 'menu' && !$('results').classList.contains('hidden') === false) togglePause(); }
-  if (G.paused || !sess || G.attract) return;
+  if (G.paused || G.tutorial || !sess || G.attract) return;
   if (takePress('KeyC') || (G.pad && G.pad.cam)) {
     const modes = G.mode === 'spectate' ? ['chase', 'far', 'cockpit', 'tv', 'heli'] : ['chase', 'far', 'cockpit'];
     G.camRig.setMode(modes[(modes.indexOf(G.camRig.mode) + 1) % modes.length]);
@@ -4493,7 +4503,14 @@ function handleKeys(dt) {
     if (!p.pit) { p.boxRequest = !p.boxRequest; if (p.boxRequest) { p.boxCompound = p.boxCompound || defaultBoxCompound(p, sess); pushMsg('BOX THIS LAP — choose tyres with 1-4', 'pit', 2.5); } else { p.autoDrive = false; pushMsg('Pit stop cancelled', 'info', 1.5); } }
   }
   for (const [k, c] of [['Digit1', 'S'], ['Digit2', 'M'], ['Digit3', 'H'], ['Digit4', 'W']]) if (takePress(k) && p.boxRequest) p.boxCompound = c;
-  if (takePress('KeyR') && !p.pit && sess.lightsOut && !p.inGarage) { sess.marshalReset(p); p.input.throttle = 0; pushMsg('Car reset to the track', 'warn', 2); }
+  const respawn = takePress('Space');
+  const reset = takePress('KeyR');
+  if ((respawn || reset) && !p.pit && sess.lightsOut && !p.inGarage && !p.finished && !p.dnf) {
+    sess.marshalReset(p);
+    const ersMode = G.pc.ersMode; G.pc = new PlayerControl(p); G.pc.ersMode = ersMode;
+    p.input.throttle = 0; p.input.brake = 0; p.input.steer = 0; clearPlayerAssists(p);
+    G.camRig.init = false; pushMsg('Car respawned on track', 'warn', 2);
+  }
   if (sess.type === 'quali') {
     if (p.inGarage && !sess.sessionOver && (KEYS.KeyW || KEYS.ArrowUp || (G.pad && G.pad.throttle > 0.3))) { sess.releaseFromGarage(p); pushMsg('Out lap — warm the tyres', 'info', 2.5); }
     if (takePress('KeyK')) skipQuali();
@@ -4552,10 +4569,10 @@ function showTutorial() {
   ];
   $('tutSub').textContent = 'Gears, traction control, ABS and stability control are automatic';
   $('tutKeys').innerHTML = rows.map(([a, b]) => `<div class="kk">${a}</div><div>${b}</div>`).join('');
-  $('tutTip').innerHTML = 'Too fast into a corner and the car runs wide — brake earlier, or brake while turning to tighten the line. The coloured line on the track shows where to go (green: accelerate, yellow: lift, red: brake) — toggle it with <kbd>L</kbd>. The panel at the top names the next corner and a safe speed. <kbd>R</kbd> puts the car back on track, <kbd>C</kbd> changes camera.';
+  $('tutTip').innerHTML = 'Too fast into a corner and the car runs wide — brake earlier, or brake while turning to tighten the line. The coloured line on the track shows where to go (green: accelerate, yellow: lift, red: brake) — toggle it with <kbd>L</kbd>. The panel at the top names the next corner and a safe speed. <kbd>Space</kbd> (or <kbd>R</kbd>) respawns the car on track, <kbd>C</kbd> changes camera.';
   $('tutorial').classList.remove('hidden'); G.tutorial = true;
 }
-function closeTutorial() { $('tutorial').classList.add('hidden'); G.tutorial = false; try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { /* ignore */ } }
+function closeTutorial() { clearKeys(); $('tutorial').classList.add('hidden'); G.tutorial = false; try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { /* ignore */ } }
 // next corner, a safe speed for it and whether the current speed needs a lift or the brakes
 function updateCornerGuide(p, sess) {
   const el = $('cornerGuide');
@@ -4581,6 +4598,7 @@ function hideAllOverlays() { for (const id of ['settings', 'controls', 'pause', 
 function togglePause() {
   if (!$('settings').classList.contains('hidden') || !$('controls').classList.contains('hidden')) { $('settings').classList.add('hidden'); $('controls').classList.add('hidden'); if (G.paused) $('pause').classList.remove('hidden'); return; }
   if (G.mode === 'menu') return;
+  clearKeys();
   G.paused = !G.paused; $('pause').classList.toggle('hidden', !G.paused);
   const sess = G.session;
   $('btnSkipQ').classList.toggle('hidden', !(sess && sess.type === 'quali' && !sess.over && G.player));
