@@ -56,17 +56,25 @@ test('S stops and holds the car without selecting reverse or generating drive', 
   assert.equal(stopped.car.psi, 0);
 });
 
-test('held steering turns and sheds speed; quick taps preserve momentum', () => {
-  const held = run(rig(60), raw(1, 1), 3);
-  const tapped = rig(60);
-  for (let n = 0; n < 12; n++) {
-    run(tapped, raw(1, 1), 0.05);
-    run(tapped, raw(0, 1), 0.2);
+test('steering never applies brakes or imposes a throttle cut at any speed', () => {
+  for (const speed of [15, 30, 60, 85]) {
+    for (const direction of [-1, 1]) {
+      for (const analog of [false, true]) {
+        const r = rig(speed);
+        for (let step = 0; step < 240; step++) {
+          r.handling.step(r.car, dt, { lightsOut: true, wet: 0 }, { ...raw(direction, 1), analog });
+          assert.equal(r.car.input.brake, 0);
+          // With no rear slip, steering cannot cut the requested throttle.
+          if (step > 60 && Math.abs(r.car.slipA[2] + r.car.slipA[3]) / 2 <= 0.1) {
+            assert.equal(r.car.input.throttle, 1);
+          }
+          SIM.stepCarPhysics(r.car, dt, track, env);
+        }
+        assert.ok(r.car.psi * direction > 0.1);
+        assert.ok(r.car.speed > speed * 0.75);
+      }
+    }
   }
-  assert.ok(held.car.psi > 0.5);
-  assert.ok(held.car.speed < 30);
-  assert.ok(tapped.car.speed > held.car.speed + 25);
-  assert.ok(held.maxSlip < 0.1);
 });
 
 test('W+S+steering produces a bounded drift; S+steering stays planted', () => {

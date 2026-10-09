@@ -113,8 +113,6 @@
   #boxpanel .opts { display: flex; gap: 8px; margin-top: 6px; }
   #boxpanel .opt { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--dim); opacity: .5; }
   #boxpanel .opt.sel { opacity: 1; color: #fff; }
-  #brakemark { position: absolute; left: 50%; top: 38%; transform: translateX(-50%); padding: 4px 12px; text-align: center; font-weight: 700; background: rgba(160, 10, 10, .85); border-radius: 4px; font-size: 14px; letter-spacing: 1px; }
-  #brakemark b { display: block; font-size: 22px; }
   #flagbar { position: absolute; left: 0; right: 0; top: 0; height: 6px; }
   #flagbar.yellow { background: repeating-linear-gradient(90deg, #f5c518 0 40px, #222 40px 80px); }
   #flagbar.blue { background: #1e88e5; }
@@ -125,23 +123,10 @@
   #specbar small { color: var(--dim); font-size: 12px; }
   #qtimer { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 6px 18px; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
   #fps { position: absolute; right: 8px; top: 2px; font-size: 11px; color: #8f8; text-shadow: 0 0 3px #000; }
-  #hint { position: absolute; left: 50%; bottom: 168px; transform: translateX(-50%); font-size: 13px; color: #dfe3ea; background: rgba(12,14,19,.7); padding: 4px 12px; border-radius: 4px; }
 
   /* ---------------- DRIVING HELP ---------------- */
   .field .desc { font-size: 12px; line-height: 1.4; color: #8f98a8; margin-top: 6px; }
   .field.wide { grid-column: 1 / -1; }
-  #cornerGuide { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 5px 14px 5px 10px; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 15px; letter-spacing: .5px; border-left: 4px solid #21c55d; white-space: nowrap; }
-  #cornerGuide .arr { font-size: 20px; width: 20px; text-align: center; }
-  #cornerGuide small { color: var(--dim); font-weight: 600; font-size: 12px; letter-spacing: 1px; }
-  #cornerGuide b { font-size: 18px; }
-  #cornerGuide.ok { border-left-color: #21c55d; } #cornerGuide.lift { border-left-color: #f5c518; } #cornerGuide.brake { border-left-color: #e53935; background: rgba(120, 12, 12, .88); }
-  #tutorial .dialog { width: min(640px, 94vw); }
-  #tutorial .tk { display: grid; grid-template-columns: 150px 1fr; gap: 10px 18px; align-items: center; margin: 14px 0 8px; font-size: 15px; line-height: 1.4; }
-  #tutorial .tk .kk { display: flex; gap: 4px; flex-wrap: wrap; }
-  #tutorial .tip { font-size: 13px; color: #aab2bf; line-height: 1.5; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 8px; }
-  .ctrl-mode { margin: 4px 0 16px; padding: 12px 14px; border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
-  .ctrl-mode h4 { margin: 0 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
-  .ctrl-mode ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; color: #cfd5df; }
 
   /* ---------------- MENUS ---------------- */
   .screen { position: fixed; inset: 0; z-index: 20; display: flex; }
@@ -252,12 +237,9 @@
   <div id="lights" class="panel hidden"><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div></div>
   <div id="pitstop" class="panel hidden"><div class="t">PIT STOP</div><b class="num" id="pitTime">0.0 s</b></div>
   <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP <span style="color:var(--dim);font-size:12px">(P to cancel)</span></div><div class="opts" id="boxOpts"></div></div>
-  <div id="cornerGuide" class="panel hidden"><span class="arr" id="cgArr">◀</span><span id="cgName">T1</span><small id="cgDist">120 m</small><b class="num" id="cgSpd">90</b><small id="cgUnit">KM/H</small></div>
-  <div id="brakemark" class="hidden">BRAKE<b class="num" id="brakeDist">0 m</b></div>
   <div id="telemetry" class="panel hidden"><canvas id="telCanvas" width="900" height="240"></canvas><canvas id="gCanvas" width="280" height="240"></canvas></div>
   <div id="specbar" class="panel hidden"></div>
   <div id="qtimer" class="panel hidden"></div>
-  <div id="hint" class="hidden"></div>
   <div id="fps" class="hidden"></div>
 </div>
 
@@ -294,13 +276,6 @@
   <div class="dialog">
     <h2>Con<span>trols</span></h2>
     <div class="sub">Super Star Car-style keyboard controls: WASD / arrows to drive, Space to respawn, C to change camera. Gamepad: left stick steer, RT throttle, LT brake, X DRS, Y camera, Start pause.</div>
-    <div class="ctrl-mode" id="ctrlMode"><h4>Driving</h4><ul>
-      <li><b>W</b> accelerates. Use light <b>A / D</b> taps for quick corrections; holding a steering key sheds speed through a tighter turn.</li>
-      <li>Steering is speed-sensitive: sharp at hairpin speeds, calmer and more stable at high speed. Release the key and the car straightens.</li>
-      <li><b>S</b> only brakes, including at a standstill. Hold <b>W + S + A / D</b> to slow down and drift into a turn.</li>
-      <li>Release <b>W</b> to coast through a bend. Release <b>A / D</b> to straighten, then hold <b>W</b> to accelerate out.</li>
-      <li>Release <b>S</b> to end the drift and regain grip. Hold <b>W</b> to accelerate out; gears and grip assistance are automatic.</li>
-    </ul></div>
     <div class="keys">
       <div>Accelerate <span><kbd>W</kbd><kbd>↑</kbd></span></div>
       <div>Brake <span><kbd>S</kbd><kbd>↓</kbd></span></div>
@@ -314,7 +289,6 @@
       <div>Look back <span><kbd>B</kbd></span></div>
       <div>Full leaderboard <span><kbd>Tab</kbd></span></div>
       <div>Telemetry panel <span><kbd>T</kbd></span></div>
-      <div>Racing line assist <span><kbd>L</kbd></span></div>
       <div>Respawn car on track <span><kbd>Space</kbd><kbd>R</kbd></span></div>
       <div>Mute audio <span><kbd>M</kbd></span></div>
       <div>Pause menu <span><kbd>Esc</kbd></span></div>
@@ -323,7 +297,7 @@
       <div>Qualifying: skip to end <span><kbd>K</kbd></span></div>
       <div>Show FPS <span><kbd>F</kbd></span></div>
     </div>
-    <div class="actions"><button class="btn" data-act="tutorialShow">Show tutorial</button><button class="btn primary" data-act="controlsClose">Back</button></div>
+    <div class="actions"><button class="btn primary" data-act="controlsClose">Back</button></div>
   </div>
 </div>
 
@@ -337,16 +311,6 @@
     <button class="btn" data-act="settings">Race Settings</button>
     <button class="btn" data-act="controls">Controls</button>
     <button class="btn" data-act="exit">Exit to main menu</button>
-  </div>
-</div>
-
-<div id="tutorial" class="overlay hidden">
-  <div class="dialog">
-    <h2>How to <span>drive</span></h2>
-    <div class="sub" id="tutSub"></div>
-    <div class="tk" id="tutKeys"></div>
-    <div class="tip" id="tutTip"></div>
-    <div class="actions"><button class="btn primary" data-act="tutorialClose">Let's race <small>Enter</small></button></div>
   </div>
 </div>
 
@@ -1053,7 +1017,7 @@ const SIM = (function () {
 
   /* ------------------------------------------------------------------
      PLAYER HANDLING — planted arcade steering for the human driver.
-     Steering demand controls corner speed: long holds scrub speed, light taps preserve it.
+     Pedals are manual: steering never applies brakes or imposes a corner speed target.
      S brakes only. W + S + a steering direction requests a controlled, speed-sensitive drift.
      Runs at the physics rate; acceleration, tyre grip and collisions still use the vehicle model.
      ------------------------------------------------------------------ */
@@ -1063,11 +1027,10 @@ const SIM = (function () {
     gripSlide: 0.035, kp: 0.09, kBeta: 4.5,
     driftAngle: [0.30, 0.10], driftIn: 4, driftOut: 3, driftThrottle: 0.18,
     thUp: 4.5, thDown: 14, brUp: 12, brDown: 16,
-    cornerSpeed: [88, 21], cornerBrake: 0.65, cornerGain: 0.055,
   };
   class PlayerHandling {
     constructor() { this.reset(); }
-    reset() { this.steer = 0; this.th = 0; this.br = 0; this.rDes = 0; this.autoBr = 0; this.drift = 0; }
+    reset() { this.steer = 0; this.th = 0; this.br = 0; this.rDes = 0; this.drift = 0; }
     // raw: { steer -1..1, throttle 0..1, brake 0..1, analog }
     step(car, dt, sess, raw) {
       const H = HANDLING, sp = SPEC, inp = car.input;
@@ -1088,7 +1051,8 @@ const SIM = (function () {
         this.th += clamp(thTgt - this.th, -H.thDown * dt, H.thUp * dt);
         this.br += clamp(brRaw - this.br, -H.brDown * dt, H.brUp * dt);
       }
-      let th = brRaw > 0.05 && !driftHeld ? 0 : this.th, br = this.br;
+      let th = brRaw > 0.05 && !driftHeld ? 0 : this.th;
+      const br = this.br;
       // The player's S key never selects reverse or applies reverse drive torque.
       if (car.gear < 1) car.gear = 1;
       let sm = 0; for (let i = 0; i < 4; i++) sm += SURF_MU[car.surf[i]]; sm /= 4;
@@ -1109,18 +1073,6 @@ const SIM = (function () {
       const alpha = clamp(aFF + H.kp * (rRef - car.r), -sp.aPk, sp.aPk);
       const delta = betaF + alpha;
       inp.steer = clamp(u < 1 ? this.steer : lerp(this.steer * sp.maxLock, delta, clamp((spd - 4) / 4, 0, 1)) / sp.maxLock, -1, 1);
-      // Speed assistance follows steering, never the racing line or the next track corner.
-      // A quick correction keeps speed; sustained lock reduces drive and applies gentle braking.
-      this.autoBr = 0;
-      if (car.gear > 0 && sess.lightsOut && !car.pit && sA > 0.08) {
-        const turn = Math.pow(clamp((sA - 0.08) / 0.92, 0, 1), 0.85);
-        const target = lerp(...H.cornerSpeed, turn) * clamp(Math.sqrt(mu / 1.6), 0.65, 1.05);
-        const over = spd - target;
-        if (over > 0) {
-          this.autoBr = clamp(over * H.cornerGain, 0, H.cornerBrake);
-          br = Math.max(br, this.autoBr); th = 0;
-        } else th = Math.min(th, clamp(-over / 4, 0, 1));
-      }
       if (car.gear > 0) {
         const rear = Math.abs(car.slipA[2] + car.slipA[3]) / 2;
         if (rear > 0.1 && spd > 8) th *= clamp(1 - (rear - 0.1) * 6, 0.25, 1);
@@ -3065,23 +3017,6 @@ function buildTrack(scene, track, T, opts) {
     for (const sgn of [-1, 1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(2 * hw + 10, 2.2), new THREE.MeshStandardMaterial({ map: tex, roughness: .7 })); pl.rotation.y = sgn * -Math.PI / 2; pl.position.set(sgn * -0.51, 8.2, 0); g.add(pl); }
     G.add(g);
   }
-  // ---- brake distance boards ----
-  {
-    const boardTex = {}; const mkB = (n) => boardTex[n] || (boardTex[n] = canvasTex(128, 96, (g, w, h) => { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.strokeStyle = '#111'; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6); g.fillStyle = '#111'; g.font = '900 60px Titillium Web, Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n, w / 2, h / 2 + 3); }));
-    for (const c of track.corners) {
-      if (!c.brakeZone) continue;
-      const sgn = -c.dir; // outside of the corner
-      for (const dist of [150, 100, 50]) {
-        const s = c.start * SIM.DS - dist + 30; const i = Math.floor(track.wrapS(s) / SIM.DS);
-        if (sgn === side && inPitI(i)) continue;
-        const wall = sgn > 0 ? track.wallR[i] : track.wallL[i];
-        const [x, z, h] = track.pointAt(s, sgn * Math.min(wall - 1.0, hw + 5));
-        const b = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.2), new THREE.MeshStandardMaterial({ map: mkB(dist), roughness: .6 }));
-        b.position.set(x, 1.6, z); b.rotation.y = -h - Math.PI / 2; G.add(b);
-        const pole = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 0.1), concrete); pole.position.set(x, 0.55, z); G.add(pole);
-      }
-    }
-  }
   // ---- grandstands, pit building ----
   buildGrandstands(G, track, T, opts, objs);
   return { group: G, objs };
@@ -3555,44 +3490,6 @@ class Particles {
 }
 
 /* ---------------------------------------------------------------
-   RACING LINE ASSIST
-   --------------------------------------------------------------- */
-class RacingLineViz {
-  constructor(scene) {
-    this.M = 120;
-    const g = new THREE.BufferGeometry();
-    this.pos = new Float32Array(this.M * 2 * 3); this.col = new Float32Array(this.M * 2 * 3);
-    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('color', new THREE.BufferAttribute(this.col, 3).setUsage(THREE.DynamicDrawUsage));
-    const idx = []; for (let k = 0; k < this.M - 1; k++) { const a = k * 2; if (k % 3 === 2) continue; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx);
-    this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
-    this.mesh.frustumCulled = false; this.mesh.renderOrder = 2; scene.add(this.mesh); this.geo = g;
-  }
-  update(track, car, refSpeed, mode) {
-    this.mesh.visible = mode > 0;
-    if (!this.mesh.visible) return;
-    const v = car.speed; let k = 0;
-    for (let j = 0; j < this.M; j++) {
-      const i = track.wrapI(car.idx + 3 + j);
-      const x = track.rlx[i], z = track.rlz[i]; const rx = track.rx[i], rz = track.rz[i];
-      const w = 0.35;
-      this.pos[k * 3] = x - rx * w; this.pos[k * 3 + 1] = 0.03; this.pos[k * 3 + 2] = z - rz * w;
-      this.pos[k * 3 + 3] = x + rx * w; this.pos[k * 3 + 4] = 0.03; this.pos[k * 3 + 5] = z + rz * w;
-      // colour: green = accelerate, yellow = lift, red = brake (comparing current speed with what is possible)
-      const vt = refSpeed[i];
-      const dist = track.rlDist(car.idx, i);
-      const need = (v * v - vt * vt) / (2 * Math.max(dist, 1));
-      let c;
-      if (need > 26) c = [0.95, 0.12, 0.1]; else if (need > 8) c = [0.98, 0.78, 0.1]; else c = [0.15, 0.85, 0.35];
-      if (mode === 1 && need < 8) c = [0.2, 0.6, 1.0];
-      this.col[k * 3] = c[0]; this.col[k * 3 + 1] = c[1]; this.col[k * 3 + 2] = c[2]; this.col[k * 3 + 3] = c[0]; this.col[k * 3 + 4] = c[1]; this.col[k * 3 + 5] = c[2];
-      k += 2;
-    }
-    this.geo.attributes.position.needsUpdate = true; this.geo.attributes.color.needsUpdate = true;
-  }
-}
-
-/* ---------------------------------------------------------------
    POST PROCESSING — HDR scene target (MSAA) -> bloom -> ACES, grade, vignette, speed blur
    --------------------------------------------------------------- */
 class PostFX {
@@ -3708,14 +3605,13 @@ const clamp = SIM.clamp, lerp = SIM.lerp, fmt = SIM.fmtTime;
 const SETTINGS_KEY = 'apexgp.settings.v1';
 const DEFAULTS = {
   laps: 8, difficulty: 75, quali: 'on', qualiMin: 8, field: 20, weather: 'dry', tyreWear: 'normal', mandatory: 'auto', damage: 'on',
-  startTyre: 'auto', name: 'J. Dalton', team: 0, cornerGuide: 'on', racingLine: 'braking',
+  startTyre: 'auto', name: 'J. Dalton', team: 0,
   camera: 'chase', quality: 'high', volume: 70, units: 'kmh', showFps: 'off', quickGrid: 'random', speedBlur: 'on',
 };
 let S = Object.assign({}, DEFAULTS);
 try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
-// settings from older versions (driving modes, gearbox and aid toggles) no longer exist: one driving system for everyone
-for (const k of ['driveMode', 'gearbox', 'tc', 'abs', 'steerAssist']) delete S[k];
-if (S.cornerGuide === 'auto') S.cornerGuide = 'on';
+// Discard retired driving-mode, aid and guidance preferences from older saves.
+for (const k of ['driveMode', 'gearbox', 'tc', 'abs', 'steerAssist', 'cornerGuide', 'racingLine']) delete S[k];
 const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
 const SCHEMA = [
   { k: 'laps', label: 'Race length (laps)', type: 'seg', opts: [3, 5, 8, 12, 20, 30] },
@@ -3731,8 +3627,6 @@ const SCHEMA = [
   { k: 'name', label: 'Driver name', type: 'text' },
   { k: 'team', label: 'Team', type: 'select', opts: () => SIM.TEAMS.map((t, i) => [i, t.full]) },
   { k: 'quickGrid', label: 'Quick race grid slot', type: 'seg', opts: [['random', 'Random'], ['back', 'Back'], ['middle', 'Middle'], ['pole', 'Pole']] },
-  { k: 'cornerGuide', label: 'Corner guide (next corner & speed)', type: 'seg', opts: [['on', 'On'], ['off', 'Off']] },
-  { k: 'racingLine', label: 'Racing line', type: 'seg', opts: [['off', 'Off'], ['braking', 'Braking'], ['full', 'Full']] },
   { k: 'camera', label: 'Default camera', type: 'seg', opts: [['chase', 'Chase'], ['far', 'Far chase'], ['cockpit', 'Cockpit']] },
   { k: 'quality', label: 'Graphics quality', type: 'seg', opts: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']] },
   { k: 'speedBlur', label: 'Speed blur (Medium/High)', type: 'seg', opts: [['on', 'On'], ['off', 'Off']] },
@@ -3851,8 +3745,7 @@ window.addEventListener('keydown', (e) => {
   const k = e.code;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(k)) e.preventDefault();
   if (e.repeat) return;
-  if (G.tutorial && (k === 'Enter' || k === 'Space' || k === 'Escape')) { closeTutorial(); e.preventDefault(); return; }
-  if (G.tutorial || G.paused || G.attract) {
+  if (G.paused || G.attract) {
     if (k === 'Escape') PRESSED[k] = true;
     return;
   }
@@ -3976,7 +3869,7 @@ class CameraRig {
 /* ---------------- global game state ---------------- */
 const G = {
   mode: 'loading', session: null, track: null, models: new Map(), paused: false, timeScale: 1, focusIdx: 0, attract: false,
-  showFullBoard: false, showTel: false, lineMode: 1, pad: null, lastSessionCfg: null, gridOrder: null, events: [],
+  showFullBoard: false, showTel: false, pad: null, lastSessionCfg: null, gridOrder: null, events: [],
 };
 window.APEX = G; // handy for debugging / automated tests
 
@@ -4057,7 +3950,6 @@ function ensureWorld() {
   G.smoke = new Particles(scene, textures.smoke, q === 0 ? 300 : 800);
   G.spray = new Particles(scene, textures.smoke, q === 0 ? 400 : 1400, THREE.NormalBlending, [0.82, 0.85, 0.9]);
   G.sparks = new Particles(scene, textures.smoke, 200, THREE.AdditiveBlending, [1, 0.6, 0.2]);
-  G.rline = new RacingLineViz(scene);
   G.rain = null;
   if (wet) {
     const n = q === 0 ? 1500 : 4000; const pos = new Float32Array(n * 6);
@@ -4112,9 +4004,6 @@ function startSession(cfg) {
   $('sessName').textContent = cfg.spectate ? 'SPECTATOR' : cfg.type === 'quali' ? 'QUALIFYING' : 'RACE';
   $('lights').classList.toggle('hidden', cfg.type !== 'race' || !!G.attract);
   G.lightsShown = -1; G.lastLights = 0;
-  if (!G.attract && cfg.type === 'quali') pushMsg('QUALIFYING — press W to leave the garage', 'info', 4);
-  let seen = false; try { seen = !!localStorage.getItem(TUT_KEY); } catch (e) { seen = true; }
-  if (!G.attract && !cfg.spectate && G.player && !seen) showTutorial();
   G.hudDirty = true;
 }
 function startAttract() {
@@ -4295,7 +4184,6 @@ function updateHud(dt) {
   $('chipLim').style.display = p.pit && G.track.inLimiter(p.s) ? '' : 'none'; $('chipLim').className = 'chip warn';
   const dr = $('chipDrift'); const sa = Math.abs(p.slideAngle || 0);
   if (sa > 0.08 && p.speed > 6) { dr.style.display = ''; dr.textContent = 'SLIDE ' + Math.round(sa * 57.3) + '°'; } else dr.style.display = 'none';
-  updateCornerGuide(p, sess);
   const fuelLaps = sess.type === 'race' ? (p.fuel / 1.95 - (sess.totalLaps - p.laps)) : p.fuel / 1.95;
   const cf = $('chipFuel'); cf.textContent = sess.type === 'race' ? 'FUEL ' + (fuelLaps >= 0 ? '+' : '') + fuelLaps.toFixed(1) : 'FUEL ' + p.fuel.toFixed(1) + 'kg'; cf.className = 'chip' + (sess.type === 'race' && fuelLaps < 0 ? ' warn' : '');
   // tyres
@@ -4339,13 +4227,6 @@ function updateHud(dt) {
     qt.classList.remove('hidden'); const rem = Math.max(0, sess.qualiTime - sess.time);
     qt.textContent = sess.sessionOver ? 'CHEQUERED FLAG' : 'Q · ' + Math.floor(rem / 60) + ':' + String(Math.floor(rem % 60)).padStart(2, '0') + (G.timeScale > 1 ? '  ×' + G.timeScale : '');
   } else qt.classList.add('hidden');
-  // hint
-  const hint = $('hint');
-  if (G.player && G.player.inGarage && sess.type === 'quali' && !sess.sessionOver) { hint.textContent = 'Press W (or throttle) to leave the garage · K to skip the session'; hint.classList.remove('hidden'); }
-  else if (G.player && sess.type === 'race' && !sess.lightsOut) { hint.textContent = 'Hold the throttle for a good launch when the lights go out'; hint.classList.remove('hidden'); }
-  else if (G.player && G.player.autoDrive && !G.player.finished && !G.player.pit) { hint.textContent = 'Auto-pilot: heading to the pit lane'; hint.classList.remove('hidden'); }
-  else if (G.player && sess.lightsOut && !G.player.pit && !G.player.finished && G.player.speed < 3 && Math.abs(Math.atan2(Math.sin(G.player.psi - G.track.heading[G.player.idx]), Math.cos(G.player.psi - G.track.heading[G.player.idx]))) > 1.6) { hint.textContent = 'Facing the wrong way? Press Space to respawn on track'; hint.classList.remove('hidden'); }
-  else hint.classList.add('hidden');
   $('fps').classList.toggle('hidden', S.showFps !== 'on');
   $('telemetry').classList.toggle('hidden', !G.showTel);
   drawMinimap();
@@ -4464,14 +4345,13 @@ function processEvents() {
 function handleKeys(dt) {
   const sess = G.session;
   if (takePress('Escape') || (G.pad && G.pad.start)) { if (G.mode !== 'menu' && !$('results').classList.contains('hidden') === false) togglePause(); }
-  if (G.paused || G.tutorial || !sess || G.attract) return;
+  if (G.paused || !sess || G.attract) return;
   if (takePress('KeyC') || (G.pad && G.pad.cam)) {
     const modes = G.mode === 'spectate' ? ['chase', 'far', 'cockpit', 'tv', 'heli'] : ['chase', 'far', 'cockpit'];
     G.camRig.setMode(modes[(modes.indexOf(G.camRig.mode) + 1) % modes.length]);
   }
   if (takePress('Tab')) G.showFullBoard = !G.showFullBoard;
   if (takePress('KeyT')) G.showTel = !G.showTel;
-  if (takePress('KeyL')) { const order = ['off', 'braking', 'full']; S.racingLine = order[(order.indexOf(S.racingLine) + 1) % 3]; saveSettings(); pushMsg('Racing line: ' + S.racingLine.toUpperCase(), 'info', 1.5); }
   if (takePress('KeyM')) { const m = G.audio.toggleMute(); pushMsg(m ? 'Audio muted' : 'Audio on', 'info', 1.2); }
   if (takePress('KeyF')) { S.showFps = S.showFps === 'on' ? 'off' : 'on'; saveSettings(); }
   if (takePress('KeyI')) G.boardMode = G.boardMode === 'interval' ? 'leader' : 'interval';
@@ -4546,43 +4426,7 @@ function director(dt) {
 }
 
 /* ---------------- menus & overlays ---------------- */
-const TUT_KEY = 'apexgp.tutorial.v1';
-function showTutorial() {
-  const k = (...x) => x.map(q => `<kbd>${q}</kbd>`).join(' ');
-  const rows = [
-    [k('W'), '<b>Accelerate.</b> Release it to coast and shed speed through a bend.'],
-    [k('A', 'D'), '<b>Steer.</b> Tap for quick corrections; hold for a tighter turn that scrubs speed. Let go and the car straightens.'],
-    [k('S'), '<b>Brake only.</b> Responds quickly and holds the car stopped; it never drives backwards.'],
-    [k('W') + ' + ' + k('S') + ' + ' + k('A') + '/' + k('D'), '<b>Controlled drift.</b> Hold all three inputs to slow down and slide around the turn. Release ' + k('S') + ' with ' + k('W') + ' held to regain grip and accelerate out.'],
-  ];
-  $('tutSub').textContent = 'Gears, traction control, ABS and stability control are automatic';
-  $('tutKeys').innerHTML = rows.map(([a, b]) => `<div class="kk">${a}</div><div>${b}</div>`).join('');
-  $('tutTip').innerHTML = 'Too fast into a corner and the car runs wide — brake earlier, or brake while turning to tighten the line. The coloured line on the track shows where to go (green: accelerate, yellow: lift, red: brake) — toggle it with <kbd>L</kbd>. The panel at the top names the next corner and a safe speed. <kbd>Space</kbd> (or <kbd>R</kbd>) respawns the car on track, <kbd>C</kbd> changes camera.';
-  $('tutorial').classList.remove('hidden'); G.tutorial = true;
-}
-function closeTutorial() { clearKeys(); $('tutorial').classList.add('hidden'); G.tutorial = false; try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { /* ignore */ } }
-// next corner, a safe speed for it and whether the current speed needs a lift or the brakes
-function updateCornerGuide(p, sess) {
-  const el = $('cornerGuide');
-  const on = S.cornerGuide !== 'off';
-  if (!on || !G.player || G.focus !== G.player || G.mode === 'spectate' || p.pit || p.inGarage || p.autoDrive || p.finished || !sess.lightsOut || p.gear < 0) { el.classList.add('hidden'); return; }
-  const t = G.track; let best = null;
-  for (const c of t.corners) { const dist = t.dS(p.s, c.apex * SIM.DS); if (dist > 0 && dist < 380 && (!best || dist < best.dist)) best = { c, dist }; }
-  if (!best) { el.classList.add('hidden'); return; }
-  const { c, dist } = best;
-  const mu = Math.max(0.5, p.gripEstimate(sess.wet || 0)) * 0.95; const kA = 0.5 * SIM.RHO * p.effClA() / p.mass;
-  let rec = 120; for (let i = c.start; i !== c.end; i = t.wrapI(i + 1)) { const k = Math.abs(t.kappa[i]); const den = k - mu * kA; if (den > 1e-6) rec = Math.min(rec, Math.sqrt(mu * SIM.G / den)); }
-  if (rec > p.speed * 1.02 && !c.brakeZone) { el.classList.add('hidden'); return; }
-  const v = p.speed, cap = mu * (SIM.G + kA * v * v); const need = (v * v - rec * rec) / (2 * Math.max(dist, 1));
-  const cls = v <= rec * 1.03 ? 'ok' : need < 0.45 * cap ? 'lift' : 'brake';
-  el.className = 'panel ' + cls;
-  el.style.top = sess.type === 'quali' ? '54px' : '14px';
-  $('cgArr').textContent = c.dir > 0 ? '▶' : '◀';
-  $('cgName').textContent = 'T' + c.num + ' ' + c.name.toUpperCase();
-  $('cgDist').textContent = Math.round(dist) + ' m';
-  $('cgSpd').textContent = Math.round(speedUnit(rec)); $('cgUnit').textContent = S.units === 'mph' ? 'MPH' : 'KM/H';
-}
-function hideAllOverlays() { for (const id of ['settings', 'controls', 'pause', 'results', 'tutorial']) $(id).classList.add('hidden'); G.tutorial = false; }
+function hideAllOverlays() { for (const id of ['settings', 'controls', 'pause', 'results']) $(id).classList.add('hidden'); }
 function togglePause() {
   if (!$('settings').classList.contains('hidden') || !$('controls').classList.contains('hidden')) { $('settings').classList.add('hidden'); $('controls').classList.add('hidden'); if (G.paused) $('pause').classList.remove('hidden'); return; }
   if (G.mode === 'menu') return;
@@ -4669,8 +4513,6 @@ function onAction(act) {
     case 'controlsClose': $('controls').classList.add('hidden'); if (G.paused) $('pause').classList.remove('hidden'); break;
     case 'restart': G.paused = false; hideAllOverlays(); restartSession(); break;
     case 'resume': togglePause(); break;
-    case 'tutorialClose': closeTutorial(); break;
-    case 'tutorialShow': $('controls').classList.add('hidden'); if (G.paused) $('pause').classList.add('hidden'); showTutorial(); if (G.paused) { G.paused = false; } break;
     case 'skipquali': skipQuali(); break;
     case 'exit': exitToMenu(); break;
   }
@@ -4688,7 +4530,7 @@ function frame(now) {
     G.pad = readPad();
     handleKeys(dt);
     const sess = G.session;
-    if (sess && !G.paused && !G.tutorial) {
+    if (sess && !G.paused) {
       if (G.player && G.mode !== 'menu') playerLogic(dt);
       sess.spectateFocus = G.focus;
       sess.update(dt, G.timeScale);
@@ -4705,15 +4547,6 @@ function frame(now) {
       if (G.prevCam) G.camVel = camera.position.clone().sub(G.prevCam).multiplyScalar(1 / Math.max(dt, 1e-3)); G.prevCam = camera.position.clone();
       // shadows follow the camera target
       if (R.sun) placeSun(camCar);
-      // racing line assist for the player
-      if (G.player && G.focus === G.player && !G.player.pit && sess.type !== 'calib') {
-        const mode = S.racingLine === 'off' ? 0 : S.racingLine === 'braking' ? 1 : 2; G.rline.update(G.track, G.player, G.refSpeed, mode);
-        const bm = $('brakemark'); let show = false;
-        if (mode > 0) { // distance to braking point for the next corner
-          const v = G.player.speed; for (let j = 4; j < 160; j += 2) { const i = G.track.wrapI(G.player.idx + j); const vt = G.refSpeed[i]; const dist = G.track.rlDist(G.player.idx, i); const need = (v * v - vt * vt) / 2 / 38; if (need > 0 && dist - need < 120 && dist - need > 0 && v > 30) { $('brakeDist').textContent = Math.round(dist - need) + ' m'; show = true; break; } if (need > 0 && dist - need <= 0) break; }
-        }
-        bm.classList.toggle('hidden', !show);
-      } else { G.rline.mesh.visible = false; $('brakemark').classList.add('hidden'); }
       // marshal panels
       for (const mp of G.trackObj.objs.marshal) { const y = sess.yellow[mp.k] > 0; mp.mat.emissive.setHex(y && (now % 600 < 400) ? 0xffc400 : 0x000000); }
       if (G.rain) { G.rain.position.set(camera.position.x, camera.position.y - 12, camera.position.z); const pos = G.rain.geometry.attributes.position.array; const fall = dt * 22; for (let k = 0; k < pos.length; k += 6) { pos[k + 1] -= fall; pos[k + 4] -= fall; if (pos[k + 1] < 0) { pos[k + 1] += 30; pos[k + 4] += 30; } } G.rain.geometry.attributes.position.needsUpdate = true; }
@@ -4765,7 +4598,6 @@ async function boot() {
   const setLoad = (p, txt) => { $('loadBar').style.width = (p * 100) + '%'; $('loadSt').textContent = txt; };
   setLoad(0.35, 'Building the circuit…'); await new Promise(r => setTimeout(r, 30));
   G.track = new SIM.Track(SIM.TRACK_DEF);
-  G.refSpeed = G.track.speedProfile(1.62, 0.5 * SIM.RHO * 4.1 / 830, 1.13 * 0.5 * SIM.RHO / 830, 760000 / 830);
   G.tvCams = tvCameras(G.track);
   setLoad(0.5, 'Creating renderer…'); await new Promise(r => setTimeout(r, 30));
   try {
