@@ -28,7 +28,8 @@ An internet connection is needed the first time to fetch Three.js and the Titill
 | Throttle / brake (reverse when stopped) | `W` `S` or `↑` `↓` |
 | Steer | `A` `D` or `←` `→` |
 | Gear up / down (manual gearbox) | `E` / `Q` |
-| DRS | `Space` |
+| Drift (hold with throttle; steering sets the slide angle) | `Space` + `W` |
+| DRS | `G` (or `Space` on a straight) |
 | ERS overtake (hold) / cycle ERS mode | `Shift` / `X` |
 | Box this lap, then pick tyres | `P`, then `1`–`4` |
 | Camera / look back | `C` / `B` |
@@ -37,4 +38,8 @@ An internet connection is needed the first time to fetch Three.js and the Titill
 | Pause menu | `Esc` |
 | Qualifying: skip to the end | `K` |
 
-Gamepads are supported (left stick, triggers, A/B gears, X DRS, Y camera, Start pause).
+Gamepads are supported (left stick, triggers, A/B gears, X DRS, Y camera, left-stick click drift, Start pause).
+
+### Drifting
+
+Hold `Space` together with the throttle to break the rear loose. While you hold it, steering sets how far the car slides (up to roughly 17–24° in slow corners, much less at high speed because downforce pins the rear), and the front wheels apply opposite lock automatically. Release `Space` and the car straightens itself. Drifting heats and wears the rear tyres and is slower than the racing line, like in a real F1 car.

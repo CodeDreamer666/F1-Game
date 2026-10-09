@@ -210,6 +210,7 @@
         <span class="chip" id="chipErs">BALANCED</span>
         <span class="chip" id="chipDrs">DRS</span>
         <span class="chip" id="chipLim" style="display:none">PIT LIMITER</span>
+        <span class="chip ot" id="chipDrift" style="display:none">DRIFT</span>
         <span class="chip" id="chipFuel">FUEL</span>
       </div>
     </div>
@@ -270,13 +271,14 @@
 <div id="controls" class="overlay hidden">
   <div class="dialog">
     <h2>Con<span>trols</span></h2>
-    <div class="sub">Keyboard (gamepad: left stick steer, RT throttle, LT brake, A/B gears, X DRS, Y camera, Start pause)</div>
+    <div class="sub">Keyboard (gamepad: left stick steer, RT throttle, LT brake, A/B gears, X DRS, Y camera, click left stick to drift, Start pause). While drifting, steering sets the slide angle and the car counter-steers for you.</div>
     <div class="keys">
       <div>Accelerate <span><kbd>W</kbd><kbd>↑</kbd></span></div>
       <div>Brake / reverse <span><kbd>S</kbd><kbd>↓</kbd></span></div>
       <div>Steer <span><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></span></div>
       <div>Gear up / down (manual) <span><kbd>E</kbd><kbd>Q</kbd></span></div>
-      <div>DRS (when available) <span><kbd>Space</kbd></span></div>
+      <div>Drift (hold with throttle) <span><kbd>Space</kbd> + <kbd>W</kbd></span></div>
+      <div>DRS (when available) <span><kbd>G</kbd></span></div>
       <div>ERS overtake (hold) <span><kbd>Shift</kbd></span></div>
       <div>ERS mode cycle <span><kbd>X</kbd></span></div>
       <div>Box this lap / tyre <span><kbd>P</kbd> + <kbd>1</kbd>-<kbd>4</kbd></span></div>
@@ -737,6 +739,7 @@ const SIM = (function () {
     gears: [13.4, 10.4, 8.6, 7.35, 6.4, 5.65, 5.03, 4.48], revLimit: 12500, idle: 4000,
     brakeMax: 44000, brakeBias: 0.60, maxLock: 0.34, ersMax: 4.0e6,
     B: 16, C: 1.45, aPk: 0.116, rearGrip: 1.06, // pacejka
+    driftLoss: 0.4, driftA0: 0.3, driftWin: 0.12, driftRestore: 1.3, driftYawDamp: 4, driftKb: 16,
   };
   function torqueAt(rpm) {
     const T = [[3000, 0.55], [5000, 0.72], [7000, 0.86], [9000, 0.96], [10500, 1.0], [11500, 0.99], [12200, 0.93], [12600, 0.85], [14000, 0.6]];
@@ -812,6 +815,32 @@ const SIM = (function () {
     const c = Math.cos(car.psi), s = Math.sin(car.psi);
     let u = car.vx * c + car.vz * s, v = -car.vx * s + car.vz * c; const r = car.r;
     const speed = Math.hypot(u, v);
+    // drift input (any car may use it; the player maps it to Space + throttle): the rear is
+    // unloaded laterally (like a locked diff / power oversteer) so the tail steps out, and grip
+    // comes back as the slide angle grows so the car settles into a controllable drift
+    const driftIn = inp.drift && speed > 8 && car.gear > 0 ? 1 : 0;
+    car.drift = (car.drift || 0) + clamp(driftIn - (car.drift || 0), -1.2 * dt, 4 * dt);
+    if (!driftIn) inp.driftTarget = 0;
+    const beta = Math.atan2(v, Math.max(Math.abs(u), 3)); car.driftAngle = beta;
+    let rearLatMul = 1;
+    if (car.drift > 0.001) {
+      // downforce pins the rear at speed: big slides in slow corners, only small ones in fast corners
+      const aeroPin = clamp(1.3 - speed / 70, 0.35, 1);
+      rearLatMul = 1 - SPEC.driftLoss * car.drift * aeroPin;
+      const excess = Math.abs(beta) - SPEC.driftA0; // beyond this slide angle the rear tyres bite again
+      if (excess > 0) rearLatMul = lerp(rearLatMul, SPEC.driftRestore, clamp(excess / SPEC.driftWin, 0, 1));
+      // balance the slide (what a driver does with throttle and opposite lock): yaw is nudged so the
+      // slide angle tracks the requested angle, and excess rotation is damped, so the car settles
+      // into the drift instead of spinning
+      const want = clamp(inp.driftTarget || 0, -0.4, 0.4) * clamp(1.4 - speed / 60, 0.45, 1);
+      car.driftTgt = (car.driftTgt || 0) + clamp(want - (car.driftTgt || 0), -1.4 * dt, 1.4 * dt);
+      const target = car.driftTgt;
+      const err = beta - target, rRef = Math.abs(u) > 3 ? car.ayL / Math.abs(u) : 0;
+      // full strength until the car is straight again, even after the drift button is released
+      const wStab = driftIn ? car.drift : Math.min(1, car.drift * 4 + Math.abs(beta) * 3);
+      const push = clamp(SPEC.driftKb * err * Math.min(1, speed / 20), -4, 4);
+      car.r += (push - SPEC.driftYawDamp * (car.r - rRef)) * wStab * dt;
+    }
     // ---- gearbox ----
     if (car.shiftT > 0) car.shiftT -= dt;
     if (car.gear > 0) {
@@ -916,6 +945,8 @@ const SIM = (function () {
         if (car.aids.abs && bw > 0 && sgn !== 0 && Math.abs(fx) > Fmax * 0.96 && Math.sign(fx) === -sgn) fx = -sgn * Fmax * 0.96;
         if (car.aids.tc && !front && fDrive > 0 && fx > Fmax * (car.aids.tc > 1 ? 0.93 : 1.0)) fx = Fmax * (car.aids.tc > 1 ? 0.93 : 1.0);
       }
+      // while drifting the rear keeps part of its grip for sideways scrub (combined slip)
+      if (!front && car.drift > 0.01 && fx > 0) fx = Math.min(fx, Fmax * (1 - 0.45 * car.drift));
       let lc = 0, sliding = 0; car.lock[i] = 0; car.spin[i] = 0;
       let slipLong = 0;
       if (Math.abs(fx) > Fmax * 0.985) {
@@ -927,6 +958,7 @@ const SIM = (function () {
         lc = Math.sqrt(Math.max(0, Fmax * Fmax - fx * fx));
         slipLong = Math.abs(fx) / (Fmax + 1) * 0.06 * Math.abs(lon);
       }
+      if (!front) lc *= rearLatMul;
       const alpha = Math.atan2(lat, Math.max(Math.abs(lon), 4.0));
       car.slipA[i] = alpha;
       let fy = -lc * Math.sin(sp.C * Math.atan(sp.B * alpha));
@@ -3262,12 +3294,13 @@ function readPad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : []; const p = pads && Array.from(pads).find(x => x && x.connected);
   if (!p) return null;
   const b = (i) => p.buttons[i] ? p.buttons[i].value : 0; const pressed = (i) => p.buttons[i] && p.buttons[i].pressed && !padPrev[i];
-  const out = { steer: Math.abs(p.axes[0]) > 0.06 ? p.axes[0] : 0, throttle: b(7), brake: b(6), up: pressed(0), down: pressed(1), drs: pressed(2), cam: pressed(3), start: pressed(9), ot: b(5) > 0.5, box: pressed(4) };
+  const out = { steer: Math.abs(p.axes[0]) > 0.06 ? p.axes[0] : 0, throttle: b(7), brake: b(6), up: pressed(0), down: pressed(1), drs: pressed(2), cam: pressed(3), start: pressed(9), ot: b(5) > 0.5, box: pressed(4), drift: !!(p.buttons[10] && p.buttons[10].pressed) };
   padPrev = p.buttons.map(x => x.pressed);
   return out;
 }
 
 /* ---------------- player driving assists ---------------- */
+let DRIFT_ANGLE = 0.3, DRIFT_GAIN = 0.08, DRIFT_CATCH = 0.3;
 class PlayerControl {
   constructor() { this.steer = 0; this.th = 0; this.br = 0; this.revT = 0; this.drsReq = false; this.ersMode = 1; this.tcCap = 1; this.absMod = 1; }
   apply(car, dt, sess) {
@@ -3280,7 +3313,19 @@ class PlayerControl {
     if (analog && pad.steer) this.steer = steerRaw;
     else { const rate = (steerRaw === 0 || Math.sign(steerRaw) !== Math.sign(this.steer)) ? 5.5 : 2.4 + 1.5 * Math.abs(this.steer); this.steer += clamp(steerRaw - this.steer, -rate * dt, rate * dt); }
     let cmd = this.steer * SIM.SPEC.maxLock;
-    if (S.steerAssist === 'on' && car.speed > 5) {
+    // drift: Space + throttle. Steering is relative to the direction of travel, so the front wheels
+    // automatically counter-steer while the player's input sets how far the car swings into the slide
+    const driftHeld = (KEYS.Space || (pad && pad.drift)) && thRaw > 0.3 && car.gear > 0 && sess.lightsOut;
+    inp.drift = driftHeld;
+    const drifting = driftHeld || (car.drift || 0) > 0.15;
+    if (drifting && car.speed > 6) {
+      const betaF = Math.atan2(car.v + car.r * SIM.SPEC.a, Math.max(car.u, 3));
+      // steering input sets the slide angle you want; the front wheels point along the direction of
+      // travel (opposite lock) with a little extra lock toward the corner
+      inp.driftTarget = driftHeld ? -this.steer * DRIFT_ANGLE : 0;
+      const err = (car.driftAngle || 0) - (car.driftTgt != null && driftHeld ? car.driftTgt : 0);
+      cmd = clamp(betaF + (driftHeld ? this.steer * DRIFT_GAIN : this.steer * 0.03) + DRIFT_CATCH * err, -SIM.SPEC.maxLock, SIM.SPEC.maxLock);
+    } else if (S.steerAssist === 'on' && car.speed > 5) {
       const betaF = Math.atan2(car.v + car.r * SIM.SPEC.a, Math.max(car.u, 3)); const aPk = SIM.SPEC.aPk * 1.05;
       // full stick deflection maps to the grip limit; small inputs stay linear
       const lim = Math.abs(betaF) + aPk + 0.01; const scale = Math.min(1, lim / SIM.SPEC.maxLock);
@@ -3299,8 +3344,8 @@ class PlayerControl {
     if (car.speed < 1.0 && brRaw > 0.5 && thRaw < 0.1 && sess.lightsOut) { this.revT += dt; if (this.revT > 0.5) car.gear = -1; } else if (thRaw > 0.1 || car.u > 1.5) { this.revT = 0; if (car.gear === -1) car.gear = 1; }
     if (car.gear === -1) { th = br; br = 0; }
     // traction control (per-wheel limiting happens in the physics; here we also trim throttle when the rear slides)
-    car.aids = { abs: S.abs === 'on', tc: S.tc === 'full' ? 2 : S.tc === 'medium' ? 1 : 0 };
-    if (S.tc !== 'off' && car.gear > 0) {
+    car.aids = { abs: S.abs === 'on', tc: drifting ? 1 : S.tc === 'full' ? 2 : S.tc === 'medium' ? 1 : 0 };
+    if (S.tc !== 'off' && car.gear > 0 && !drifting) {
       const rear = Math.abs(car.slipA[2] + car.slipA[3]) / 2; const thr = S.tc === 'full' ? 0.09 : 0.13;
       if (rear > thr && car.speed > 8) th *= clamp(1 - (rear - thr) * 7, 0.15, 1);
     }
@@ -3310,7 +3355,7 @@ class PlayerControl {
     if (takePress('KeyE') || (pad && pad.up)) inp.gearUp = true;
     if (takePress('KeyQ') || (pad && pad.down)) inp.gearDown = true;
     // DRS: press to open when available
-    if (takePress('Space') || (pad && pad.drs)) this.drsReq = true;
+    if (takePress('KeyG') || (takePress('Space') && car.drsAvail && Math.abs(this.steer) < 0.2) || (pad && pad.drs)) this.drsReq = true;
     if (!car.drsAvail || car.input.brake > 0.1) this.drsReq = false;
     inp.drs = this.drsReq;
     // ERS
@@ -3686,6 +3731,7 @@ function updateHud(dt) {
   const cd = $('chipDrs'); cd.className = 'chip' + (p.drsOpen ? ' on' : p.drsAvail ? ' avail' : '');
   cd.textContent = sess.type === 'race' && !sess.drsEnabled ? 'DRS OFF' : 'DRS';
   $('chipLim').style.display = p.pit && G.track.inLimiter(p.s) ? '' : 'none'; $('chipLim').className = 'chip warn';
+  const dr = $('chipDrift'); if ((p.drift || 0) > 0.2 && p.speed > 6) { dr.style.display = ''; dr.textContent = 'DRIFT ' + Math.round(Math.abs(p.driftAngle || 0) * 57.3) + '°'; } else dr.style.display = 'none';
   const fuelLaps = sess.type === 'race' ? (p.fuel / 1.95 - (sess.totalLaps - p.laps)) : p.fuel / 1.95;
   const cf = $('chipFuel'); cf.textContent = sess.type === 'race' ? 'FUEL ' + (fuelLaps >= 0 ? '+' : '') + fuelLaps.toFixed(1) : 'FUEL ' + p.fuel.toFixed(1) + 'kg'; cf.className = 'chip' + (sess.type === 'race' && fuelLaps < 0 ? ' warn' : '');
   // tyres
