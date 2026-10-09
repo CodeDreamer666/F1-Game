@@ -38,11 +38,39 @@ Reference: [Super Star Car on Poki](https://poki.com/en/g/super-star-car) for bi
 
 - **Circuit**: Lakeside Alpine Circuit (4.67 km, 8 corners, 2 DRS zones) with kerbs, gravel, painted run-off, braking-zone skid marks, ad-board walls, catch fences, grandstands with crowds, a pit lane with team garages, a start gantry with working lights, marshal light panels, rolling forested terrain, an animated lake, a castle, a village and snow-capped mountains.
 - **Graphics**: HDR rendering with multisampling, bloom, ACES tone mapping and colour grading; reflections captured from the real scenery; team liveries; contact shadows; stable sun shadows; optional speed blur; dynamic resolution to hold the frame rate. Low quality turns post-processing off.
-- **Physics** (240 Hz; arcade pedal/yaw/slide response for every car, player and AI alike): four-wheel tyre model (Pacejka-style lateral force, friction circle, load sensitivity, lock-ups and wheelspin), downforce and drag (DRS, slipstream, dirty air, wing damage), longitudinal and lateral weight transfer, 8-speed gearbox, ERS deploy/harvest, fuel mass and consumption, tyre temperature and wear (soft, medium, hard, wet), surface grip, wall and car-to-car collisions.
-- **AI drivers**: 19 opponents, each with pace, consistency, braking, racecraft, aggression, risk, tyre-management, strategy and start ratings. They drive the same arcade handling as the player, plan their own racing line, compute braking points and corner speeds from that handling's limits, learn each corner as they go, choose lanes around traffic, use slipstream, DRS and ERS to attack, defend the inside, give room, respect yellow and blue flags, make mistakes (late braking, over-braking, running wide, early throttle), recover after contact (respawning like the player when stuck), and plan and react to pit strategy (undercut, covering, damage stops).
+- **Physics** (240 Hz; arcade pedal/yaw/slide response for every car, player and AI alike): four-wheel tyre model (Pacejka-style lateral force, friction circle, load sensitivity, lock-ups and wheelspin), downforce and drag (DRS, slipstream, dirty air, aero damage), longitudinal and lateral weight transfer, 8-speed gearbox, ERS deploy/harvest, fuel mass and consumption, tyre temperature and wear (soft, medium, hard, wet), surface grip, wall and car-to-car collisions with component damage (see below).
+- **AI drivers**: 19 opponents, each with pace, consistency, braking, racecraft, aggression, risk, tyre-management, strategy and start ratings. They drive the same arcade handling as the player, plan their own racing line, compute braking points and corner speeds from that handling's limits, learn each corner as they go, choose lanes around traffic, use slipstream, DRS and ERS to attack, defend the inside, give room, respect yellow and blue flags, make mistakes (late braking, over-braking, running wide, early throttle), recover after contact (respawning like the player when stuck), and plan and react to pit strategy (undercut, covering, damage stops). They predict where the car ahead is heading before committing to a gap, drive a damaged car with more margin, limp a punctured car back off the racing line, and stop safely when a failure ends their race.
 - **Race weekend**: qualifying with out-laps and a session clock, standing starts, sector timing (purple/green/yellow), time gaps, track-limit warnings, penalties (track limits, causing a collision, overtaking under yellow), yellow flags, pit stops with double-stacking, chequered flag and classified results with points.
 - **Modes**: race weekend (qualifying + race), quick race, and spectator mode with car switching, five cameras, an auto-director and up to 4× time.
-- **Settings**: race length, AI difficulty, qualifying length, field size, weather, tyre wear, two-compound rule, damage, starting tyre, driver name and team, default camera, graphics quality, volume and units.
+- **Settings**: race length, AI difficulty, qualifying length, field size, weather, tyre wear, two-compound rule, vehicle damage (Reduced / Standard / Realistic), starting tyre, driver name and team, default camera, graphics quality, volume and units.
+
+## Damage, repairs and retirement
+
+Every car (player, bots and the pit autopilot) uses the same component damage model. Each impact is judged on the energy it dissipates at the contact point: closing speed, effective mass, where on the car it lands, from which direction, and how much each part was already weakened. Absolute speed does not matter, so cars running side by side can touch without consequence.
+
+| Component | Failure behaviour | Effect on the car |
+|---|---|---|
+| Front wing (left / right halves) | Droops, then detaches and lies on track as debris | Less front downforce: understeer, mostly at speed |
+| Rear wing | Tilts, upper elements come off; a destroyed rear structure retires the car | Less rear stability and downforce |
+| Floor | Scrapes and sparks | Downforce loss everywhere |
+| Suspension ×4 | Bent alignment, then breaks (retirement) | Less grip at that corner, the car pulls to that side, the steering shakes |
+| Tyres ×4 | Slow leak or blow-out; a flat tyre shreds and the rim damages the corner | Grip, braking, traction and top speed loss, strong pull |
+| Power unit | Misfires, then fails (stop safely) | Power loss |
+| Cooling | Leaks and runs hot; overheating derates and wears the power unit | Lift-and-coast needed |
+| Chassis | Structural; heavy damage retires the car | Slight handling loss |
+
+Damage accumulates: repeated knocks below a part's threshold still weaken it, and a damaged part gives way sooner. Crushed wings pass leftover energy on to the suspension and tub behind them. Light contact leaves scratches and sparks; moderate impacts break wings, bend suspension or cut tyres; heavy crashes break suspension or the power unit and end the race.
+
+**Pit repairs.** Tyre changes take about 2–4 s; a new front wing with tyres about 7–11 s; a rear wing about 16–22 s. Suspension, floor, power unit, cooling and chassis damage cannot be repaired. Press `5` while boxing to keep damaged wings for a faster stop.
+
+**Failures and fire.** Fires are rare and need a plausible cause, such as a power unit failing hot or after a heavy impact, or a huge impact into the fuel cell or battery. A car with a fire or catastrophic failure pulls off the racing line, stops and retires. Race control shows a yellow flag until marshals recover it. The driver is classified DNF and cannot rejoin; every car is restored for the next session.
+
+**Vehicle Damage setting** (main menu, Race Settings or the pause menu; Standard by default):
+- **Reduced:** minor contact is mostly cosmetic, failures are unlikely, no fires; only serious crashes end a race.
+- **Standard:** balanced damage, punctures and repair decisions; big crashes have real consequences.
+- **Realistic:** stricter thresholds, more cumulative damage, rare reliability failures and fires; heavy crashes can end the race.
+
+The vehicle-status panel shows each component's condition, its handling effect, and whether a pit stop is recommended with its duration.
 
 ## Controls
 
@@ -56,6 +84,7 @@ The core keyboard controls follow Super Star Car on Poki: WASD or arrow keys to 
 | DRS | `G` |
 | ERS overtake (hold) / cycle ERS mode | `Shift` / `X` |
 | Box this lap, then pick tyres | `P`, then `1`–`4` |
+| Pit: change / keep damaged wings | `5` |
 | Camera / look back | `C` / `B` |
 | Full leaderboard / telemetry | `Tab` / `T` |
 | Respawn car on track | `Space` (or `R`) |
@@ -64,6 +93,6 @@ The core keyboard controls follow Super Star Car on Poki: WASD or arrow keys to 
 
 Gamepads are supported (left stick steer, right trigger throttle, left trigger brake, X DRS, Y camera, Start pause).
 
-## Movement checks
+## Automated checks
 
-Run `node tests/movement.cjs` to check all 16 WASD/arrow combinations, brief input buffering, micro steering taps, acceleration, coasting, brake-only S, steering without automatic braking or throttle cuts, direction changes, three-key drift, drift recovery and consistency at different frame rates using the actual physics engine. It also checks that bots and the pit autopilot drive through the player's handling: a bot command moves the car exactly as the same player input does, bots finish a lap on the real circuit without reversing or needing recovery, and the autopilot completes a pit stop.
+Run `node tests/movement.cjs` to check all 16 WASD/arrow combinations, brief input buffering, micro steering taps, acceleration, coasting, brake-only S, steering without automatic braking or throttle cuts, direction changes, three-key drift, drift recovery and consistency at different frame rates using the actual physics engine. It also checks that bots and the pit autopilot drive through the player's handling: a bot command moves the car exactly as the same player input does, bots finish a lap on the real circuit without reversing or needing recovery, and the autopilot completes a pit stop. The damage tests stage impacts on the real circuit and cover gentle wheel-to-wheel contact, relative-speed and wall impacts, accumulated knocks, punctures, aero, suspension, tyre and power-unit effects, overheating, fire rarity, pit repair times and limits, retirement with clean timing and results, bot pit decisions and the three damage levels.

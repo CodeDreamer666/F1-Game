@@ -110,6 +110,22 @@
   #pitstop .t { font-size: 13px; color: #dfe3ea; letter-spacing: 1px; font-weight: 700; }
   #pitstop b { font-size: 40px; color: var(--yellow); line-height: 1.1; }
   #boxpanel { position: absolute; right: 230px; bottom: 16px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+  #boxRep { margin-top: 6px; font-size: 12px; color: #dfe3ea; font-weight: 600; }
+  #boxRep kbd { min-width: 18px; padding: 0 5px; font-size: 11px; }
+  #vstat { position: absolute; right: 18px; top: 250px; width: 200px; padding: 9px 12px 10px; font-size: 12px; }
+  #vstat .head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; letter-spacing: 1px; font-size: 14px; }
+  #vstat .head b { font-size: 11px; padding: 1px 7px; border-radius: 3px; letter-spacing: 1px; color: #111; }
+  #vstat svg { display: block; width: 56px; height: 122px; margin: 6px auto 4px; }
+  #vstat .rows div { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-weight: 700; }
+  #vstat .rows span { color: var(--dim); font-weight: 600; text-align: right; }
+  #vstat .pitrec { margin-top: 6px; font-weight: 700; line-height: 1.35; }
+  @media (max-height: 760px) { #vstat { top: 232px; } #vstat svg { height: 96px; width: 44px; } }
+  #pitJobs { font-size: 12px; color: #dfe3ea; margin-top: 2px; letter-spacing: .5px; }
+  .msg.dmg { border-left-color: #ff8a1f; }
+  .msg.rc { border-left-color: #f5c518; background: rgba(36, 31, 6, .92); }
+  .dmgsel { margin-top: 10px; pointer-events: auto; }
+  .dmgsel .lbl { font-size: 12px; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; }
+  .dmgsel .desc, .field .desc { font-size: 12px; color: #8a93a3; margin-top: 6px; line-height: 1.4; }
   #boxpanel .opts { display: flex; gap: 8px; margin-top: 6px; }
   #boxpanel .opt { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--dim); opacity: .5; }
   #boxpanel .opt.sel { opacity: 1; color: #fff; }
@@ -231,8 +247,25 @@
   </div>
   <div id="msgs"></div>
   <div id="lights" class="panel hidden"><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div></div>
-  <div id="pitstop" class="panel hidden"><div class="t">PIT STOP</div><b class="num" id="pitTime">0.0 s</b></div>
-  <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP</div><div class="opts" id="boxOpts"></div></div>
+  <div id="pitstop" class="panel hidden"><div class="t">PIT STOP</div><b class="num" id="pitTime">0.0 s</b><div id="pitJobs"></div></div>
+  <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP</div><div class="opts" id="boxOpts"></div><div id="boxRep"></div></div>
+  <div id="vstat" class="panel hidden">
+    <div class="head"><span>VEHICLE</span><b id="vsBadge">OK</b></div>
+    <svg viewBox="0 0 60 130" aria-hidden="true">
+      <rect id="vsFloor" x="13" y="36" width="34" height="68" rx="7" fill="none" stroke-width="2"/>
+      <rect id="vsChas" x="24.5" y="12" width="11" height="62" rx="5"/>
+      <rect id="vsCoolL" x="14.5" y="48" width="8.5" height="26" rx="3"/><rect id="vsCoolR" x="37" y="48" width="8.5" height="26" rx="3"/>
+      <rect id="vsEng" x="24.5" y="77" width="11" height="22" rx="3"/>
+      <rect id="vsFwL" x="2" y="2" width="27" height="7" rx="2"/><rect id="vsFwR" x="31" y="2" width="27" height="7" rx="2"/>
+      <rect id="vsRw" x="12" y="119" width="36" height="8" rx="2"/>
+      <line id="vsS0" x1="12" y1="31" x2="25" y2="31" stroke-width="3"/><line id="vsS1" x1="35" y1="31" x2="48" y2="31" stroke-width="3"/>
+      <line id="vsS2" x1="13" y1="99" x2="25" y2="99" stroke-width="3"/><line id="vsS3" x1="35" y1="99" x2="47" y2="99" stroke-width="3"/>
+      <rect id="vsT0" x="2" y="22" width="10" height="18" rx="3"/><rect id="vsT1" x="48" y="22" width="10" height="18" rx="3"/>
+      <rect id="vsT2" x="1" y="88" width="12" height="22" rx="3"/><rect id="vsT3" x="47" y="88" width="12" height="22" rx="3"/>
+    </svg>
+    <div class="rows" id="vsRows"></div>
+    <div class="pitrec" id="vsPit"></div>
+  </div>
   <div id="telemetry" class="panel hidden"><canvas id="telCanvas" width="900" height="240"></canvas><canvas id="gCanvas" width="280" height="240"></canvas></div>
   <div id="specbar" class="panel hidden"></div>
   <div id="qtimer" class="panel hidden"></div>
@@ -249,7 +282,8 @@
     <button class="btn" data-act="settings">Race Settings</button>
     <button class="btn" data-act="controls">Controls</button>
     <button class="btn" data-act="restart" id="btnRestart" disabled>Restart <small id="restartWhat">No session</small></button>
-    <div class="menu-foot">Race with 19 AI drivers, collisions, fuel, ERS and tyre wear.</div>
+    <div class="dmgsel" id="menuDmg"></div>
+    <div class="menu-foot">Race with 19 AI drivers, collisions, component damage, pit repairs, fuel, ERS and tyre wear.</div>
   </div>
   <div class="circuit-card panel">
     <div class="country">Circuit</div>
@@ -281,6 +315,7 @@
       <div>ERS overtake (hold) <span><kbd>Shift</kbd></span></div>
       <div>ERS mode cycle <span><kbd>X</kbd></span></div>
       <div>Box this lap / tyre <span><kbd>P</kbd> + <kbd>1</kbd>-<kbd>4</kbd></span></div>
+      <div>Pit: change / keep damaged wings <span><kbd>5</kbd></span></div>
       <div>Change camera <span><kbd>C</kbd></span></div>
       <div>Look back <span><kbd>B</kbd></span></div>
       <div>Full leaderboard <span><kbd>Tab</kbd></span></div>
@@ -307,6 +342,7 @@
     <button class="btn" data-act="settings">Race Settings</button>
     <button class="btn" data-act="controls">Controls</button>
     <button class="btn" data-act="exit">Exit to main menu</button>
+    <div class="dmgsel" id="pauseDmg"></div>
   </div>
 </div>
 
@@ -765,7 +801,7 @@ const SIM = (function () {
       this.tyre = { c: 'M', wear: new Float64Array(4), temp: new Float64Array([80, 80, 80, 80]), age: 0, used: new Set() };
       this.fuel = 50; this.ers = SPEC.ersMax * 0.6; this.ersDeploy = 0; this.harvesting = false;
       this.drsOpen = false; this.drsAvail = false; this.dragMul = 1; this.downMul = 1; this.slipTarget = -1;
-      this.damage = { wing: 0, floor: 0 }; this.lastHit = 0;
+      this.damage = new CarDamage(); this.lastHit = 0; this.retiring = null;
       this.idx = 0; this.s = 0; this.d = 0; this.proj = { i: 0, d: 0, s: 0 }; this.wallTmp = { l: 0, r: 0, innerPit: 0 };
       // race state
       this.totalDist = 0; this.laps = 0; this.crossings = 0; this.lapStart = 0; this.lastLap = 0; this.bestLap = 0; this.lapValid = true;
@@ -797,8 +833,8 @@ const SIM = (function () {
       return mu * tf * wf;
     }
     gripEstimate(wet) { const f = (this.tyreMu(0, wet) + this.tyreMu(1, wet)) / 2, r = (this.tyreMu(2, wet) + this.tyreMu(3, wet)) / 2; return 0.5 * (f + r) / 2 + 0.5 * Math.min(f, r); }
-    effClA() { return SPEC.clA * this.team.clA * this.downMul * (1 - 0.18 * this.damage.wing - 0.25 * this.damage.floor) * (this.drsOpen ? 0.9 : 1); }
-    effCdA() { return SPEC.cdA * this.team.cdA * this.dragMul * (this.drsOpen ? 0.8 : 1) * (1 + 0.05 * this.damage.wing); }
+    effClA() { return SPEC.clA * this.team.clA * this.downMul * this.damage.perf.clAMul * (this.drsOpen ? 0.9 : 1); }
+    effCdA() { return SPEC.cdA * this.team.cdA * this.dragMul * (this.drsOpen ? 0.8 : 1) * this.damage.perf.cdAMul; }
   }
 
   const tmpW = { l: 0, r: 0, innerPit: 0 };
@@ -867,7 +903,7 @@ const SIM = (function () {
     const q = 0.5 * RHO * u * u;
     const clA = car.effClA(), cdA = car.effCdA();
     const down = q * clA;
-    const balF = sp.aeroBal * (1 - 0.35 * car.damage.wing) / (1 - 0.35 * car.damage.wing * sp.aeroBal);
+    const balF = car.damage.perf.frontShare;
     const downF = down * balF, downR = down - downF;
     const drag = q * cdA * Math.sign(u) + 0.5 * RHO * 2.0 * v * Math.abs(v);
     // ---- loads ----
@@ -983,11 +1019,14 @@ const SIM = (function () {
     if (car.aids && car.aids.arcade) {
       const H = HANDLING;
       let surface = 0; for (let i = 0; i < 4; i++) surface += SURF_MU[car.surf[i]]; surface /= 4;
-      const top = H.topSpeed * (car.drsOpen ? 1.04 : 1) / Math.cbrt(car.dragMul * (1 + 0.05 * car.damage.wing));
-      const power = Math.max(0, 1 - Math.pow(Math.max(u, 0) / top, 3));
-      const boost = car.ersDeploy / (Math.max(u, 12) * m);
-      const drive = fuelOk && !env.holdStart ? (H.acceleration * car.team.power * power * car.throttle + boost) * surface : 0;
-      const braking = car.brake * Math.max(H.brakeFloor, Math.abs(u) * H.brakeRate);
+      // damage: lost power and traction, extra drag, weaker braking (see CarDamage.computePerf)
+      const DP = car.damage.perf;
+      const top = H.topSpeed * (car.drsOpen ? 1.04 : 1) / Math.cbrt(car.dragMul) * DP.topMul;
+      const power = Math.max(0, 1 - Math.pow(Math.max(u, 0) / Math.max(top, 1), 3));
+      const misfire = DP.misfire > 0 ? 1 - DP.misfire * (0.5 + 0.5 * Math.sin(car.damage.vibPh * 41)) : 1;
+      const boost = DP.power > 0 ? car.ersDeploy / (Math.max(u, 12) * m) : 0;
+      const drive = fuelOk && !env.holdStart ? (H.acceleration * car.team.power * power * car.throttle * DP.power * DP.traction * misfire + boost) * surface : 0;
+      const braking = car.brake * Math.max(H.brakeFloor, Math.abs(u) * H.brakeRate) * DP.brake;
       const coast = H.coastRate * u + Math.sign(u) * Math.max(0, rollingResistance / m - 0.15);
       FxSum = m * (drive - coast - Math.sign(u) * braking);
       // Match the planted arcade car's rapid rotation and automatic slide catch.
@@ -1105,8 +1144,15 @@ const SIM = (function () {
   function arcadeSteerShape(u) { return lerp(...HANDLING.shape, clamp((u - 12) / 58, 0, 1)); }
   // Highest speed at which the arcade handling can hold path curvature kap using the fraction `use` of its yaw ceiling
   // (solves v = cap(v) × use / |kap|; the cap falls linearly between 12 and 70 m/s).
-  function arcadeCornerSpeed(kap, mu, use) {
+  function arcadeCornerSpeed(kap, mu, use, dmg) {
     const k = Math.abs(kap); if (k < 1e-5) return 110;
+    if (dmg && (dmg.perf.turnLoss > 0 || dmg.perf.aeroTurnLoss > 0)) {
+      // damaged car: the ceiling also falls with speed (lost downforce), so solve by bisection
+      if (k >= ARCADE_KGEOM * use * dmg.turnMul(0)) return 4;
+      let lo = 0, hi = arcadeCornerSpeed(kap, mu, use);
+      for (let it = 0; it < 14; it++) { const v = (lo + hi) / 2; if (arcadeTurnCap(v, mu) * dmg.turnMul(v) * use / k >= v) lo = v; else hi = v; }
+      return Math.max(4, lo);
+    }
     if (k >= ARCADE_KGEOM * use) return 4;
     const [r0, r1] = HANDLING.turnRate, A = clamp(mu / 1.6, 0.45, 1.05) * use / k;
     let v = A * r0;
@@ -1158,7 +1204,9 @@ const SIM = (function () {
       const rGrip = mu * (G + kA * uu * uu) / uu;
       // The reference rotates promptly, rather than waiting for the full tyre
       // model to build yaw. Preserve speed sensitivity and stationary behavior.
-      const rCap = arcadeTurnCap(u, mu, this.drift, spd);
+      // damage: wing/floor/suspension/tyre losses shrink the turn-rate ceiling (understeer)
+      const D = car.damage;
+      const rCap = arcadeTurnCap(u, mu, this.drift, spd) * D.turnMul(spd);
       const rDes = shaped * rCap; this.rDes = rDes;
       const beta = Math.atan2(car.v, Math.max(Math.abs(u), 3));
       const driftAngle = lerp(...H.driftAngle, vN);
@@ -1176,17 +1224,237 @@ const SIM = (function () {
       const cornerUse = Math.max(util, 0.8 * sA);
       const A = car.aids && car.aids.yaw ? car.aids : (car.aids = { yaw: {} });
       A.arcade = true; A.abs = true; A.tc = 2; A.tcf = 0.95;
-      A.turnRate = rDes;
+      // bent suspension or a deflating tyre pulls the car to one side and shakes the steering
+      let yawNoise = 0;
+      if (D.perf.vib > 0) { this.vph = (this.vph || 0) + dt; yawNoise = D.perf.vib * 0.05 * Math.sin(this.vph * 29) * Math.sin(this.vph * 7.3 + 1) * clamp(u / 25, 0, 1); }
+      A.turnRate = rDes + D.pullRate(u) + yawNoise;
       A.turnResponse = tgt === 0 ? H.turnOut : H.turnIn;
       A.slideTarget = betaTarget;
-      A.lateralResponse = lerp(H.lateralGrip, H.lateralSlide, this.drift);
+      // rear wing / rear corner damage lets the rear slide more (less rear stability)
+      A.lateralResponse = lerp(H.lateralGrip, H.lateralSlide, this.drift) * D.perf.rearStab;
       A.cbcF = lerp(0.96, 0.58, cornerUse);
       A.cbcR = lerp(0.92, lerp(0.52, 0.78, this.drift), cornerUse);
       // Release rear grip for entry, then let it recover as the requested slide angle is reached.
       const bite = clamp(Math.abs(beta) / Math.max(driftAngle, 0.05), 0, 1);
       A.rearLat = lerp(1, lerp(0.55, 1.05, bite), this.drift);
-      A.yaw.allow = lerp(H.gripSlide, driftAngle + 0.03, this.drift);
+      A.yaw.allow = lerp(H.gripSlide, driftAngle + 0.03, this.drift) + (1 - D.perf.rearStab) * 0.05;
       A.yaw.look = 0.12; A.yaw.k = 100; A.yaw.max = 0.45;
+    }
+  }
+
+  /* ------------------------------------------------------------------
+     VEHICLE DAMAGE — component condition, impact evaluation, failures.
+     Every car (player, bots, autopilot) uses the same rules. Damage comes from the energy an impact
+     dissipates at the contact point, never from the cars' absolute speed, so two cars running side by
+     side can touch without consequence. Each component has its own strength, failure behaviour and
+     effect on the arcade handling (see CarDamage.perf).
+     ------------------------------------------------------------------ */
+  // Vehicle Damage setting: scales real thresholds and failure odds.
+  //  thr/scale: energy needed to start / complete damage; fatigue: how much sub-threshold knocks weaken parts;
+  //  puncture/failure/fire: odds multipliers; fatal: suspension condition at which the car is out.
+  const DAMAGE_LEVELS = {
+    reduced: { id: 'reduced', name: 'Reduced', thr: 2.3, scale: 1.9, fatigue: 0.25, puncture: 0.3, failure: 0.35, fire: 0, fatal: 1.0, chassisFatal: 0.85, reliability: 0 },
+    standard: { id: 'standard', name: 'Standard', thr: 1.0, scale: 1.0, fatigue: 1.0, puncture: 1.0, failure: 1.0, fire: 0.45, fatal: 0.9, chassisFatal: 0.6, reliability: 0 },
+    realistic: { id: 'realistic', name: 'Realistic', thr: 0.8, scale: 0.85, fatigue: 1.5, puncture: 1.3, failure: 1.4, fire: 1.0, fatal: 0.85, chassisFatal: 0.5, reliability: 1 },
+  };
+  const normalizeDamageLevel = (id) => id === 'off' ? 'reduced' : DAMAGE_LEVELS[id] ? id : 'standard'; // 'on'/'off' from older saves
+  const P_FWL = 0, P_FWR = 1, P_RW = 2, P_FLOOR = 3, P_SUS = 4, P_ENG = 8, P_COOL = 9, P_CHAS = 10, NPART = 11;
+  const PART_KEYS = ['fwL', 'fwR', 'rw', 'floor', 'susFL', 'susFR', 'susRL', 'susRR', 'engine', 'cooling', 'chassis'];
+  const PART_NAMES = ['Front wing (left)', 'Front wing (right)', 'Rear wing', 'Floor', 'Front-left suspension', 'Front-right suspension', 'Rear-left suspension', 'Rear-right suspension', 'Power unit', 'Cooling', 'Chassis'];
+  const WHEEL_NAMES = ['Front-Left', 'Front-Right', 'Rear-Left', 'Rear-Right'];
+  // energy (J) a component absorbs before it is damaged, and the extra energy that destroys it
+  const PART_T = [2500, 2500, 6000, 9000, 9000, 9000, 9000, 9000, 30000, 7000, 45000];
+  const PART_S = [14000, 14000, 32000, 90000, 70000, 70000, 70000, 70000, 200000, 70000, 150000];
+  // pit job durations (s). Jobs run in parallel with the 2–3 s tyre change, so a stop with a new
+  // front wing takes about 7–11 s and one with a new rear wing about 16–22 s.
+  const REPAIR_TIME = { fw: [7.0, 10.5], rw: [16, 22] };
+  const nearBox = (lx, ly, x0, x1, y0, y1, r) => {
+    const dx = Math.max(x0 - lx, 0, lx - x1), dy = Math.max(y0 - ly, 0, ly - y1);
+    const d = Math.hypot(dx, dy); return d >= r ? 0 : Math.pow(1 - d / r, 1.2);
+  };
+  // Share of an impact each component sees, from the contact point (lx forward, ly right, car frame)
+  // and the impact direction (side = |lateral component|, 0 head-on/rear, 1 pure side hit).
+  function partExposure(lx, ly, side, out) {
+    out[P_FWL] = nearBox(lx, ly, 2.3, 3.05, -1.0, -0.05, 0.6);
+    out[P_FWR] = nearBox(lx, ly, 2.3, 3.05, 0.05, 1.0, 0.6);
+    if (lx > 2.1 && Math.abs(ly) < 0.4) { out[P_FWL] = Math.max(out[P_FWL], 0.8); out[P_FWR] = Math.max(out[P_FWR], 0.8); } // nose hit loads both halves
+    out[P_RW] = nearBox(lx, ly, -2.85, -2.1, -0.56, 0.56, 0.6);
+    out[P_FLOOR] = 0.4 * nearBox(lx, ly, -2.3, 1.6, -0.8, 0.8, 0.5);
+    for (let i = 0; i < 4; i++) {
+      const x = i < 2 ? SPEC.a : -SPEC.b, sg = i % 2 ? 1 : -1;
+      // wheels and wishbones fold far more easily when hit from the side
+      out[P_SUS + i] = nearBox(lx, ly * sg, x - 0.4, x + 0.4, 0.5, 1.05, 0.75) * (0.55 + 0.45 * side);
+    }
+    out[P_ENG] = Math.max(0.1, nearBox(lx, ly, -2.1, -0.4, -0.35, 0.35, 1.3));
+    out[P_COOL] = Math.max(nearBox(lx, ly, -0.6, 0.8, 0.35, 0.9, 0.5), nearBox(lx, ly, -0.6, 0.8, -0.9, -0.35, 0.5));
+    out[P_CHAS] = 0.2 + 0.3 * side * (lx > -1.6 && lx < 1.7 ? 1 : 0.35);
+    // load paths: a hit at either end is carried through that axle's suspension mounts into the tub,
+    // and at the rear through the gearbox and power unit
+    const front = clamp((lx - 1.4) / 1.0, 0, 1), rear = clamp((-lx - 1.3) / 1.0, 0, 1), sideSg = ly >= 0 ? 1 : 0;
+    out[P_SUS] += 0.22 * front * (1 - 0.4 * sideSg); out[P_SUS + 1] += 0.22 * front * (0.6 + 0.4 * sideSg);
+    out[P_SUS + 2] += 0.22 * rear * (1 - 0.4 * sideSg); out[P_SUS + 3] += 0.22 * rear * (0.6 + 0.4 * sideSg);
+    out[P_ENG] += 0.3 * rear; out[P_FLOOR] += 0.15 * rear; out[P_COOL] += 0.08 * front;
+    out[P_CHAS] += 0.2 * front + 0.1 * rear;
+    return out;
+  }
+  // how directly the contact point lies on each tyre (for punctures)
+  function tyreExposure(lx, ly, i) {
+    const x = i < 2 ? SPEC.a : -SPEC.b, sg = i % 2 ? 1 : -1;
+    return nearBox(lx, ly * sg, x - 0.36, x + 0.36, 0.52, 0.95, 0.35);
+  }
+  const _expo = new Float64Array(NPART);
+  class CarDamage {
+    constructor() { this.reset(); }
+    reset() {
+      this.c = new Float64Array(NPART);          // condition loss per component: 0 perfect … 1 destroyed
+      this.tier = new Uint8Array(NPART);         // highest severity already announced
+      this.punct = new Float64Array(4);          // tyre deflation 0 … 1
+      this.punctRate = new Float64Array(4);      // deflation per second (0 = tyre intact)
+      this.rimDist = new Float64Array(4);        // metres driven on a fully deflated tyre
+      this.shred = new Uint8Array(4);            // tyre carcass gone: running on the rim
+      this.detached = [false, false, false];     // front wing left / right, rear wing upper elements
+      this.scuff = 0; this.engT = 92; this.leak = 0; this.vibPh = 0;
+      this.failed = null; this.fire = 0; this.fireOut = 0; this.overheat = 0; this.hits = 0;
+      this.perf = {
+        turnLoss: 0, aeroTurnLoss: 0, pull: 0, vib: 0, rearStab: 1, power: 1, traction: 1, brake: 1, topMul: 1,
+        clAMul: 1, cdAMul: 1, frontShare: SPEC.aeroBal, misfire: 0,
+      };
+      this.computePerf();
+    }
+    get fw() { return (this.c[P_FWL] + this.c[P_FWR]) / 2; }
+    get maxSus() { return Math.max(this.c[4], this.c[5], this.c[6], this.c[7]); }
+    anyPuncture() { return this.punctRate[0] > 0 || this.punctRate[1] > 0 || this.punctRate[2] > 0 || this.punctRate[3] > 0; }
+    // overall severity used by stewards and AI caution
+    severity() { return Math.max(this.fw * 0.8, this.c[P_RW], this.maxSus, this.c[P_ENG], this.c[P_CHAS] * 1.5, this.anyPuncture() ? 0.6 : 0); }
+    isClean() { for (let k = 0; k < NPART; k++) if (this.c[k] > 0.004) return false; return !this.anyPuncture(); }
+    // Physical consequences of the current condition, consumed by the handling and the physics step.
+    computePerf() {
+      const c = this.c, p = this.perf;
+      const fw = this.fw, rw = c[P_RW], fl = c[P_FLOOR];
+      const frontAero = 1 - 0.6 * fw, rearAero = 1 - 0.55 * rw, floorAero = 1 - 0.4 * fl;
+      const bal = SPEC.aeroBal;
+      p.clAMul = (bal * frontAero + (1 - bal) * rearAero) * floorAero;
+      p.frontShare = bal * frontAero / Math.max(1e-3, bal * frontAero + (1 - bal) * rearAero);
+      // lost downforce costs cornering at speed: front wing = understeer, floor = everywhere
+      p.aeroTurnLoss = 0.34 * fw + 0.2 * fl + 0.2 * rw;
+      let mech = 0, pull = (c[P_FWR] - c[P_FWL]) * 0.06, vib = 0, brake = 1, drag = 0, traction = 1, rearStab = 1 - 0.5 * rw - 0.15 * fl;
+      for (let i = 0; i < 4; i++) {
+        const s = c[P_SUS + i], d = this.punct[i], side = i % 2 ? 1 : -1, front = i < 2;
+        // bent wishbones / toe links: less grip at that corner and a pull towards it
+        mech += (front ? 0.16 : 0.09) * s + (front ? 0.22 : 0.12) * d + (this.shred[i] ? 0.08 : 0);
+        pull += side * ((front ? 0.3 : 0.16) * s + (front ? 0.42 : 0.24) * d);
+        vib += 0.5 * s + 0.6 * d + (this.shred[i] ? 0.7 : 0);
+        brake -= 0.12 * d + 0.06 * s;
+        drag += 0.05 * d + (this.shred[i] ? 0.07 : 0);
+        if (!front) { traction -= 0.18 * d; rearStab -= 0.22 * d + 0.12 * s; }
+      }
+      p.turnLoss = Math.min(0.6, mech + 0.05 * c[P_CHAS]);
+      p.pull = pull; p.vib = Math.min(1.5, vib);
+      p.brake = clamp(brake, 0.5, 1); p.traction = clamp(traction, 0.55, 1);
+      p.rearStab = clamp(rearStab, 0.35, 1);
+      p.cdAMul = 1 - 0.04 * fw - 0.12 * rw + 0.05 * fl + drag;
+      // power unit: damaged internals lose power; overheating triggers the engine's protection mode
+      const e = c[P_ENG];
+      const derate = this.engT > 120 ? 1 - clamp((this.engT - 120) / 40, 0, 0.45) : 1;
+      p.power = this.failed === 'engine' || this.fire > 0 ? 0 : Math.max(0, (1 - 0.5 * Math.pow(e, 1.4)) * derate);
+      p.misfire = e > 0.6 ? (e - 0.6) * 0.5 : 0;
+      p.topMul = Math.cbrt(Math.max(0.05, p.power)) / Math.cbrt(Math.max(0.5, p.cdAMul));
+    }
+    // fraction of the steering's yaw-rate ceiling still available at speed v
+    turnMul(v) { const p = this.perf; return clamp(1 - p.turnLoss - p.aeroTurnLoss * clamp((v - 15) / 55, 0, 1), 0.3, 1); }
+    // yaw-rate drift (rad/s) the damaged car adds at speed v; the driver has to steer against it
+    pullRate(v) { return this.perf.pull * 0.35 * clamp(v / 20, 0, 1.3); }
+    // Apply one impact. E = energy (J) this car absorbs; lx, ly contact point (car frame); side 0…1 impact direction.
+    // Returns true if anything changed.
+    // scrape = friction work of parts sliding against each other or the barrier: it wears the outer parts
+    // at the contact (wing endplates, wheels) and the paint, not the structure.
+    applyImpact(E, lx, ly, side, lv, scrape = 0) {
+      partExposure(lx, ly, side, _expo);
+      // crush-through: energy a wing cannot absorb before it is destroyed carries on into the corner
+      // behind it (front: that wheel's suspension and the tub; rear: rear suspension and power unit)
+      if (E > 0) {
+        for (const [w, tgt] of [[P_FWL, [[P_SUS, 0.6], [P_CHAS, 0.25]]], [P_FWR, [[P_SUS + 1, 0.6], [P_CHAS, 0.25]]], [P_RW, [[P_SUS + 2, 0.3], [P_SUS + 3, 0.3], [P_ENG, 0.3]]]]) {
+          const ex = E * _expo[w] - (PART_T[w] * lv.thr + (1 - this.c[w]) * PART_S[w] * lv.scale);
+          if (ex > 0) for (const [k, f] of tgt) _expo[k] += f * ex / E;
+        }
+      }
+      let changed = false; this.hits++;
+      if (E + scrape > 120) { this.scuff = Math.min(1, this.scuff + (E + 0.5 * scrape) / 60000); changed = true; }
+      for (let k = 0; k < NPART; k++) {
+        const outer = k <= P_RW || (k >= P_SUS && k < P_ENG);
+        const Ek = E * _expo[k] + (outer ? 0.3 * scrape * _expo[k] : 0); if (Ek <= 0) continue;
+        // a part that is already weakened gives way earlier
+        const T = PART_T[k] * lv.thr * (1 - 0.55 * this.c[k]);
+        let inc = 0;
+        if (Ek > T) inc = (Ek - T) / (PART_S[k] * lv.scale);
+        else if (Ek > 0.45 * T) inc = lv.fatigue * 0.025 * (Ek / T); // stress cracks from repeated knocks
+        if (inc > 0) { this.c[k] = Math.min(1, this.c[k] + inc); changed = true; }
+      }
+      if (changed) this.computePerf();
+      return changed;
+    }
+    // start a puncture on wheel i; fast = blow-out, otherwise a slow leak
+    puncture(i, fast) {
+      if (this.punctRate[i] > 0) { this.punctRate[i] = Math.max(this.punctRate[i], fast ? 1.2 : 0.12); return; }
+      this.punctRate[i] = fast ? rand(0.6, 1.4) : rand(0.07, 0.16);
+    }
+    // fresh tyres fix punctures (wheel damage underneath stays)
+    newTyres() { this.punct.fill(0); this.punctRate.fill(0); this.rimDist.fill(0); this.shred.fill(0); this.computePerf(); }
+    replaceFrontWing() { this.c[P_FWL] = this.c[P_FWR] = 0; this.detached[0] = this.detached[1] = false; this.tier[P_FWL] = this.tier[P_FWR] = 0; this.computePerf(); }
+    replaceRearWing() { this.c[P_RW] = 0; this.detached[2] = false; this.tier[P_RW] = 0; this.computePerf(); }
+    rearWingRepairable() { return this.c[P_RW] < 0.98; }
+    // estimated lap-time loss (s/lap) from damage a pit crew can fix, and from damage it cannot
+    // (coefficients measured with a bot on the circuit's ~62 s lap)
+    lapLoss() {
+      const c = this.c; let rep = 3.9 * this.fw + 1.4 * c[P_RW];
+      const lostPower = this.failed === 'engine' ? 1 : 0.5 * Math.pow(c[P_ENG], 1.4);
+      const fixed = 2.6 * c[P_FLOOR] + 3.4 * (c[P_SUS] + c[P_SUS + 1]) + 2 * (c[P_SUS + 2] + c[P_SUS + 3]) + 23 * lostPower + 1.5 * c[P_CHAS];
+      for (let i = 0; i < 4; i++) if (this.punctRate[i] > 0) rep += this.shred[i] ? 40 : 25;
+      return { rep, fixed };
+    }
+    // what the crew will do at the next stop (front wing / rear wing) and how long it adds
+    repairPlan(opts = {}) {
+      const plan = { fw: false, rw: false, extra: 0, items: [] };
+      if (opts.wings !== false && this.fw > 0.08) { plan.fw = true; plan.items.push('Front wing'); }
+      if (opts.wings !== false && this.c[P_RW] > 0.2 && this.rearWingRepairable()) { plan.rw = true; plan.items.push('Rear wing'); }
+      // expected stationary time, for the AI's decision and the driver's display
+      plan.time = Math.max(2.4, plan.fw ? (REPAIR_TIME.fw[0] + REPAIR_TIME.fw[1]) / 2 : 0, plan.rw ? (REPAIR_TIME.rw[0] + REPAIR_TIME.rw[1]) / 2 : 0);
+      plan.extra = plan.time - 2.4;
+      return plan;
+    }
+    // 10 Hz: tyre deflation, rim damage, engine temperature, leaks. Returns true if perf changed.
+    tick(car, dt, race) {
+      let changed = false; const lv = race.damageLevel;
+      for (let i = 0; i < 4; i++) {
+        if (this.punctRate[i] <= 0) continue;
+        if (this.punct[i] < 1) { this.punct[i] = Math.min(1, this.punct[i] + this.punctRate[i] * dt); changed = true; }
+        else if (car.speed > 3) {
+          // driving on a flat tyre destroys it, then the rim gouges the wheel, upright and floor
+          this.rimDist[i] += car.speed * dt;
+          if (!this.shred[i] && this.rimDist[i] > 1800) { this.shred[i] = 1; changed = true; race.onTyreShred(car, i); }
+          if (this.shred[i]) {
+            const k = car.speed * dt / (9000 * lv.scale);
+            this.c[P_SUS + i] = Math.min(1, this.c[P_SUS + i] + k); this.c[P_FLOOR] = Math.min(1, this.c[P_FLOOR] + k * 0.3); changed = true;
+          }
+        }
+      }
+      // power unit temperature: heat from load (and internal damage) against cooling that needs airflow
+      const load = car.throttle * clamp(car.rpm / 12000, 0.3, 1.05);
+      if (this.c[P_COOL] >= 0.6) this.leak = Math.min(1, this.leak + dt * 0.004 * (this.c[P_COOL] - 0.5)); // coolant leak
+      const airflow = clamp(car.speed / 60, 0.15, 1.2);
+      const coolEff = Math.max(0.12, (1 - 0.85 * this.c[P_COOL] - 0.5 * this.leak) * (0.55 + 0.45 * airflow) * (race.wet ? 1.1 : 1));
+      const heat = 25 + 55 * load + 22 * this.c[P_ENG];
+      const Teq = 70 + heat * 0.45 / coolEff;
+      const T0 = this.engT; this.engT += (Teq - this.engT) * dt / 12;
+      if (Math.abs(this.engT - T0) > 0.05 && (this.engT > 118 || T0 > 118)) changed = true;
+      if (this.engT > 135 && !this.failed) {
+        this.c[P_ENG] = Math.min(1, this.c[P_ENG] + dt * (this.engT - 135) * 0.0012 * lv.failure); changed = true;
+      }
+      this.overheat = this.engT > 125 ? 1 : 0;
+      if (this.fire > 0 && this.fireOut > 0) { this.fireOut -= dt; if (this.fireOut <= 0) { this.fire = 0; this.fireOut = 0; } }
+      this.vibPh += dt;
+      if (changed) this.computePerf();
+      return changed;
     }
   }
 
@@ -1223,7 +1491,8 @@ const SIM = (function () {
             if (vn >= 0) continue;
             const rAn = rAx * nz - rAz * nx, rBn = rBx * nz - rBz * nx;
             const e = 0.25;
-            const j = -(1 + e) * vn / (1 / mA + 1 / mB + rAn * rAn / I + rBn * rBn / I);
+            const mEff = 1 / (1 / mA + 1 / mB + rAn * rAn / I + rBn * rBn / I); // effective mass along the contact normal
+            const j = -(1 + e) * vn * mEff;
             // friction
             const tx = -nz, tz = nx; const vt = rvx * tx + rvz * tz;
             const rAt = rAx * tz - rAz * tx, rBt = rBx * tz - rBz * tx;
@@ -1232,19 +1501,21 @@ const SIM = (function () {
             A.vx -= Jx / mA; A.vz -= Jz / mA; B.vx += Jx / mB; B.vz += Jz / mB;
             A.r -= (rAx * Jz - rAz * Jx) / I * 0.6; B.r += (rBx * Jz - rBz * Jx) / I * 0.6;
             hit = true;
-            if (race) race.onCollision(A, B, j, cx, cz);
+            if (race) race.onCollision(A, B, j, cx, cz, nx, nz, vn, vt, jt, mEff);
           }
         }
         void hit;
       }
     }
   }
+  const WALL_PTS = [[2.9, -0.95], [2.9, 0.95], [-2.6, -0.95], [-2.6, 0.95], [0.3, -1.0], [0.3, 1.0], [SPEC.a, -1.0], [SPEC.a, 1.0], [-SPEC.b, -1.02], [-SPEC.b, 1.02]];
   function collideWalls(car, track, race) {
     if (car.inGarage) return;
     const c = Math.cos(car.psi), s = Math.sin(car.psi);
     const i = car.idx; const w = track.walls(i, car.s, !!car.pit, tmpW);
     const rx = track.rx[i], rz = track.rz[i];
-    const corners = [[2.9, -0.95], [2.9, 0.95], [-2.6, -0.95], [-2.6, 0.95], [0.3, -1.0], [0.3, 1.0]];
+    // nose / wing tips, rear corners, sidepods and the outer face of each wheel
+    const corners = WALL_PTS;
     for (const [ox, oy] of corners) {
       const px = car.x + c * ox - s * oy, pz = car.z + s * ox + c * oy;
       const d = (px - track.cx[i]) * rx + (pz - track.cz[i]) * rz;
@@ -1263,12 +1534,13 @@ const SIM = (function () {
       if (vn >= 0) continue;
       const rn = rpx * nz - rpz * nx;
       const m = car.mass, I = SPEC.Iz;
-      const j = -(1.3) * vn / (1 / m + rn * rn / I);
+      const mEff = 1 / (1 / m + rn * rn / I);
+      const j = -(1.3) * vn * mEff;
       const tx = -nz, tz = nx; const vt = vpx * tx + vpz * tz; const rt = rpx * tz - rpz * tx;
       let jt = -vt / (1 / m + rt * rt / I); jt = clamp(jt, -0.3 * j, 0.3 * j);
       const Jx = nx * j + tx * jt, Jz = nz * j + tz * jt;
       car.vx += Jx / m; car.vz += Jz / m; car.r += (rpx * Jz - rpz * Jx) / I * 0.5;
-      if (race) race.onWallHit(car, j, px, pz);
+      if (race) race.onWallHit(car, j, px, pz, nx, nz, vn, vt, jt, mEff);
     }
   }
 
@@ -1392,7 +1664,8 @@ const SIM = (function () {
       if (race.type === 'race' && race.time - race.lightsOutTime < this.reaction && !this.pitOnly) {
         inp.brake = 1; inp.throttle = 0; inp.steer = 0; return;
       }
-      const speed = car.speed;
+      if (car.retiring) { this.retireDrive(); return; }
+      const speed = car.speed, D = car.damage;
       // ---- recovery detection ----
       const hErr = this.headingError();
       const offTrack = Math.abs(car.d) > t.halfW + 1.5 && !car.pit;
@@ -1410,17 +1683,20 @@ const SIM = (function () {
       const alpha = Math.atan2(ly, lx);
       const dNow = this.dPlanAt(car.idx);
       const latErr = car.d - dNow;
-      const rDes = Math.max(car.u, 0) * 2 * Math.sin(alpha) / dist;
+      // a damaged car pulls to one side: ask for the turn the path needs minus the pull
+      const rDes = Math.max(car.u, 0) * 2 * Math.sin(alpha) / dist - D.pullRate(car.u);
       const grip = this.handling.mu || this.handling.grip(car, race.wet); // as the handling measured it last step
-      const rCap = arcadeTurnCap(car.u, grip, 0, speed);
+      const rCap = arcadeTurnCap(car.u, grip, 0, speed) * D.turnMul(speed);
       const use = Math.abs(rDes) / Math.max(rCap, 1e-3);
       this.yawUse = use; this.steerSat = speed > 6 ? Math.max(0, use - 1) : 0;
       inp.steer = rCap > 1e-3 ? Math.sign(rDes) * Math.pow(Math.min(1, use), 1 / arcadeSteerShape(speed)) : clamp(alpha * 2, -1, 1);
       // ---- speed envelope ----
       if ((step + this.tick) % 4 === 0) { this.computeEnvelope(); this.vFollow = this.followLimit(this.neighbors, !!car.pit); }
       let vT = Math.min(this.vEnv, this.vLimit, this.vFollow != null ? this.vFollow : 110);
-      if (this.cornerUse && this.mode === 'race') { const kNeed = 2 * Math.sin(alpha) / dist; vT = Math.min(vT, arcadeCornerSpeed(kNeed, grip, Math.min(1, this.cornerUse * 1.04))); }
+      if (this.cornerUse && this.mode === 'race') { const kNeed = 2 * Math.sin(alpha) / dist; vT = Math.min(vT, arcadeCornerSpeed(kNeed, grip, Math.min(1, this.cornerUse * 1.04), D)); }
       if (car.pit || this.pitting) vT = Math.min(vT, this.pitSpeed());
+      // nurse a punctured car back to the pits off the pace; a shredded tyre is slower still
+      if (D.anyPuncture() && !car.pit) vT = Math.min(vT, D.shred[0] || D.shred[1] || D.shred[2] || D.shred[3] ? 20 : 30);
       if (race.type === 'race' && race.finishedFlag && car.finished) vT = Math.min(vT, 45);
       // ---- throttle / brake ----
       const dv = vT - speed;
@@ -1435,6 +1711,8 @@ const SIM = (function () {
         if (this.steerSat > 0.01) th *= clamp(1 - this.steerSat * 12, 0, 1);
         if (this.steerSat > 0.12 && speed > 15) { th = 0; inp.brake = 0.25; }
         if (earlyThrottle && dv > 0) th = 1;
+        // overheating: lift and coast to bring the power unit temperature down
+        if (D.engT > 122) th = Math.min(th, D.engT > 132 ? 0.55 : 0.8);
         inp.throttle = th;
       }
       // drs / ers
@@ -1450,6 +1728,58 @@ const SIM = (function () {
       // ---- learning (segment adaptation) ----
       this.learn(latErr, offTrack);
     }
+    // Damage call (10 Hz): pit when the repairable lap-time loss over the remaining laps outweighs the stop,
+    // pit at once for a puncture or a lost wing, and retire in the pits when the car can no longer race.
+    assessDamage() {
+      const car = this.car, race = this.race, D = car.damage;
+      if (car.pit || car.retiring || car.finished || car.dnf || race.type === 'calib' || !race.lightsOut) return;
+      const { rep, fixed } = D.lapLoss();
+      const lapsLeft = race.type === 'race' ? race.totalLaps - car.laps : 2;
+      const cooking = D.leak > 0.6 || (D.engT > 140 && D.c[P_ENG] > 0.4);
+      if (race.type === 'race' && (fixed > 8 || cooking) && lapsLeft > 1 && !this.retireInPits) {
+        this.retireInPits = true; this.boxThisLap = true; race.log(car, 'retire in pits'); race.msg('Car Cannot Continue — Retire in the Pits', 'pen', car, 4);
+      }
+      if (this.retireInPits) { this.boxThisLap = true; return; }
+      if (rep < 0.05 || lapsLeft < 1) { this.damageStop = false; return; }
+      const plan = D.repairPlan();
+      const urgent = D.anyPuncture() || D.detached[0] || D.detached[1] || D.detached[2];
+      const st = this.plan && this.plan.stops.length ? this.plan.stops[0] : null;
+      const stopSoon = st && st.abs - car.laps <= 3;
+      // a stop costs the pit lane time (unless one is due anyway) plus the stationary time of the repair
+      const cost = (stopSoon ? 0 : race.pitLoss) + Math.max(0, plan.time - 2.4);
+      if (urgent || rep * lapsLeft > cost * (1.1 - 0.2 * this.p.strat)) {
+        if (!this.damageStop) race.log(car, 'box for damage ' + rep.toFixed(1) + 's/lap');
+        this.damageStop = true; this.boxThisLap = true;
+        if (!car.boxCompound) {
+          const must = race.mandatory && !race.wet && car.tyre.used.size < 2;
+          car.boxCompound = stopSoon ? st.c : race.wet ? 'W' : must ? (car.tyre.c === 'H' ? 'M' : 'H') : lapsLeft > 12 ? 'H' : lapsLeft > 6 ? 'M' : 'S';
+        }
+      }
+    }
+    // Retiring: pull off the racing line to the side with run-off, slow down and stop clear of the track.
+    retireDrive() {
+      const car = this.car, t = this.track, inp = this.cmd;
+      car.input.drs = false; car.input.ers = 0;
+      if (car.retiring.phase !== 'stopping' || car.pit) { inp.throttle = 0; inp.brake = car.pit ? clamp(car.speed * 0.1, 0.3, 1) : 1; inp.steer = 0; return; }
+      if (this.retireSide == null) {
+        const w = t.walls(car.idx, car.s, false, { l: 0, r: 0, innerPit: 0 });
+        const roomR = w.r - t.halfW, roomL = w.l - t.halfW;
+        this.retireSide = car.d >= 0 ? (roomR > 2.5 || roomR >= roomL ? 1 : -1) : (roomL > 2.5 || roomL >= roomR ? -1 : 1);
+        this.retireRoom = Math.max(roomR, roomL);
+      }
+      const w = t.walls(car.idx, car.s, false, { l: 0, r: 0, innerPit: 0 });
+      const room = (this.retireSide > 0 ? w.r : w.l) - t.halfW;
+      const targetD = this.retireSide * (t.halfW + clamp(room - 1.8, 0.8, 4));
+      const iL = t.wrapI(car.idx + Math.round(Math.max(14, car.speed * 0.9) / DS));
+      const Px = t.cx[iL] + t.rx[iL] * targetD, Pz = t.cz[iL] + t.rz[iL] * targetD;
+      const c = Math.cos(car.psi), s = Math.sin(car.psi);
+      const ang = Math.atan2(-(Px - car.x) * s + (Pz - car.z) * c, (Px - car.x) * c + (Pz - car.z) * s);
+      inp.steer = clamp(ang * 2.5, -1, 1);
+      const clear = Math.abs(car.d) > t.halfW + 0.6;
+      // keep rolling (with any power left) until clear of the racing surface, then stop
+      if (!clear) { inp.throttle = car.speed < 8 && car.damage.perf.power > 0 ? 0.3 : 0; inp.brake = car.speed > 18 ? 0.35 : 0; }
+      else { inp.throttle = 0; inp.brake = 1; }
+    }
     headingError() { const t = this.track, car = this.car; let h = car.psi - t.heading[car.idx]; h = Math.atan2(Math.sin(h), Math.cos(h)); return h; }
     computeEnvelope() {
       // Speed envelope for the arcade handling: corner speed comes from the steering's yaw-rate ceiling,
@@ -1464,10 +1794,12 @@ const SIM = (function () {
       }
       if (race.type === 'quali' && this.qPhase === 'out') commit *= 0.9;
       if (race.wet) commit *= 0.985;
+      // a damaged car is driven with more margin
+      const D = car.damage; commit *= 1 - 0.08 * Math.min(1, D.severity());
       // share of the steering's yaw-rate ceiling the driver will use in a corner (corner speed scales with
       // it linearly, so the square root keeps the old grip-commitment spread between drivers)
       const cornerUse = Math.sqrt(commit);
-      let brakeC = this.brakeCommit; if (race.wet) brakeC *= 0.95;
+      let brakeC = this.brakeCommit * D.perf.brake; if (race.wet) brakeC *= 0.95;
       if (this.mistake && this.mistake.type === 'late' && this.mistakeT > 0) brakeC *= this.mistake.f;
       const mu = car.gripEstimate(race.wet);
       const v = car.speed;
@@ -1476,7 +1808,7 @@ const SIM = (function () {
       let vNext = 110;
       for (let j = look; j >= 0; j -= 2) {
         const i = t.wrapI(car.idx + j);
-        let vc = arcadeCornerSpeed(this.kappaAt(i), mu, Math.min(1, cornerUse * seg(i)));
+        let vc = arcadeCornerSpeed(this.kappaAt(i), mu, Math.min(1, cornerUse * seg(i)), D);
         if (race.yellowAt(i) && !car.pit) vc *= 0.93;
         if (j === look) { vNext = vc; continue; }
         const dist = t.rlDist(i, t.wrapI(i + 2));
@@ -1604,11 +1936,12 @@ const SIM = (function () {
         if (!!o.pit !== !!car.pit && !(this.pitting && o.pit)) { if (o.pit && t.inPitMain(o.s)) continue; if (car.pit && t.inPitMain(car.s)) continue; }
         const ds = t.dS(car.s, o.s);
         if (ds < -60 || ds > 170) continue;
-        nb.push({ o, ds, dd: o.d, dv: v - o.speed });
+        nb.push({ o, ds, dd: o.d, dv: v - o.speed, pd: ds > 0 ? this.predictD(o, ds - 5.6) : o.d });
       }
       // ---- strategy & pit decisions ----
       if (race.type === 'race' && !this.pitOnly) this.strategy();
       if (race.type === 'quali' && !this.pitOnly) this.qualiLogic();
+      if (!this.pitOnly) this.assessDamage();
       // pit entry handling
       if ((this.boxThisLap || this.pitOnly && car.boxRequest) && !car.pit) {
         const toEntry = t.dS(car.s, t.pit.entry0); const q = t.pitProg(car.s);
@@ -1654,7 +1987,7 @@ const SIM = (function () {
         let feasible = true;
         for (const n of nb) {
           const o = n.o; if (o.pit) continue;
-          const latGap = Math.abs(o.d - cd);
+          const latGap = n.ds > 0 ? Math.min(Math.abs(o.d - cd), Math.abs(n.pd - cd)) : Math.abs(o.d - cd);
           const alongside = n.ds > -6.5 && n.ds < 6.5;
           if (alongside) {
             const minGap = 2.5 - p.aggr * 0.25;
@@ -1663,14 +1996,15 @@ const SIM = (function () {
             if ((o.d - car.d) * (o.d - cd) < 0 && n.ds > -6 && n.ds < 6) feasible = false;
             continue;
           }
-          if (n.ds > 0 && n.ds < horizon && latGap < 2.4) {
+          // a car closing fast on a much slower one leaves it more room
+          if (n.ds > 0 && n.ds < horizon && latGap < 2.4 + clamp((n.dv - 8) * 0.06, 0, 1.6)) {
             const closing = n.dv; // >0 when we're faster
             if (closing > 0.3) cost += 26 / (n.ds / closing + 0.6) + 3;
             else if (n.ds < 25) cost += 2.5;
             if (n.ds < 14 && closing > -2) cost += 6;
             // slipstream: on straights while closing in, sit behind
             if (distToCorner > 350 && n.ds > 12 && n.ds < 70 && closing > 0) cost -= 3.5;
-            if (o.spun || o.speed < 15) cost += 60;
+            if (o.spun || o.speed < 15 || o.retiring || o.damage.anyPuncture()) cost += 60;
           }
           if (n.ds < 0 && n.ds > -30 && this.blue && latGap < 3) cost += 3;
         }
@@ -1702,6 +2036,11 @@ const SIM = (function () {
         let ok = true; for (const n of nb) if (n.ds > -6 && n.ds < 6 && Math.abs(n.o.d - this.laneD) < 2.2) ok = false;
         if (ok) bestC = this.laneD;
       }
+      // a limping car (puncture, or heading in to retire) holds one lane well off the racing line
+      if (car.damage.anyPuncture() || this.retireInPits) {
+        if (this.limpSide == null) this.limpSide = Math.abs(rlA) > 1 ? -Math.sign(rlA) : (car.d >= 0 ? 1 : -1);
+        bestC = this.limpSide * lim;
+      } else this.limpSide = null;
       const offLine = Math.abs(bestC - rlA) > 1.0;
       if (offLine) { this.laneD = bestC; this.laneWTarget = 1; }
       else this.laneWTarget = 0;
@@ -1733,11 +2072,13 @@ const SIM = (function () {
         const ds = t.dS(car.s, o.s);
         if (ds <= 0 || ds > 150) continue;
         if (!pitlane && o.pit && t.inPitMain(o.s)) continue;
-        const lat = Math.min(Math.abs(o.d - car.d), Math.abs(o.d - myD) + 0.3);
         const gap = ds - 5.6;
+        // also where the car ahead will be when we reach it: it may be sweeping across to its line
+        const pd = this.predictD(o, gap);
+        const lat = Math.min(Math.abs(o.d - car.d), Math.abs(o.d - myD) + 0.3, Math.abs(pd - car.d), Math.abs(pd - myD) + 0.3);
         // no overtaking under yellow: hold station behind healthy cars even in another lane
         if (yellow && lat <= 6 && o.speed > 20 && !o.spun && gap < 40 && !(o.ai && o.ai.mode === 'recover')) { lim = Math.min(lim, o.speed + Math.max(0, gap - 8) * 0.4); continue; }
-        if (lat > 2.3 && !pitlane) continue;
+        if (lat > 2.3 + clamp((v - o.speed - 8) * 0.06, 0, 1.6) && !pitlane) continue;
         if (pitlane && Math.abs(o.d - car.d) > 2.4) continue;
         const safe = 1.5 + v * (0.15 - 0.06 * p.aggr) * (cautious ? 1.5 : 1);
         // anticipate the car ahead braking (brake lights / closing rate)
@@ -1747,6 +2088,15 @@ const SIM = (function () {
         if (gap < 1.2) lim = Math.min(lim, o.speed - 3);
       }
       return Math.max(lim, 0);
+    }
+    // lateral position of car o by the time this car closes a gap of `gap` metres on it
+    predictD(o, gap) {
+      const closing = this.car.speed - o.speed;
+      if (closing < 4 || gap > 80 || o.pit) return o.d;
+      const t = this.track, tc = Math.min(2.5, Math.max(0, gap) / closing);
+      if (o.ai && o.ai.mode === 'race' && !o.retiring) return o.ai.dPlanAt(t.wrapI(o.idx + Math.round(o.speed * tc / DS)));
+      const vlat = o.vx * t.rx[o.idx] + o.vz * t.rz[o.idx];
+      return clamp(o.d + vlat * tc, -t.halfW - 2, t.halfW + 2);
     }
     strategy() {
       const car = this.car, race = this.race;
@@ -1780,7 +2130,6 @@ const SIM = (function () {
             else if (this.followTime > 25 && rnd() < this.p.strat * 0.7) { this.boxThisLap = true; car.boxCompound = st.c; race.log(car, 'undercut attempt'); }
           }
         }
-        if (car.damage.wing > 0.3 && lapsLeft > 2) { this.boxThisLap = true; car.boxCompound = car.boxCompound || (race.wet ? 'W' : (must ? (car.tyre.c === 'H' ? 'M' : 'H') : car.tyre.c)); race.log(car, 'box for damage'); }
         if (wear > 0.88 && lapsLeft > 1) { this.boxThisLap = true; car.boxCompound = car.boxCompound || (race.wet ? 'W' : (lapsLeft > 12 ? 'H' : 'S')); }
       }
       if (this.attackTarget) this.followTime += 0.1; else this.followTime = Math.max(0, this.followTime - 0.2);
@@ -1813,7 +2162,8 @@ const SIM = (function () {
       if (this.type === 'quali') this.wearScale = wm;
       this.mandatory = cfg.mandatory != null ? cfg.mandatory : this.totalLaps >= 10;
       if (!this.tyreWearOn || this.wet) this.mandatory = false;
-      this.damageOn = cfg.damage !== 'off';
+      this.damageOn = true; this.setDamageLevel(cfg.damage);
+      this.contacts = new Map(); this.debris = [];
       this.fuelRate = 0.04; // calibrated so ~1.75kg per lap
       this.time = 0; this.step = 0; this.events = []; this.messages = [];
       this.cars = []; this.lightsOut = this.type !== 'race'; this.lights = 0; this.lightsOutTime = 0; this.startSeqT = 0;
@@ -1869,6 +2219,7 @@ const SIM = (function () {
       }
     }
     fitTyres(car, comp, temp) {
+      car.damage.newTyres();
       car.tyre.c = comp; car.tyre.wear.fill(0); car.tyre.temp.fill(temp); car.tyre.age = 0; car.tyre.used.add(comp);
     }
     boxSpot(car) {
@@ -1880,6 +2231,8 @@ const SIM = (function () {
       const b = this.boxSpot(car); const t = this.track;
       car.placeAt(t, b.s, b.d, 0); car.inGarage = true; car.pit = { phase: 'garage', boxS: b.s, stopS: b.s, timer: 0 };
       car.vx = car.vz = car.r = 0; car.gear = 1; car.frozen = true;
+      // between qualifying runs the crew has time to fit new wings; structural damage stays with the car
+      car.damage.replaceFrontWing(); if (car.damage.rearWingRepairable()) car.damage.replaceRearWing();
     }
     releaseFromGarage(car) {
       car.inGarage = false; car.frozen = false; car.pit = { phase: 'out', boxS: null, stopS: 0, timer: 0 };
@@ -1924,7 +2277,7 @@ const SIM = (function () {
       // controls
       for (const car of this.cars) {
         if (car.ai) car.ai.update(dt, this.step);
-        else if (car.isPlayer && (car.pit || car.autoDrive)) car.autopilot.update(dt, this.step);
+        else if (car.isPlayer && (car.pit || car.autoDrive || car.retiring)) car.autopilot.update(dt, this.step);
         else if (car.isPlayer && car.control && !car.inGarage) car.control(dt, this); // human driver, every physics step
       }
       // physics
@@ -1952,8 +2305,10 @@ const SIM = (function () {
         collideWalls(car, t, this);
         this.pitLogic(car, dt);
         this.timing(car);
+        if (car.retiring) this.retireStep(car, dt);
       }
       collideCars(this.cars, this);
+      this.resolveContacts();
       if (this.step % 24 === 0) this.slowUpdate();
     }
     updateDRS(car) {
@@ -1975,7 +2330,7 @@ const SIM = (function () {
     gapToAheadTime(car) { return car.intervalAhead > 0 ? car.intervalAhead : 99; }
     pitLogic(car, dt) {
       const t = this.track, p = t.pit;
-      if (car.inGarage) return;
+      if (car.inGarage || car.retiring) return;
       const q = t.pitProg(car.s);
       if (!car.pit) {
         // entering pit lane?
@@ -2004,10 +2359,17 @@ const SIM = (function () {
           if (mate) { /* wait */ car.vx = car.vz = 0; return; }
           if (Math.abs(t.dS(P.stopS, P.boxS)) > 2) { P.stopS = P.boxS; return; }
           P.phase = 'stopped'; car.frozen = true; car.vx = car.vz = car.r = 0;
+          // a bot that judged its damage hopeless retires in the garage
+          if (car.ai && car.ai.retireInPits && this.type === 'race') { car.dnfReason = 'Damage'; this.retire(car); return; }
+          // Jobs run in parallel: the tyre change (2–3 s), a front wing (7–11 s), a rear wing (16–22 s).
+          // Only wings and tyres can be changed; suspension, floor, power unit, cooling and chassis damage stays.
           let tt = 2.0 + Math.abs(gauss()) * 0.35 + rand(0, 0.3);
           if (rnd() < 0.05) tt += rand(1.5, 5);
-          let repair = 0; if (car.damage.wing > 0.05) { repair = 5.5; }
-          P.timer = tt + repair; P.total = P.timer; P.repair = repair;
+          const plan = car.damage.repairPlan({ wings: !(car.isPlayer && car.skipWingRepair) });
+          const fwT = plan.fw ? rand(...REPAIR_TIME.fw) + Math.abs(gauss()) * 0.3 : 0;
+          const rwT = plan.rw ? rand(...REPAIR_TIME.rw) : 0;
+          P.timer = Math.max(tt, fwT, rwT); P.total = P.timer; P.tyreT = tt; P.fwT = fwT; P.rwT = rwT; P.plan = plan;
+          P.repair = plan.items.length ? plan.items.join(' + ') : '';
           const comp = car.boxCompound || (car.isPlayer ? (car.nextCompound || car.tyre.c) : (this.wet ? 'W' : car.tyre.c));
           P.newComp = comp;
           this.events.push({ type: 'pitstop', car });
@@ -2022,13 +2384,16 @@ const SIM = (function () {
             else car.ai.releaseAt = 1e9;
             return;
           }
-          this.fitTyres(car, P.newComp, 72); if (P.repair) car.damage.wing = 0;
+          this.fitTyres(car, P.newComp, 72);
+          if (P.plan && P.plan.fw) car.damage.replaceFrontWing();
+          if (P.plan && P.plan.rw) car.damage.replaceRearWing();
+          if (P.repair) this.log(car, 'repaired ' + P.repair);
           car.pitStops++; this.stats.pitstops++; car.boxCompound = null;
           car.lastPitTime = P.total;
           P.phase = 'out'; car.frozen = false; car.gear = 1; P.boxS = null;
           this.log(car, 'pit ' + P.total.toFixed(1) + 's -> ' + P.newComp);
           this.events.push({ type: 'pitdone', car, time: P.total });
-          if (car.isPlayer || car.ai) this.msg(car.driver.short + ' PIT ' + P.total.toFixed(1) + 's', 'pit', car, 2.5);
+          if (car.isPlayer || car.ai) this.msg(car.driver.short + ' PIT ' + P.total.toFixed(1) + 's' + (P.repair ? ' — new ' + P.repair.toLowerCase() : ''), 'pit', car, 2.5);
         }
       } else if (P.phase === 'out') {
         if (q < 0 || q > p.len - 5) { car.pit = null; if (car.isPlayer) this.msg('Pit exit — limiter off', 'info', car, 2); if (car.ai && car.ai.plan) car.ai.lastPlanLap = -1; }
@@ -2130,19 +2495,13 @@ const SIM = (function () {
       this.msg(car.driver.short + ' +' + sec + 's PENALTY — ' + reason, 'pen', car, 3.5);
       this.log(car, 'penalty ' + reason);
     }
-    onCollision(A, B, j, x, z) {
-      if (j < 300) return;
-      this.events.push({ type: 'collision', a: A, b: B, j, x, z });
-      if (this.time - (A.lastHitT || 0) > 1.2 && this.time - (B.lastHitT || 0) > 1.2) { this.stats.collisions++; this.log(A, 'contact ' + B.driver.short + ' j=' + j.toFixed(0)); }
-      A.lastHitT = B.lastHitT = this.time;
-      if (this.damageOn && j > 2500) {
-        const dmg = Math.min(0.6, (j - 2500) / 12000);
-        // front wing damage for the car that hit with its nose
-        const front = (car, other) => { const c = Math.cos(car.psi), s = Math.sin(car.psi); return ((other.x - car.x) * c + (other.z - car.z) * s) > 1.5; };
-        if (front(A, B)) A.damage.wing = Math.min(1, A.damage.wing + dmg);
-        if (front(B, A)) B.damage.wing = Math.min(1, B.damage.wing + dmg);
-        A.damage.floor = Math.min(0.6, A.damage.floor + dmg * 0.15); B.damage.floor = Math.min(0.6, B.damage.floor + dmg * 0.15);
+    onCollision(A, B, j, x, z, nx, nz, vn, vt, jt, mEff) {
+      if (j >= 300) {
+        this.events.push({ type: 'collision', a: A, b: B, j, x, z });
+        if (this.time - (A.lastHitT || 0) > 1.2 && this.time - (B.lastHitT || 0) > 1.2) { this.stats.collisions++; this.log(A, 'contact ' + B.driver.short + ' j=' + j.toFixed(0)); }
+        A.lastHitT = B.lastHitT = this.time;
       }
+      this.recordContact(A.id < B.id ? A.id * 4096 + B.id : B.id * 4096 + A.id, A, B, x, z, nx, nz, vn, vt, jt, mEff);
       // penalty: car behind ramming the car ahead
       if (this.type === 'race' && j > 3500 && this.lightsOut) {
         const t = this.track; const ds = t.dS(A.s, B.s);
@@ -2153,14 +2512,241 @@ const SIM = (function () {
         }
       }
     }
-    onWallHit(car, j, x, z) {
+    onWallHit(car, j, x, z, nx, nz, vn, vt, jt, mEff) {
       if (j > 800) this.events.push({ type: 'wall', car, j, x, z });
-      if (this.damageOn && j > 4000) car.damage.wing = Math.min(1, car.damage.wing + Math.min(0.5, (j - 4000) / 15000));
-      if (j > 22000 && this.damageOn && this.type === 'race' && !car.dnf && car.ai && rnd() < 0.5) { car.dnf = true; car.dnfReason = 'Accident'; this.retire(car); }
+      this.recordContact(-1 - car.id, car, null, x, z, nx, nz, vn, vt, jt, mEff);
+    }
+    // One impact = all contact steps between a pair (or a car and the wall) with no gap longer than 0.1 s.
+    // It is judged once, on its peak: the closing speed at the contact point and the effective mass
+    // give the energy the crash structures absorb (0.5·m·v²); sliding friction adds scraping energy.
+    recordContact(key, A, B, x, z, nx, nz, vn, vt, jt, mEff) {
+      let ev = this.contacts.get(key);
+      if (!ev) { ev = { a: A, b: B, last: 0, E: 0, peak: 0, vn: 0, vt: 0, x, z, scrape: 0, hits: [] }; this.contacts.set(key, ev); }
+      ev.last = this.time;
+      const E = 0.5 * mEff * vn * vn, sc = Math.abs(jt * vt) * 0.5; // friction impulse × sliding speed
+      ev.E += E; ev.scrape += sc;
+      // contact point in each car's frame, and how side-on the impact is for that car
+      const local = (car) => {
+        const c = Math.cos(car.psi), s = Math.sin(car.psi), dx = x - car.x, dz = z - car.z;
+        return [dx * c + dz * s, -dx * s + dz * c, Math.abs(-nx * s + nz * c)];
+      };
+      const la = local(A);
+      // energy is booked where it lands on the car: a crash that hits the nose and then the rear damages both
+      let h = ev.hits.find(o => Math.hypot(o.la[0] - la[0], o.la[1] - la[1]) < 0.7);
+      if (!h) {
+        if (ev.hits.length >= 6) h = ev.hits.reduce((a, b) => Math.hypot(a.la[0] - la[0], a.la[1] - la[1]) < Math.hypot(b.la[0] - la[0], b.la[1] - la[1]) ? a : b);
+        else { h = { la, lb: B ? local(B) : null, E: 0, sc: 0, peak: 0 }; ev.hits.push(h); }
+      }
+      h.E += E; h.sc += sc;
+      if (E >= h.peak) { h.peak = E; h.la = la; if (B) h.lb = local(B); }
+      if (E >= ev.peak) { ev.peak = E; ev.vn = Math.abs(vn); ev.vt = Math.abs(vt); ev.x = x; ev.z = z; }
+    }
+    resolveContacts() {
+      if (!this.contacts.size) return;
+      for (const [k, ev] of this.contacts) {
+        if (this.time - ev.last < 0.1) continue;
+        this.contacts.delete(k);
+        if (this.damageOn) this.evaluateImpact(ev);
+      }
+    }
+    evaluateImpact(ev) {
+      // each car absorbs half of a car-to-car impact; against the barrier the car takes most of it
+      const share = ev.b ? 0.5 : 0.85;
+      for (const h of ev.hits) {
+        this.damageCar(ev.a, h.E * share, h.sc * share, h.la, ev, ev.b, h.lb);
+        if (ev.b) this.damageCar(ev.b, h.E * share, h.sc * share, h.lb, ev, ev.a, h.la);
+      }
+      const tot = (ev.E + ev.scrape) * share;
+      if (tot > 9000) for (const car of ev.b ? [ev.a, ev.b] : [ev.a]) this.addDebris(ev.x, ev.z, 'shard', Math.min(10, 1 + tot / 9000) | 0, car);
+      for (const car of ev.b ? [ev.a, ev.b] : [ev.a]) if (!car.dnf && !car.inGarage) this.afterDamage(car, tot);
+    }
+    damageCar(car, E, scrape, l, ev, other, lo) {
+      if (car.dnf || car.inGarage || (car.pit && car.pit.phase === 'stopped')) return;
+      const D = car.damage, lv = this.damageLevel;
+      D.applyImpact(E, l[0], l[1], l[2], lv, scrape);
+      // punctures: a tyre cut by the other car's wing endplate or wheel, or a tyre hitting the barrier hard;
+      // they need a real speed difference at the contact, so cars running side by side do not puncture
+      const rel = Math.hypot(ev.vn, ev.vt);
+      for (let i = 0; i < 4; i++) {
+        const te = tyreExposure(l[0], l[1], i); if (te <= 0 || D.punctRate[i] > 0) continue;
+        let p;
+        if (other) {
+          let cutter = Math.max(nearBox(lo[0], lo[1], 2.3, 3.05, -1.0, -0.05, 0.6), nearBox(lo[0], lo[1], 2.3, 3.05, 0.05, 1.0, 0.6));
+          for (let k = 0; k < 4; k++) cutter = Math.max(cutter, tyreExposure(lo[0], lo[1], k));
+          p = lv.puncture * te * clamp((rel - 6) / 35, 0, 0.4) * (0.25 + 0.75 * cutter);
+        } else p = lv.puncture * te * clamp((E + 0.5 * scrape - 15000) / 80000, 0, 0.6);
+        if (p > 0 && rnd() < p) { D.puncture(i, rnd() < 0.6); this.onPuncture(car, i, other ? 'contact ' + other.driver.short : 'barrier'); }
+      }
+    }
+    afterDamage(car, E = 0) {
+      const D = car.damage, c = D.c;
+      // wing elements that are destroyed come off the car and land on the track
+      const c0 = Math.cos(car.psi), s0 = Math.sin(car.psi);
+      for (const [k, part, x] of [[0, P_FWL, 2.7], [1, P_FWR, 2.7], [2, P_RW, -2.45]]) {
+        if (D.detached[k] || c[part] < (k < 2 ? 1 : 0.9)) continue;
+        D.detached[k] = true;
+        const y = k === 0 ? -0.5 : k === 1 ? 0.5 : 0;
+        const px = car.x + c0 * x - s0 * y, pz = car.z + s0 * x + c0 * y;
+        this.events.push({ type: 'detach', car, part: k, x: px, z: pz, vx: car.vx, vz: car.vz });
+        this.addDebris(px, pz, k < 2 ? 'fw' : 'rw', 1, car, true);
+        this.log(car, 'lost ' + (k < 2 ? 'front wing' : 'rear wing'));
+      }
+      if (!D.failed && !car.retiring) this.announceDamage(car);
+      this.checkFailures(car, E);
+    }
+    announceDamage(car) {
+      const D = car.damage, c = D.c;
+      const say = (k, tier, text, kind = 'dmg') => { if (D.tier[k] < tier) { D.tier[k] = tier; this.msg(text, kind, car, 3.5); } };
+      const fw = D.fw;
+      if (D.detached[0] || D.detached[1]) say(P_FWL, 3, 'Front Wing Lost — Heavy Understeer, Pit Now', 'pen');
+      else if (fw > 0.5) say(P_FWL, 2, 'Front Wing Badly Damaged — Pit Recommended');
+      else if (fw > 0.1) say(P_FWL, 1, 'Front Wing Damaged — Reduced Front Grip');
+      if (c[P_RW] > 0.6) say(P_RW, 2, 'Rear Wing Badly Damaged — Pit Recommended');
+      else if (c[P_RW] > 0.15) say(P_RW, 1, 'Rear Wing Damaged — Reduced Rear Stability');
+      if (c[P_FLOOR] > 0.15) say(P_FLOOR, 1, 'Floor Damaged — Downforce Reduced');
+      for (let i = 0; i < 4; i++) {
+        const v = c[P_SUS + i], dir = i % 2 ? 'Right' : 'Left';
+        if (v > 0.5) say(P_SUS + i, 2, WHEEL_NAMES[i] + ' Suspension Badly Damaged — Car Pulling ' + dir);
+        else if (v > 0.12) say(P_SUS + i, 1, WHEEL_NAMES[i] + ' Suspension Damaged — Car Pulling ' + dir);
+      }
+      if (c[P_ENG] > 0.6) say(P_ENG, 2, 'Power Unit Misfiring — Power Reduced');
+      else if (c[P_ENG] > 0.15) say(P_ENG, 1, 'Power Unit Damaged — Power Reduced');
+      if (c[P_COOL] > 0.2) say(P_COOL, 1, 'Cooling Damaged — Watch Engine Temperature');
+      if (c[P_CHAS] > 0.2) say(P_CHAS, 1, 'Chassis Damaged — Handling Affected');
+    }
+    onPuncture(car, i, cause = '') {
+      this.stats.punctures = (this.stats.punctures || 0) + 1;
+      this.log(car, 'puncture ' + WHEEL_NAMES[i] + (cause ? ' (' + cause + ')' : ''));
+      this.events.push({ type: 'puncture', car, wheel: i });
+      this.msg(WHEEL_NAMES[i] + ' Tyre Puncture — Pit Recommended', 'pen', car, 4);
+      car.damage.computePerf();
+    }
+    onTyreShred(car, i) {
+      this.msg(WHEEL_NAMES[i] + ' Tyre Destroyed — Box Now', 'pen', car, 4);
+      const c = Math.cos(car.psi), s = Math.sin(car.psi);
+      this.addDebris(car.x - c * 1.5, car.z - s * 1.5, 'tyre', 1, car);
+    }
+    // Pieces left on the racing surface: a puncture hazard, and a yellow flag until marshals clear them.
+    addDebris(x, z, kind, n, car, big) {
+      if (this.debris.length > 40) this.debris.shift();
+      const p = this.track.project(x, z, car ? car.idx : null, { i: 0, d: 0, s: 0 });
+      const heavy = big || kind === 'tyre' || n >= 5;
+      this.debris.push({ x, z, s: p.s, d: p.d, i: p.i, kind, until: this.time + (heavy ? 35 : 20), heavy, hit: [] });
+      this.events.push({ type: 'debris', x, z, kind, n, vx: car ? car.vx : 0, vz: car ? car.vz : 0 });
+      if (heavy && this.type !== 'calib' && Math.abs(p.d) < this.track.halfW + 1 && (!this.lastDebrisMsg || this.time - this.lastDebrisMsg > 8)) {
+        this.lastDebrisMsg = this.time;
+        this.msg('RACE CONTROL: Debris on track — yellow flag, sector ' + (Math.floor(p.i / this.track.N * this.track.marshalCount) + 1), 'rc', null, 3);
+      }
+    }
+    debrisUpdate() {
+      const t = this.track, M = t.marshalCount, lv = this.damageLevel;
+      for (let k = this.debris.length - 1; k >= 0; k--) {
+        const db = this.debris[k];
+        if (this.time > db.until) { this.debris.splice(k, 1); continue; }
+        if (db.heavy && Math.abs(db.d) < t.halfW + 1) { const m = Math.floor(db.i / t.N * M); this.yellow[m] = Math.max(this.yellow[m], 3); }
+        if (Math.abs(db.d) > t.halfW + 0.5) continue;
+        for (const car of this.cars) {
+          if (car.inGarage || car.pit || car.speed < 20 || car.dnf || db.hit.includes(car.id)) continue;
+          // did the car pass over it since the last check?
+          const s0 = car._dbS == null ? car.s : car._dbS, moved = t.dS(s0, car.s), ahead = t.dS(s0, db.s);
+          if (moved < 0 || moved > 40 || ahead < -1 || ahead > moved + 1) continue;
+          if (Math.abs(car.d - db.d) > 1.2) continue;
+          db.hit.push(car.id);
+          // running over carbon is usually harmless; now and then a sharp piece cuts a tyre
+          if (rnd() < lv.puncture * (db.heavy ? 0.015 : 0.004)) { const i = (rnd() * 4) | 0; car.damage.puncture(i, false); this.onPuncture(car, i, 'debris'); }
+        }
+      }
+      for (const car of this.cars) car._dbS = car.s;
+    }
+    // Retirement checks: structural damage, a failed power unit, or fire. Fires need a plausible cause:
+    // a power unit failing hot or after a heavy impact, or a huge impact into the fuel cell / battery.
+    checkFailures(car, E = 0) {
+      const D = car.damage, lv = this.damageLevel, c = D.c;
+      if (D.failed || car.retiring || car.dnf || car.finished || this.type === 'calib') return;
+      for (let i = 0; i < 4; i++) if (c[P_SUS + i] >= lv.fatal) return this.mechanicalFailure(car, 'suspension', 'Critical Suspension Damage — Retiring', 'Suspension');
+      if (c[P_CHAS] >= lv.chassisFatal) return this.mechanicalFailure(car, 'chassis', 'Chassis Damage — Retiring', 'Accident damage');
+      if (!D.rearWingRepairable()) return this.mechanicalFailure(car, 'rearstruct', 'Rear Crash Structure Damaged — Retiring', 'Accident damage');
+      if (E > 260000 && rnd() < lv.fire * 0.12) return this.mechanicalFailure(car, 'fire', 'FIRE — Stop Safely', 'Fire');
+      if (c[P_ENG] >= 1) {
+        const pf = lv.fire * (0.05 + (D.engT > 140 ? 0.2 : 0) + (E > 150000 ? 0.25 : 0) + (D.leak > 0.5 ? 0.1 : 0));
+        if (rnd() < pf) return this.mechanicalFailure(car, 'fire', 'FIRE — Stop Safely', 'Fire');
+        return this.mechanicalFailure(car, 'engine', 'Engine Failure — Stop Safely', D.engT > 135 ? 'Overheating' : 'Power unit');
+      }
+    }
+    mechanicalFailure(car, kind, text, reason) {
+      const D = car.damage;
+      D.failed = kind === 'fire' ? 'engine' : kind;
+      if (kind === 'fire') { D.fire = 1; this.stats.fires = (this.stats.fires || 0) + 1; }
+      if (kind === 'engine' || kind === 'fire') { D.c[P_ENG] = 1; this.events.push({ type: 'failure', car, fire: kind === 'fire' }); }
+      D.computePerf();
+      this.log(car, 'failure ' + kind);
+      this.msg(text, 'pen', car, 5);
+      if (kind === 'fire') this.msg('RACE CONTROL: Car fire — ' + car.driver.name + ' stopping', 'rc', null, 4);
+      this.startRetirement(car, reason);
+    }
+    // The driver pulls off the racing line and stops; marshals then recover the car.
+    startRetirement(car, reason) {
+      if (car.retiring || car.dnf || car.finished) return;
+      car.retiring = { reason, t0: this.time, stopT: 0, phase: 'stopping' };
+      car.boxRequest = false; car.autoDrive = false;
+      if (car.ai) { car.ai.boxThisLap = false; car.ai.pitting = false; car.ai.pitEntryBlend = 0; }
+      this.stats.retirements = (this.stats.retirements || 0) + 1;
+    }
+    retireStep(car, dt) {
+      const R = car.retiring;
+      if (R.phase === 'stopping') {
+        R.stopT = car.speed < 0.6 ? R.stopT + dt : 0;
+        if (R.stopT > 1.0 || this.time - R.t0 > 30) this.parkCar(car);
+      } else if (R.phase === 'parked' && this.time >= R.recoverAt) this.recoverCar(car);
+    }
+    parkCar(car) {
+      const R = car.retiring, D = car.damage;
+      R.phase = 'parked'; car.frozen = true; car.vx = car.vz = car.r = 0; car.speed = car.u = car.v = 0;
+      car.input.throttle = 0; car.input.brake = 1;
+      R.recoverAt = this.time + 14 + (D.fire ? 8 : 0);
+      if (D.fire) D.fireOut = 4 + rand(0, 3); // marshals put the fire out
+      const sector = Math.floor(car.idx / this.track.N * this.track.marshalCount) + 1;
+      if (!car.pit) this.msg('RACE CONTROL: ' + car.driver.name + ' stopped — yellow flag, sector ' + sector, 'rc', null, 3.5);
+      if (this.type === 'race') {
+        car.dnf = true; car.dnfReason = R.reason;
+        this.msg(car.driver.short + ' RETIRES — ' + R.reason, 'pen', car, 4); this.log(car, 'DNF ' + R.reason);
+      } else {
+        car.qualiOut = true; if (car.ai) { car.ai.releaseAt = 1e9; car.ai.qPhase = 'done'; }
+        if (car.isPlayer) car.qualiDone = true;
+        this.msg(car.driver.short + ' OUT OF THE SESSION — ' + R.reason, 'pen', car, 4); this.log(car, 'out ' + R.reason);
+      }
+    }
+    recoverCar(car) {
+      car.retiring.phase = 'recovered'; car.pit = null;
+      if (this.type === 'race') this.retire(car);
+      else this.putInGarage(car);
+    }
+    setDamageLevel(id) { this.damageLevel = DAMAGE_LEVELS[normalizeDamageLevel(id)]; }
+    // 10 Hz: tyre deflation, engine temperature, reliability, delayed failures
+    damageTick(dt) {
+      const lv = this.damageLevel;
+      for (const car of this.cars) {
+        if (car.inGarage || car.dnf) continue;
+        const D = car.damage;
+        D.tick(car, dt, this);
+        // rare reliability problems (Realistic only): a power unit or coolant failure with no impact
+        if (lv.reliability && !D.failed && this.lightsOut && car.speed > 30 && this.type === 'race' && rnd() < 1.5e-6 * lv.reliability) {
+          if (rnd() < 0.5) D.c[P_ENG] = 1; else { D.c[P_COOL] = Math.max(D.c[P_COOL], 0.75); D.computePerf(); }
+          this.log(car, 'reliability failure');
+        }
+        if (!D.failed && !car.retiring) {
+          if (D.overheat && !D.ohSaid) { D.ohSaid = true; this.msg('Power Unit Overheating — Lift and Coast', 'dmg', car, 4); }
+          else if (D.engT < 112) D.ohSaid = false;
+          this.announceDamage(car);
+        }
+        this.checkFailures(car);
+      }
+      this.debrisUpdate();
     }
     retire(car) {
+      const was = car.dnf;
       car.dnf = true; car.inGarage = true; car.frozen = true; car.ghost = true;
-      this.msg(car.driver.short + ' RETIRES — ' + car.dnfReason, 'pen', car, 4); this.log(car, 'DNF');
+      if (!was) { this.msg(car.driver.short + ' RETIRES — ' + car.dnfReason, 'pen', car, 4); this.log(car, 'DNF'); }
     }
     marshalReset(car) {
       const t = this.track; const side = car.d >= 0 ? 1 : -1;
@@ -2171,6 +2757,7 @@ const SIM = (function () {
     }
     slowUpdate() {
       const t = this.track;
+      this.damageTick(0.1);
       // standings
       const order = this.cars.slice().filter(c => true);
       if (this.type === 'race') {
@@ -2225,7 +2812,7 @@ const SIM = (function () {
         for (const c of this.cars) {
           const pc = c.pendingColPen; if (!pc) continue;
           if (this.time - pc.t > 3) {
-            const v = pc.victim; if ((v.ai && v.ai.mode === 'recover') || v.spun || v.damage.wing > 0.35 || v.dnf) this.addPenalty(c, 5, 'Causing a collision');
+            const v = pc.victim; if ((v.ai && v.ai.mode === 'recover') || v.spun || v.damage.severity() > 0.35 || v.retiring || v.dnf) this.addPenalty(c, 5, 'Causing a collision');
             c.pendingColPen = null;
           }
         }
@@ -2331,7 +2918,7 @@ const SIM = (function () {
     return (neg ? '-' : plus ? '+' : '') + str;
   }
 
-  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, fmtTime, clamp, lerp, makeRng, stepCarPhysics, PlayerHandling, KeyboardDriveInput, HANDLING, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
+  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, fmtTime, clamp, lerp, makeRng, stepCarPhysics, PlayerHandling, KeyboardDriveInput, HANDLING, CarDamage, DAMAGE_LEVELS, PART_KEYS, PART_NAMES, WHEEL_NAMES, REPAIR_TIME, normalizeDamageLevel, partExposure, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
 })();
 // ==SIM-END==
 if (typeof module !== 'undefined') module.exports = SIM;
@@ -3319,6 +3906,7 @@ function rod(a, b, r = 0.018) {
   g.applyMatrix4(new THREE.Matrix4().compose(va, q, new THREE.Vector3(1, 1, 1))); return g;
 }
 const CAR_GEO = {};
+const FW_PIVOT = [2.62, 0.12, 0.06], RW_PIVOT = [-2.3, 0.6, 0];
 function carGeometries() {
   if (CAR_GEO.body) return CAR_GEO;
   const S = SIM.SPEC; const a = S.a, b = S.b;
@@ -3361,17 +3949,26 @@ function carGeometries() {
   // diffuser
   carbon.push(xf(new THREE.BoxGeometry(0.6, 0.03, 1.1), { p: [-2.15, 0.17, 0], r: [0, 0, 0.32] }));
   for (const sg of [-1, 1]) carbon.push(xf(new THREE.BoxGeometry(0.62, 0.22, 0.03), { p: [-2.15, 0.18, sg * 0.55] }));
-  // front wing: main plane + flaps + endplates
-  carbon.push(xf(new THREE.BoxGeometry(0.42, 0.025, 1.92), { p: [2.75, 0.09, 0], r: [0, 0, 0.05] }));
-  carbon.push(xf(new THREE.BoxGeometry(0.28, 0.02, 1.9), { p: [2.6, 0.14, 0], r: [0, 0, -0.18] }));
-  accent.push(xf(new THREE.BoxGeometry(0.22, 0.02, 1.86), { p: [2.48, 0.2, 0], r: [0, 0, -0.38] }));
+  // front wing: two halves (main plane + flaps + endplate), built around the pivot where each half meets the
+  // nose so damage can droop, twist or detach them (see FW_PIVOT / updateDamageVisuals)
   for (const sg of [-1, 1]) {
-    accent.push(xf(new THREE.BoxGeometry(0.6, 0.24, 0.025), { p: [2.62, 0.17, sg * 0.97] }));
+    const P = [FW_PIVOT[0], FW_PIVOT[1], sg * FW_PIVOT[2]], at = (x, y, z) => [x - P[0], y - P[1], z - P[2]];
+    const wc = [], wa = [];
+    wc.push(xf(new THREE.BoxGeometry(0.42, 0.025, 0.96), { p: at(2.75, 0.09, sg * 0.48), r: [0, 0, 0.05] }));
+    wc.push(xf(new THREE.BoxGeometry(0.28, 0.02, 0.95), { p: at(2.6, 0.14, sg * 0.475), r: [0, 0, -0.18] }));
+    wa.push(xf(new THREE.BoxGeometry(0.22, 0.02, 0.93), { p: at(2.48, 0.2, sg * 0.465), r: [0, 0, -0.38] }));
+    wa.push(xf(new THREE.BoxGeometry(0.6, 0.24, 0.025), { p: at(2.62, 0.17, sg * 0.97) }));
+    CAR_GEO[sg < 0 ? 'fwLc' : 'fwRc'] = mergeGeoms(wc); CAR_GEO[sg < 0 ? 'fwLa' : 'fwRa'] = mergeGeoms(wa);
     carbon.push(rod([2.4, 0.3, sg * 0.05], [2.55, 0.12, sg * 0.12], 0.02));
   }
-  // rear wing
-  for (const sg of [-1, 1]) accent.push(xf(new THREE.BoxGeometry(0.72, 0.5, 0.025), { p: [-2.42, 0.78, sg * 0.52] }));
-  carbon.push(xf(new THREE.BoxGeometry(0.34, 0.03, 1.03), { p: [-2.36, 0.74, 0], r: [0, 0, 0.12] }));
+  // rear wing (main plane + endplates; the DRS flap is added to the same group), around the pylon top
+  {
+    const at = (x, y, z) => [x - RW_PIVOT[0], y - RW_PIVOT[1], z - RW_PIVOT[2]];
+    const ra = [];
+    for (const sg of [-1, 1]) ra.push(xf(new THREE.BoxGeometry(0.72, 0.5, 0.025), { p: at(-2.42, 0.78, sg * 0.52) }));
+    CAR_GEO.rwc = xf(new THREE.BoxGeometry(0.34, 0.03, 1.03), { p: at(-2.36, 0.74, 0), r: [0, 0, 0.12] });
+    CAR_GEO.rwa = mergeGeoms(ra);
+  }
   carbon.push(xf(new THREE.BoxGeometry(0.3, 0.025, 1.0), { p: [-2.3, 0.4, 0], r: [0, 0, 0.2] })); // beam wing
   carbon.push(xf(new THREE.BoxGeometry(0.08, 0.36, 0.06), { p: [-2.3, 0.58, 0] })); // pylon
   // shark fin (accent)
@@ -3449,16 +4046,24 @@ function makeCarMesh(car, opts = {}) {
   helmet.add(new THREE.Mesh(geo.helmet, new THREE.MeshPhysicalMaterial({ color: team.c2, roughness: .25, clearcoat: 1 })));
   helmet.add(new THREE.Mesh(geo.visor, new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: .1, metalness: .8 })));
   grp.add(helmet);
+  // front wing halves and rear wing as separate groups so damage can bend or remove them
+  const fw = [-1, 1].map(sg => {
+    const g = new THREE.Group(); g.position.set(FW_PIVOT[0], FW_PIVOT[1], sg * FW_PIVOT[2]);
+    for (const [gg, mm] of [[geo[sg < 0 ? 'fwLc' : 'fwRc'], carbonMat], [geo[sg < 0 ? 'fwLa' : 'fwRa'], accentMat]]) { const me = new THREE.Mesh(gg, mm); me.castShadow = true; me.receiveShadow = true; g.add(me); }
+    grp.add(g); return g;
+  });
+  const rw = new THREE.Group(); rw.position.set(...RW_PIVOT); grp.add(rw);
+  for (const [gg, mm] of [[geo.rwc, carbonMat], [geo.rwa, accentMat]]) { const me = new THREE.Mesh(gg, mm); me.castShadow = true; me.receiveShadow = true; rw.add(me); }
   // DRS flap (pivot)
-  const flap = new THREE.Mesh(geo.flap, accentMat); flap.position.set(-2.24, 0.92, 0); flap.rotation.z = 0.35; flap.castShadow = true; grp.add(flap);
+  const flap = new THREE.Mesh(geo.flap, accentMat); flap.position.set(-2.24 - RW_PIVOT[0], 0.92 - RW_PIVOT[1], 0); flap.rotation.z = 0.35; flap.castShadow = true; rw.add(flap);
   // rear wing text, nose number, sidepod names
   const dark = team.c1 === '#141414' || team.c1 === '#14276b' || team.c1 === '#5b2a86' || team.c1 === '#0f6b3a' || team.c1 === '#b3121b';
   const txtCol = dark ? (team.id === 'voltex' ? '#e8e8e8' : '#ffffff') : '#151515';
   const wingTex = textTex(team.name, team.id === 'voltex' ? '#d9d9d9' : txtCol, null, 512, 96, '900 64px Titillium Web, Arial', 16);
   const wingTxt = new THREE.Mesh(new THREE.PlaneGeometry(0.98, 0.18), new THREE.MeshStandardMaterial({ map: wingTex, transparent: true, roughness: .5 }));
-  wingTxt.position.set(-2.535, 0.78, 0); wingTxt.rotation.y = -Math.PI / 2; wingTxt.rotation.x = 0; grp.add(wingTxt);
+  wingTxt.position.set(-2.535 - RW_PIVOT[0], 0.78 - RW_PIVOT[1], 0); wingTxt.rotation.y = -Math.PI / 2; wingTxt.rotation.x = 0; rw.add(wingTxt);
   const wingBg = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.2), new THREE.MeshStandardMaterial({ color: team.c1, roughness: .4 }));
-  wingBg.position.set(-2.53, 0.78, 0); wingBg.rotation.y = -Math.PI / 2; grp.add(wingBg);
+  wingBg.position.set(-2.53 - RW_PIVOT[0], 0.78 - RW_PIVOT[1], 0); wingBg.rotation.y = -Math.PI / 2; rw.add(wingBg);
   const numTex = textTex(String(car.num), team.c2, null, 128, 128, '900 96px Titillium Web, Arial', 0);
   const num = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.28), new THREE.MeshStandardMaterial({ map: numTex, transparent: true }));
   num.position.set(1.85, 0.575, 0); num.rotation.x = -Math.PI / 2 + 0.12; num.rotation.z = -Math.PI / 2; grp.add(num);
@@ -3481,7 +4086,7 @@ function makeCarMesh(car, opts = {}) {
     const tyre = new THREE.Mesh(i < 2 ? geo.tyreF : geo.tyreR, tyreMaterials(car.tyre.c)); tyre.castShadow = true; spin.add(tyre);
     const rim = new THREE.Mesh(i < 2 ? geo.rimF : geo.rimR, rimMat); spin.add(rim);
     const out = wpos[i][1] > 0 ? 1 : -1; const cover = new THREE.Mesh(geo.cover, coverMat); cover.position.z = out * ((i < 2 ? 0.155 : 0.205) + 0.002); if (out < 0) cover.rotation.y = Math.PI; spin.add(cover);
-    grp.add(steer); wheels.push({ steer, spin, tyre, comp: car.tyre.c });
+    grp.add(steer); wheels.push({ steer, spin, tyre, comp: car.tyre.c, base: steer.position.clone() });
   }
   // steering wheel (visible in cockpit view)
   const sw = new THREE.Group(); sw.position.set(0.42, 0.67, 0); sw.rotation.z = 0.35;
@@ -3492,7 +4097,7 @@ function makeCarMesh(car, opts = {}) {
   // level of detail: decals and small parts are hidden for distant cars, shadows only near the camera
   const detail = [wingTxt, num, ...grp.children.filter(c => c.isMesh && c.geometry.type === 'PlaneGeometry' && c !== wingBg)];
   const shadowCasters = []; grp.traverse(o => { if (o.isMesh && o.castShadow) shadowCasters.push(o); });
-  return { group: grp, wheels, flap, light, lightMat, helmet, steeringWheel: sw, bodyMat, detail: [...new Set(detail)], shadowCasters, lod: -1 };
+  return { group: grp, wheels, flap, light, lightMat, helmet, steeringWheel: sw, bodyMat, accentMat, carbonMat, fw, rw, detail: [...new Set(detail)], shadowCasters, lod: -1, dmgKey: '' };
 }
 function addSteeringDisplay(model) {
   const cvs = document.createElement('canvas'); cvs.width = 320; cvs.height = 168;
@@ -3547,6 +4152,98 @@ class Particles {
     this.geo.setDrawRange(0, this.n);
   }
   clear() { this.n = 0; this.geo.setDrawRange(0, 0); }
+}
+
+/* ---------------------------------------------------------------
+   DAMAGE EFFECTS — debris shards (instanced), detached wing pieces (pooled), pit crews (instanced)
+   --------------------------------------------------------------- */
+const _e3 = new THREE.Euler(), _q2 = new THREE.Quaternion(), _p3 = new THREE.Vector3(), _s3 = new THREE.Vector3(), _col = new THREE.Color();
+class DebrisField {
+  constructor(scene, max) {
+    this.max = max; this.p = []; this.wings = []; this.scene = scene;
+    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.022, 0.09), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.25 }), max);
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.mesh.frustumCulled = false; this.mesh.count = 0;
+    for (let k = 0; k < max; k++) this.mesh.setColorAt(k, _col.setRGB(1, 1, 1));
+    scene.add(this.mesh);
+  }
+  // carbon / rubber shards thrown from a contact point
+  spawn(x, z, vx, vz, n, rgb) {
+    for (let k = 0; k < n; k++) {
+      if (this.p.length >= this.max) this.p.shift();
+      const r = Math.random;
+      this.p.push({ x: x + (r() - .5) * 0.8, y: 0.25 + r() * 0.35, z: z + (r() - .5) * 0.8, vx: vx * (0.25 + r() * 0.5) + (r() - .5) * 9, vy: 1.5 + r() * 4.5, vz: vz * (0.25 + r() * 0.5) + (r() - .5) * 9,
+        rx: r() * 6, ry: r() * 6, rz: r() * 6, wx: (r() - .5) * 24, wy: (r() - .5) * 24, wz: (r() - .5) * 24, life: 22 + r() * 12, s: 0.5 + r() * 1.3, c: rgb || [0.09, 0.09, 0.1] });
+    }
+  }
+  // a whole wing element that came off a car: tumbles, slides and stays on track until marshals clear it
+  spawnWing(m, part, x, z, vx, vz, psi) {
+    const geo = carGeometries();
+    let w = this.wings.find(o => !o.alive);
+    if (!w) {
+      if (this.wings.length >= 8) w = this.wings.reduce((a, b) => a.life < b.life ? a : b);
+      else { w = { obj: new THREE.Group(), c: new THREE.Mesh(geo.fwLc), a: new THREE.Mesh(geo.fwLa) }; w.obj.add(w.c, w.a); this.scene.add(w.obj); this.wings.push(w); }
+    }
+    const key = part === 0 ? 'fwL' : part === 1 ? 'fwR' : 'rw';
+    w.c.geometry = geo[key + 'c']; w.a.geometry = geo[key + 'a']; w.c.material = m.carbonMat; w.a.material = m.accentMat;
+    w.c.castShadow = w.a.castShadow = true;
+    const r = Math.random;
+    Object.assign(w, { alive: true, x, y: part < 2 ? 0.15 : 0.7, z, vx: vx * 0.75 + (r() - .5) * 4, vy: 2 + r() * 3, vz: vz * 0.75 + (r() - .5) * 4, rx: 0, ry: -psi, rz: 0, wx: (r() - .5) * 10, wy: (r() - .5) * 8, wz: (r() - .5) * 10, life: 35 });
+    w.obj.visible = true; w.obj.scale.setScalar(1);
+  }
+  update(dt, cars) {
+    const g = 9.8;
+    const step = (o, h) => {
+      o.vy -= g * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.z += o.vz * dt;
+      o.rx += o.wx * dt; o.ry += o.wy * dt; o.rz += o.wz * dt;
+      if (o.y < h) { o.y = h; o.vy = Math.abs(o.vy) > 1.5 ? -o.vy * 0.3 : 0; const f = Math.max(0, 1 - dt * 3.5); o.vx *= f; o.vz *= f; o.wx *= f; o.wy *= f; o.wz *= f; if (Math.abs(o.vy) < 0.1) { o.rx *= 0.9; o.rz *= 0.9; } }
+      // cars running over a piece kick it along
+      if (o.y <= h + 0.05) for (const c of cars) {
+        if (c.speed < 8 || c.inGarage) continue;
+        const dx = o.x - c.x, dz = o.z - c.z; if (dx * dx + dz * dz > 4) continue;
+        o.vx = c.vx * (0.5 + Math.random() * 0.4) + (Math.random() - .5) * 4; o.vz = c.vz * (0.5 + Math.random() * 0.4) + (Math.random() - .5) * 4; o.vy = 1 + Math.random() * 2.5;
+        o.wx = (Math.random() - .5) * 20; o.wz = (Math.random() - .5) * 20; break;
+      }
+    };
+    let n = 0;
+    for (let k = this.p.length - 1; k >= 0; k--) { const o = this.p[k]; o.life -= dt; if (o.life <= 0) this.p.splice(k, 1); }
+    for (const o of this.p) {
+      step(o, 0.02);
+      const sc = o.s * Math.min(1, o.life / 2);
+      _m4.compose(_p3.set(o.x, o.y, o.z), _q2.setFromEuler(_e3.set(o.rx, o.ry, o.rz)), _s3.set(sc, sc, sc));
+      this.mesh.setMatrixAt(n, _m4); this.mesh.setColorAt(n, _col.setRGB(o.c[0], o.c[1], o.c[2])); n++;
+    }
+    this.mesh.count = n; this.mesh.instanceMatrix.needsUpdate = true; if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    for (const w of this.wings) {
+      if (!w.alive) continue;
+      w.life -= dt; if (w.life <= 0) { w.alive = false; w.obj.visible = false; continue; }
+      step(w, 0.08);
+      w.obj.position.set(w.x, w.y, w.z); w.obj.rotation.set(w.rx, w.ry, w.rz); w.obj.scale.setScalar(Math.min(1, w.life / 1.5));
+    }
+  }
+  clear() { this.p.length = 0; this.mesh.count = 0; for (const w of this.wings) { w.alive = false; w.obj.visible = false; } }
+}
+// Pit crews: one instanced body and helmet per crew member, posed around cars in the pit box.
+class PitCrew {
+  constructor(scene, max) {
+    this.max = max;
+    this.body = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.17, 0.72, 3, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.75 }), max);
+    this.head = new THREE.InstancedMesh(new THREE.SphereGeometry(0.135, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.1 }), max);
+    for (const im of [this.body, this.head]) { im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.count = 0; im.castShadow = true; for (let k = 0; k < max; k++) im.setColorAt(k, _col.setRGB(1, 1, 1)); scene.add(im); }
+    this.n = 0;
+  }
+  begin() { this.n = 0; }
+  // one crew member at world x,z facing yaw; crouch 0 (standing) … 1 (kneeling at a wheel)
+  add(x, z, yaw, crouch, team) {
+    if (this.n >= this.max) return;
+    const sy = 1 - 0.38 * crouch, k = this.n++;
+    _q2.setFromAxisAngle(_up, yaw);
+    _m4.compose(_p3.set(x, 0.53 * sy, z), _q2, _s3.set(1, sy, 1)); this.body.setMatrixAt(k, _m4);
+    _m4.compose(_p3.set(x, 1.06 * sy + 0.12, z), _q2, _s1); this.head.setMatrixAt(k, _m4);
+    this.body.setColorAt(k, _col.set(team.c1 === '#141414' ? '#2a2a2a' : team.c1)); this.head.setColorAt(k, _col.set(team.c2));
+  }
+  end() {
+    for (const im of [this.body, this.head]) { im.count = this.n; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
+  }
 }
 
 /* ---------------------------------------------------------------
@@ -3664,7 +4361,7 @@ const clamp = SIM.clamp, lerp = SIM.lerp, fmt = SIM.fmtTime;
 /* ---------------- settings ---------------- */
 const SETTINGS_KEY = 'apexgp.settings.v1';
 const DEFAULTS = {
-  laps: 8, difficulty: 75, quali: 'on', qualiMin: 8, field: 20, weather: 'dry', tyreWear: 'normal', mandatory: 'auto', damage: 'on',
+  laps: 8, difficulty: 75, quali: 'on', qualiMin: 8, field: 20, weather: 'dry', tyreWear: 'normal', mandatory: 'auto', damage: 'standard',
   startTyre: 'auto', name: 'J. Dalton', team: 0,
   camera: 'chase', quality: 'high', volume: 70, units: 'kmh', showFps: 'off', quickGrid: 'random', speedBlur: 'on',
 };
@@ -3672,6 +4369,7 @@ let S = Object.assign({}, DEFAULTS);
 try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
 // Discard retired driving-mode, aid and guidance preferences from older saves.
 for (const k of ['driveMode', 'gearbox', 'tc', 'abs', 'steerAssist', 'cornerGuide', 'racingLine']) delete S[k];
+S.damage = SIM.normalizeDamageLevel(S.damage); // old saves stored damage on/off
 const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
 const SCHEMA = [
   { k: 'laps', label: 'Race length (laps)', type: 'seg', opts: [3, 5, 8, 12, 20, 30] },
@@ -3682,7 +4380,7 @@ const SCHEMA = [
   { k: 'weather', label: 'Weather', type: 'seg', opts: [['dry', 'Dry'], ['wet', 'Rain']] },
   { k: 'tyreWear', label: 'Tyre wear', type: 'seg', opts: [['off', 'Off'], ['normal', 'Normal'], ['high', 'High']] },
   { k: 'mandatory', label: 'Two-compound rule', type: 'seg', opts: [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']] },
-  { k: 'damage', label: 'Damage', type: 'seg', opts: [['on', 'On'], ['off', 'Off']] },
+  { k: 'damage', label: 'Vehicle damage', type: 'seg', opts: [['reduced', 'Reduced'], ['standard', 'Standard'], ['realistic', 'Realistic']], desc: () => DAMAGE_DESC[S.damage] },
   { k: 'startTyre', label: 'Your starting tyre', type: 'seg', opts: [['auto', 'Auto'], ['S', 'Soft'], ['M', 'Medium'], ['H', 'Hard']] },
   { k: 'name', label: 'Driver name', type: 'text' },
   { k: 'team', label: 'Team', type: 'select', opts: () => SIM.TEAMS.map((t, i) => [i, t.full]) },
@@ -3694,6 +4392,25 @@ const SCHEMA = [
   { k: 'units', label: 'Speed units', type: 'seg', opts: [['kmh', 'km/h'], ['mph', 'mph']] },
   { k: 'showFps', label: 'FPS counter', type: 'seg', opts: [['off', 'Off'], ['on', 'On']] },
 ];
+
+const DAMAGE_DESC = {
+  reduced: 'Minor contact is mostly cosmetic and failures are unlikely; only serious crashes end your race.',
+  standard: 'Balanced component damage, punctures and pit-repair decisions; big crashes have real consequences.',
+  realistic: 'Strict thresholds, cumulative damage, mechanical failures and rare fires; heavy crashes can end your race.',
+};
+// Vehicle Damage selector shown on the main menu and in the pause menu (same setting as Race Settings).
+function renderDamageSel() {
+  for (const id of ['menuDmg', 'pauseDmg']) {
+    const el = document.getElementById(id); if (!el) continue;
+    el.innerHTML = '<div class="lbl">Vehicle damage</div><div class="seg">' + [['reduced', 'Reduced'], ['standard', 'Standard'], ['realistic', 'Realistic']].map(([v, t]) => `<button data-dmg="${v}" class="${S.damage === v ? 'sel' : ''}">${t}</button>`).join('') + '</div><div class="desc">' + DAMAGE_DESC[S.damage] + '</div>';
+  }
+}
+function setDamageSetting(v) {
+  S.damage = SIM.normalizeDamageLevel(v); saveSettings();
+  if (G.session) G.session.setDamageLevel(S.damage); // applies to the running session as well
+  renderDamageSel(); if (!$('settings').classList.contains('hidden')) buildSettingsUI();
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-dmg]'); if (b) setDamageSetting(b.dataset.dmg); });
 
 /* ---------------- audio (WebAudio synthesis) ---------------- */
 class AudioEngine {
@@ -3792,6 +4509,8 @@ class AudioEngine {
     if (type === 'impact') { f.type = 'lowpass'; f.frequency.value = 500 + 600 * strength; g.gain.setValueAtTime(clamp(0.25 + strength * 0.6, 0, 1), t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35); }
     else if (type === 'shift') { f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 2; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); }
     else if (type === 'pit') { f.type = 'highpass'; f.frequency.value = 2500; g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25); }
+    else if (type === 'pop') { f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.2; g.gain.setValueAtTime(clamp(0.4 * strength, 0, 0.6), t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14); }
+    else if (type === 'bang') { f.type = 'lowpass'; f.frequency.value = 280; g.gain.setValueAtTime(clamp(0.8 * strength, 0, 0.9), t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55); }
     src.connect(f); f.connect(g); g.connect(this.bus); src.start(t, Math.random()); src.stop(t + 0.6);
   }
 }
@@ -3801,6 +4520,7 @@ const KEYS = {};
 const DRIVE_KEYS = new SIM.KeyboardDriveInput();
 const PRESSED = {}; // edge triggered
 window.__setKey = (k, v) => { KEYS[k] = v; DRIVE_KEYS.setKey(k, v, performance.now() / 1000); }; // used by automated tests
+window.__game = () => G; // used by automated tests
 window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   const k = e.code;
@@ -4010,7 +4730,10 @@ function ensureWorld() {
   // effects
   G.smoke = new Particles(scene, textures.smoke, q === 0 ? 300 : 800);
   G.spray = new Particles(scene, textures.smoke, q === 0 ? 400 : 1400, THREE.NormalBlending, [0.82, 0.85, 0.9]);
-  G.sparks = new Particles(scene, textures.smoke, 200, THREE.AdditiveBlending, [1, 0.6, 0.2]);
+  G.sparks = new Particles(scene, textures.smoke, q === 0 ? 300 : 600, THREE.AdditiveBlending, [1, 0.6, 0.2]);
+  G.fire = new Particles(scene, textures.smoke, q === 0 ? 160 : 360, THREE.AdditiveBlending, [1, 0.6, 0.15]);
+  G.debris = new DebrisField(scene, q === 0 ? 90 : 180);
+  G.crew = new PitCrew(scene, 64);
   G.rain = null;
   if (wet) {
     const n = q === 0 ? 1500 : 4000; const pos = new Float32Array(n * 6);
@@ -4057,7 +4780,7 @@ function startSession(cfg) {
   G.focusIdx = G.session.cars.indexOf(G.focus);
   G.camRig.setMode(G.attract ? 'tv' : cfg.spectate ? 'tv' : (S.camera === 'cockpit' ? 'cockpit' : S.camera === 'far' ? 'far' : 'chase'));
   if (G.player) { G.pc = new PlayerControl(G.player); G.player.boxCompound = null; }
-  G.smoke.clear(); G.spray.clear(); G.sparks.clear();
+  G.smoke.clear(); G.spray.clear(); G.sparks.clear(); G.fire.clear(); G.debris.clear();
   $('hud').classList.toggle('hidden', !!G.attract);
   $('menu').classList.toggle('hidden', !G.attract);
   $('btnRestart').disabled = !G.lastRealCfg && !(!G.attract && cfg);
@@ -4122,6 +4845,7 @@ const LED_N = 15;
 function initHud() {
   const leds = $('leds'); for (let k = 0; k < LED_N; k++) leds.appendChild(document.createElement('i'));
   G.ledEls = Array.from(leds.children);
+  renderDamageSel();
   const opts = $('boxOpts'); for (const c of ['S', 'M', 'H', 'W']) { const d = document.createElement('div'); d.className = 'opt'; d.dataset.c = c; d.innerHTML = `<span class="cmp" style="--c:${SIM.COMPOUNDS[c].color}">${c}</span>${SIM.COMPOUNDS[c].name} <kbd>${'SMHW'.indexOf(c) + 1}</kbd>`; opts.appendChild(d); }
   G.mm = { cvs: $('minimap'), ctx: $('minimap').getContext('2d') };
   G.tel = { cvs: $('telCanvas'), ctx: $('telCanvas').getContext('2d'), g: $('gCanvas').getContext('2d'), buf: [] };
@@ -4194,6 +4918,7 @@ function boardRows() {
     }
     let tag = '';
     if (c.pit && !c.inGarage) tag = '<span class="tag pit">PIT</span>'; else if (c.finished) tag = '<span class="tag out">🏁</span>';
+    else if (c.retiring && !c.dnf) tag = '<span class="tag pen">STOP</span>'; else if (!c.dnf && c.damage.anyPuncture()) tag = '<span class="tag pen">PNC</span>';
     if (c.penalty > 0 && sess.type === 'race') tag += `<span class="tag pen">+${c.penalty}s</span>`;
     const col = c.team.c1 === '#141414' ? '#c9a24a' : c.team.c1;
     html += `<div class="row${c === focus ? ' me' : ''}"><span class="p num">${k + 1}</span><span class="bar" style="background:${col}"></span><span class="n">${c.driver.name}${tag}</span><span class="g num">${gap}</span></div>`;
@@ -4206,6 +4931,74 @@ function sectorClass(car, k, sess) {
   if (sess.bestSectors[k] && t <= sess.bestSectors[k] + 1e-6) return 'purple';
   if (car.bestSectors[k] && t <= car.bestSectors[k] + 1e-6) return 'green';
   return 'yellow';
+}
+// Vehicle status: component diagram, the worst problems with their handling consequence, and what a
+// pit stop could fix and how long it would take.
+const DMG_COL = (d) => d < 0.05 ? '#2ecc71' : d < 0.25 ? '#f5c518' : d < 0.55 ? '#ff8a1f' : d < 0.999 ? '#ff3b3b' : '#4a4f58';
+const WHEEL_SHORT = ['FL', 'FR', 'RL', 'RR'];
+function updateVehicleStatus(p, sess) {
+  const el = $('vstat'), D = p.damage, c = D.c;
+  const show = !p.inGarage && (!D.isClean() || D.engT > 115 || !!p.retiring || D.scuff > 0.05);
+  el.classList.toggle('hidden', !show); if (!show) return;
+  const fill = (id, d) => { const e = $(id); e.setAttribute('fill', DMG_COL(d)); };
+  fill('vsFwL', D.detached[0] ? 1 : c[0]); fill('vsFwR', D.detached[1] ? 1 : c[1]); fill('vsRw', D.detached[2] ? 1 : c[2]);
+  $('vsFloor').setAttribute('stroke', DMG_COL(c[3]));
+  fill('vsChas', c[10]); fill('vsEng', D.failed === 'engine' ? 1 : Math.max(c[8], D.engT > 125 ? 0.3 : 0));
+  fill('vsCoolL', c[9]); fill('vsCoolR', c[9]);
+  const blink = performance.now() % 600 < 300;
+  for (let i = 0; i < 4; i++) {
+    $('vsS' + i).setAttribute('stroke', DMG_COL(c[4 + i] >= sess.damageLevel.fatal ? 1 : c[4 + i]));
+    $('vsT' + i).setAttribute('fill', D.shred[i] ? '#4a4f58' : D.punctRate[i] > 0 ? (blink ? '#ff3b3b' : '#5a1010') : '#c9ced8');
+  }
+  // problems, worst first
+  const rows = [];
+  const pct = (d) => Math.round(d * 100) + '%';
+  const fw = D.fw;
+  if (D.detached[0] || D.detached[1]) rows.push([1, 'FRONT WING', 'Part lost · understeer']);
+  else if (fw > 0.04) rows.push([fw, 'FRONT WING ' + pct(fw), fw > 0.4 ? 'Heavy understeer' : 'Less front grip']);
+  for (let i = 0; i < 4; i++) {
+    if (D.shred[i]) rows.push([1.2, WHEEL_SHORT[i] + ' TYRE', 'Destroyed · box now']);
+    else if (D.punctRate[i] > 0) rows.push([1.1, WHEEL_SHORT[i] + ' TYRE', 'Puncture · pit']);
+  }
+  if (D.detached[2]) rows.push([1, 'REAR WING', 'Lost · unstable rear']);
+  else if (c[2] > 0.04) rows.push([c[2], 'REAR WING ' + pct(c[2]), 'Less rear stability']);
+  for (let i = 0; i < 4; i++) if (c[4 + i] > 0.04) rows.push([c[4 + i], 'SUSP. ' + WHEEL_SHORT[i] + ' ' + pct(c[4 + i]), c[4 + i] >= sess.damageLevel.fatal ? 'Broken' : 'Pulls ' + (i % 2 ? 'right' : 'left')]);
+  if (c[3] > 0.04) rows.push([c[3] * 0.9, 'FLOOR ' + pct(c[3]), 'Less downforce']);
+  if (D.failed === 'engine') rows.push([1.3, 'POWER UNIT', D.fire ? 'FIRE' : 'Failed']);
+  else if (c[8] > 0.04) rows.push([c[8], 'POWER UNIT ' + pct(c[8]), '−' + Math.round((1 - D.perf.power) * 100) + '% power']);
+  if (D.engT > 115 && D.failed !== 'engine') rows.push([D.engT > 125 ? 0.7 : 0.3, 'ENGINE ' + Math.round(D.engT) + '°C', D.engT > 125 ? 'Overheating · lift' : 'Running hot']);
+  if (c[9] > 0.04) rows.push([c[9], 'COOLING ' + pct(c[9]), D.leak > 0.05 ? 'Leaking' : 'Runs hot']);
+  if (c[10] > 0.04) rows.push([c[10] * 1.4, 'CHASSIS ' + pct(c[10]), 'Structural']);
+  if (!rows.length && D.scuff > 0.05) rows.push([0, 'BODYWORK', 'Cosmetic only']);
+  rows.sort((a, b) => b[0] - a[0]);
+  $('vsRows').innerHTML = rows.slice(0, 4).map(r => `<div>${r[1]}<span>${r[2]}</span></div>`).join('');
+  const sev = p.retiring ? 2 : D.severity();
+  const badge = $('vsBadge');
+  badge.textContent = p.retiring ? (p.dnf ? 'RETIRED' : 'RETIRING') : sev < 0.05 ? 'OK' : sev < 0.25 ? 'MINOR' : sev < 0.55 ? 'DAMAGED' : 'SEVERE';
+  badge.style.background = p.retiring ? '#ff3b3b' : DMG_COL(sev);
+  // pit recommendation with time estimate
+  const pit = $('vsPit');
+  if (p.retiring) { pit.textContent = p.dnf ? 'Car out of the race' : 'Stop the car safely'; pit.style.color = '#ff6b6b'; return; }
+  if (p.pit) { const P = p.pit; pit.textContent = P.phase === 'stopped' ? 'Crew working: ' + pitJobsText(P) : P.phase === 'out' ? 'Leaving the pits' : 'In the pit lane'; pit.style.color = '#f5c518'; return; }
+  const plan = D.repairPlan({ wings: !p.skipWingRepair }); const loss = D.lapLoss();
+  const punct = D.anyPuncture();
+  const items = (punct ? ['Tyres'] : []).concat(plan.items);
+  if (!items.length) {
+    const fixed = loss.fixed > 0.3;
+    pit.textContent = fixed ? 'Not repairable in the pits' : 'No repair needed'; pit.style.color = fixed ? '#ff8a1f' : '#9aa3b2';
+  } else {
+    const urgent = punct || D.detached[0] || D.detached[1] || D.detached[2] || fw > 0.5 || c[2] > 0.5;
+    const stopT = Math.max(2.4, plan.time) + 0.4;
+    pit.innerHTML = (urgent ? 'BOX NOW: ' : loss.rep > 0.6 ? 'PIT RECOMMENDED: ' : 'Optional pit: ') + items.join(' + ') + ` · stop ≈ ${stopT.toFixed(0)} s` + (loss.rep < 20 ? ` · losing ≈ ${loss.rep.toFixed(1)} s/lap` : '');
+    pit.style.color = urgent ? '#ff6b6b' : loss.rep > 0.6 ? '#f5c518' : '#cfd5df';
+  }
+}
+function pitJobsText(P) {
+  const el = P.total - P.timer, tick = (done) => done ? ' ✓' : '…';
+  const jobs = ['TYRES' + tick(el >= P.tyreT)];
+  if (P.fwT) jobs.push('FRONT WING' + tick(el >= P.fwT));
+  if (P.rwT) jobs.push('REAR WING' + tick(el >= P.rwT));
+  return jobs.join('  ·  ');
 }
 let hudT = 0;
 function updateHud(dt) {
@@ -4259,14 +5052,16 @@ function updateHud(dt) {
   }
   const wavg = (p.tyre.wear[0] + p.tyre.wear[1] + p.tyre.wear[2] + p.tyre.wear[3]) / 4;
   $('wearPct').textContent = Math.round(wavg * 100) + '%'; $('tyreAge').textContent = p.tyre.age + 'L';
-  $('dmgTxt').innerHTML = 'WING <b style="color:' + (p.damage.wing > 0.3 ? '#ff5252' : p.damage.wing > 0.05 ? '#f5c518' : '#fff') + '">' + (p.damage.wing > 0.05 ? Math.round(p.damage.wing * 100) + '%' : 'OK') + '</b>';
+  const sev = p.retiring ? 1 : p.damage.severity();
+  $('dmgTxt').innerHTML = 'CAR <b style="color:' + (sev < 0.05 ? '#fff' : DMG_COL(sev)) + '">' + (p.retiring ? 'OUT' : sev < 0.05 ? 'OK' : sev < 0.25 ? 'MINOR' : sev < 0.55 ? 'DAMAGED' : 'SEVERE') + '</b>';
+  updateVehicleStatus(p, sess);
   // flags
   const fb = $('flagbar'); const yel = sess.yellowAt(p.idx) || sess.yellowAt(G.track.wrapI(p.idx + 60));
   const blue = p.ai ? p.ai.blue : sess.cars.some(o => o !== p && sess.type === 'race' && o.totalDist > p.totalDist + G.track.length * 0.5 && G.track.dS(o.s, p.s) > 0 && G.track.dS(o.s, p.s) < 50);
   fb.className = yel ? 'yellow' : blue ? 'blue' : '';
   // pit stop timer
   const ps = $('pitstop');
-  if (p.pit && p.pit.phase === 'stopped') { ps.classList.remove('hidden'); $('pitTime').textContent = Math.max(0, p.pit.total - p.pit.timer).toFixed(1) + ' s'; G.pitShowUntil = performance.now() + 2500; G.pitLast = p.pit.total; }
+  if (p.pit && p.pit.phase === 'stopped') { ps.classList.remove('hidden'); $('pitTime').textContent = Math.max(0, p.pit.total - p.pit.timer).toFixed(1) + ' s'; $('pitJobs').textContent = pitJobsText(p.pit); G.pitShowUntil = performance.now() + 2500; G.pitLast = p.pit.total; }
   else if (G.pitShowUntil && performance.now() < G.pitShowUntil) { $('pitTime').textContent = (G.pitLast || 0).toFixed(1) + ' s'; }
   else ps.classList.add('hidden');
   // box panel
@@ -4274,13 +5069,15 @@ function updateHud(dt) {
   if (G.player && p === G.player && p.boxRequest && !p.pit) {
     bp.classList.remove('hidden');
     for (const el of $('boxOpts').children) el.classList.toggle('sel', el.dataset.c === (p.boxCompound || 'M'));
+    const all = p.damage.repairPlan(), plan = p.damage.repairPlan({ wings: !p.skipWingRepair });
+    $('boxRep').innerHTML = (all.items.length ? (p.skipWingRepair ? 'Keep damaged ' + all.items.join(' + ').toLowerCase() : 'Change ' + all.items.join(' + ').toLowerCase()) + ' <kbd>5</kbd> · ' : 'No repairs needed · ') + 'stop ≈ ' + (Math.max(2.4, plan.time) + 0.4).toFixed(0) + ' s';
   } else bp.classList.add('hidden');
   // spectator bar / quali timer
   const sb = $('specbar');
   if (G.mode === 'spectate') {
     sb.classList.remove('hidden');
     const col = car.team.c1 === '#141414' ? '#c9a24a' : car.team.c1;
-    const ai = car.ai; const st = ai ? (ai.mode === 'recover' ? 'RECOVERING' : car.pit ? 'IN PIT LANE' : ai.attackTarget ? 'ATTACKING ' + ai.attackTarget.car.driver.short : ai.defending ? 'DEFENDING' : ai.blue ? 'BLUE FLAG' : 'RACING') : '';
+    const ai = car.ai; const st = ai ? (car.dnf ? 'RETIRED · ' + car.dnfReason : car.retiring ? 'STOPPING · ' + car.retiring.reason : ai.mode === 'recover' ? 'RECOVERING' : car.pit ? 'IN PIT LANE' : car.damage.anyPuncture() ? 'PUNCTURE · LIMPING TO PITS' : ai.retireInPits ? 'DAMAGED · RETIRING IN PITS' : ai.damageStop ? 'DAMAGED · PITTING' : ai.attackTarget ? 'ATTACKING ' + ai.attackTarget.car.driver.short : ai.defending ? 'DEFENDING' : ai.blue ? 'BLUE FLAG' : car.damage.severity() > 0.25 ? 'RACING · DAMAGED' : 'RACING') : '';
     sb.innerHTML = `<span class="team" style="background:${col}"></span><span>P${car.position} ${car.driver.name}</span><small>${car.team.full} · #${car.num}</small><small>${st}</small><small>CAM: ${G.camRig.mode.toUpperCase()} · ×${G.timeScale}</small><small>←/→ car · C camera · 1/2/4 speed · Y director ${G.director ? 'ON' : 'OFF'}</small>`;
   } else sb.classList.add('hidden');
   const qt = $('qtimer');
@@ -4338,6 +5135,121 @@ function drawSteeringDisplay(model, car, sess) {
 }
 
 /* ---------------- per-frame visual updates ---------------- */
+// Show each car's damage on its model: drooping / missing wing elements, bent suspension, flat or shredded
+// tyres and scuffed, cracked bodywork. A wing being replaced in the pits is carried off and refitted.
+function updateDamageVisuals(car, m, sess) {
+  const D = car.damage, c = D.c, P = car.pit && car.pit.phase === 'stopped' ? car.pit : null;
+  const el = P ? P.total - P.timer : 0, now = performance.now() / 1000;
+  const shake = clamp(car.speed / 40, 0, 1);
+  for (let k = 0; k < 2; k++) {
+    const g = m.fw[k], sg = k ? 1 : -1; let d = c[k], gone = D.detached[k], off = 0;
+    if (P && P.fwT > 0) {
+      if (el > P.fwT - 1.6) { d = 0; gone = false; off = clamp((P.fwT - 0.4 - el) / 1.2, 0, 1) * 0.9; }
+      else if (el > 1.8) gone = true; else if (el > 0.6) off = (el - 0.6) / 1.2 * 0.9;
+    }
+    g.visible = !gone; if (gone) continue;
+    const droop = d > 0.2 ? (d - 0.2) * 0.45 : 0;
+    const flutter = d > 0.45 ? Math.sin(now * 31 + k * 2) * 0.035 * shake * d : 0;
+    g.rotation.set(sg * (droop + flutter), sg * d * 0.12, -d * 0.1);
+    g.position.set(FW_PIVOT[0] + off, FW_PIVOT[1] - droop * 0.08, sg * FW_PIVOT[2]);
+  }
+  {
+    let d = c[2], gone = D.detached[2], up = 0;
+    if (P && P.rwT > 0) {
+      if (el > P.rwT - 2.5) { d = 0; gone = false; up = clamp((P.rwT - 0.6 - el) / 1.9, 0, 1) * 0.6; }
+      else if (el > 3) gone = true; else if (el > 0.8) up = (el - 0.8) / 2.2 * 0.6;
+    }
+    m.rw.visible = !gone;
+    if (!gone) { m.rw.rotation.set(d > 0.4 ? Math.sin(now * 23) * 0.04 * shake * d : 0, d * 0.08, -d * 0.4); m.rw.position.set(RW_PIVOT[0], RW_PIVOT[1] - d * 0.06 + up, 0); }
+  }
+  const fatal = sess.damageLevel.fatal;
+  for (let i = 0; i < 4; i++) {
+    const w = m.wheels[i], sg = i % 2 ? 1 : -1, s = c[4 + i], p = D.punct[i], shred = D.shred[i];
+    const broken = s >= fatal;
+    let y = w.base.y - s * 0.05 - (broken ? 0.12 : 0) - p * 0.045 - (shred ? 0.1 : 0), z = w.base.z + (broken ? sg * 0.12 : 0);
+    if (P && el > 0.45 && el < P.tyreT - 0.45) { const out = Math.min(1, (el - 0.45) / 0.25, (P.tyreT - 0.45 - el) / 0.25); z += sg * 0.65 * out; }
+    w.steer.position.set(w.base.x, y, z);
+    w.steer.rotation.x = sg * (broken ? 0.55 : s * 0.3);
+    w.steer.scale.y = shred ? 1 : 1 - 0.14 * p;
+    w.tyre.visible = !shred;
+  }
+  // paint loses its gloss with scrapes; structural damage cracks and darkens it
+  const key = Math.round(D.scuff * 20) + ':' + Math.round(c[P_CHAS_IDX] * 20);
+  if (key !== m.dmgKey) {
+    m.dmgKey = key;
+    m.bodyMat.clearcoat = 1 - 0.75 * D.scuff; m.bodyMat.roughness = 0.36 + 0.35 * D.scuff;
+    m.bodyMat.color.setScalar(1 - 0.12 * D.scuff - 0.3 * c[P_CHAS_IDX]);
+  }
+}
+const P_CHAS_IDX = 10;
+// world position of a point given in a car's frame (x forward, y right)
+function carPoint(car, lx, ly) { const c = Math.cos(car.psi), s = Math.sin(car.psi); return [car.x + c * lx - s * ly, car.z + s * lx + c * ly]; }
+// Damage particles for one car: mechanical smoke, coolant steam, fire, extinguisher, and sparks from parts dragging on the track.
+function damageParticles(car, dt) {
+  const D = car.damage, c = D.c, R = Math.random, v = car.speed;
+  const emitAt = (sys, lx, ly, y, n, vy, life, size, grow, alpha, col, spread = 0.4) => {
+    for (let k = 0; k < n; k++) { const [x, z] = carPoint(car, lx + (R() - .5) * spread, ly + (R() - .5) * spread); sys.emit(x, y, z, car.vx * 0.35 + (R() - .5) * 1.2, vy * (0.6 + R() * 0.8), car.vz * 0.35 + (R() - .5) * 1.2, life, size, grow, alpha, col); }
+  };
+  const count = (rate) => { const f = rate * dt; return Math.floor(f) + (R() < f % 1 ? 1 : 0); };
+  if (D.fire > 0) {
+    // licking flames over the engine cover and sidepods, under a column of black smoke
+    const fl = count(90);
+    for (let k = 0; k < fl; k++) emitAt(G.fire, -0.4 - R() * 1.4, (R() - .5) * 1.2, 0.55 + R() * 0.25, 1, 2.8, 0.25 + R() * 0.3, 0.22 + R() * 0.2, 0.9, 0.55, R() < 0.5 ? [1, 0.42, 0.08] : [1, 0.72, 0.22], 0.2);
+    emitAt(G.smoke, -1.1, 0, 1.1, count(16), 2.4, 3.4, 0.9, 2.8, 0.6, [0.06, 0.06, 0.07], 0.8);
+  } else if (car._burnT && performance.now() - car._burnT < 7000) {
+    emitAt(G.smoke, -0.6, (R() < .5 ? -1.6 : 1.6), 0.9, count(28), 0.8, 1.6, 0.8, 2.2, 0.5, [0.96, 0.96, 0.98], 0.6); // extinguisher
+  }
+  if (D.fire > 0) car._burnT = performance.now();
+  const e = c[8];
+  if (D.failed === 'engine' || e > 0.35) {
+    const rate = D.failed === 'engine' ? (v > 2 ? 26 : 8) : (e - 0.35) * 40;
+    emitAt(G.smoke, -1.7, 0, 0.7, count(rate), 1.2, 2.4, 0.6, 2.2, D.failed ? 0.5 : 0.35, D.failed ? [0.18, 0.18, 0.2] : [0.42, 0.42, 0.45]);
+  }
+  if (c[9] > 0.35 || D.overheat || D.leak > 0.1) {
+    const rate = 6 + c[9] * 14 + D.leak * 20 + (D.overheat ? 10 : 0);
+    emitAt(G.smoke, 0.1, R() < 0.5 ? -0.62 : 0.62, 0.6, count(rate), 1.4, 1.4, 0.4, 1.8, 0.28, [0.93, 0.94, 0.96]);
+  }
+  if (v < 5) return;
+  // parts scraping the asphalt throw sparks (different from the normal underfloor sparks at speed)
+  for (let k = 0; k < 2; k++) if (!D.detached[k] && c[k] > 0.7 && v > 12) emitAt(G.sparks, 2.85, k ? 0.85 : -0.85, 0.05, count(35), 1.5, 0.3, 0.12, 0, 1, null, 0.15);
+  for (let i = 0; i < 4; i++) {
+    if (!D.shred[i] && c[4 + i] < 0.85) continue;
+    emitAt(G.sparks, i < 2 ? 1.98 : -1.62, i % 2 ? 0.72 : -0.72, 0.04, count(60), 1.2, 0.35, 0.13, 0, 1, null, 0.2);
+    if (D.shred[i] && R() < dt * 6) emitAt(G.smoke, i < 2 ? 1.98 : -1.62, i % 2 ? 0.72 : -0.72, 0.2, 1, 0.6, 1.4, 0.6, 1.6, 0.35, [0.25, 0.25, 0.25]);
+  }
+  if (c[3] > 0.45 && v > 35) emitAt(G.sparks, -0.6, 0, 0.05, count((c[3] - 0.4) * 30), 1.2, 0.3, 0.12, 0, 1, null, 1.6);
+}
+// Crew members around cars in their pit box: waiting while the car comes in, then at the wheels,
+// jacks and on any wing being replaced.
+function updatePitCrews() {
+  const sess = G.session, crew = G.crew; if (!crew) return;
+  crew.begin();
+  const camPos = camera.position, t = G.track;
+  for (const car of sess.cars) {
+    const P = car.pit; if (!P || car.inGarage || car.dnf) continue;
+    if (Math.hypot(car.x - camPos.x, car.z - camPos.z) > 170) continue;
+    let px, pz, h, working = false, el = 0;
+    if (P.phase === 'stopped') { px = car.x; pz = car.z; h = car.psi; working = true; el = P.total - P.timer; }
+    else if (P.phase === 'in' && P.boxS != null) {
+      const dd = t.dS(car.s, P.stopS); if (dd > 60 || dd < -3) continue;
+      [px, pz, h] = t.pointAt(P.stopS, t.pit.side * t.pit.boxD);
+    } else continue;
+    const c = Math.cos(h), s = Math.sin(h), team = car.team;
+    const put = (lx, ly, crouch, face) => crew.add(px + c * lx - s * ly, pz + s * lx + c * ly, -h + face, crouch, team);
+    const tyres = working && el < P.tyreT + 0.3;
+    for (let i = 0; i < 4; i++) {
+      const lx = i < 2 ? SIM.SPEC.a : -SIM.SPEC.b, sg = i % 2 ? 1 : -1;
+      put(lx, sg * (tyres ? 1.15 : 1.9), tyres ? 1 : 0, sg * Math.PI / 2);
+      put(lx + 0.45, sg * (tyres ? 1.55 + (el > 0.45 && el < P.tyreT - 0.45 ? 0.5 : 0) : 2.4), tyres ? 0.5 : 0, sg * Math.PI / 2);
+    }
+    put(3.7, 0, working && el < P.total - 0.2 ? 0.4 : 0, Math.PI); put(-3.4, 0, working && el < P.total - 0.2 ? 0.4 : 0, 0);
+    if (working && P.fwT > 0 && el < P.fwT) for (const sg of [-1, 1]) put(3.35 + (el > 0.6 && el < P.fwT - 0.4 ? 0.6 : 0), sg * 0.75, 0.3, Math.PI);
+    if (working && P.rwT > 0 && el < P.rwT) for (const sg of [-1, 1]) put(-3.0, sg * 0.85, 0, 0);
+    if (!working) put(4.6, -t.pit.side * 1.4, 0, Math.PI); // lollipop / waiting
+  }
+  crew.end();
+}
+
 const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s1 = new THREE.Vector3(1, 1, 1), _up = new THREE.Vector3(0, 1, 0);
 function updateCarVisuals(dt) {
   const sess = G.session; const camPos = camera.position; const wet = sess.wet;
@@ -4347,9 +5259,14 @@ function updateCarVisuals(dt) {
     m.group.visible = !car.ghost && !(car.inGarage && sess.type === 'race');
     if (!m.group.visible) continue;
     if (G.contact && nShadow < G.contact.instanceMatrix.count) { _m4.compose(_v.set(car.x, 0.02, car.z), _q.setFromAxisAngle(_up, -car.psi), _s1); G.contact.setMatrixAt(nShadow++, _m4); }
-    const pitch = clamp(-car.gLong * 0.006, -0.03, 0.03), roll = clamp(car.gLat * 0.006, -0.03, 0.03);
-    m.group.position.set(car.x, 0.0, car.z);
+    // the body sits lower on a damaged or broken corner; it is lifted on the jacks during a stop
+    const dc = car.damage.c, fat = sess.damageLevel.fatal, low = (i) => dc[4 + i] * 0.5 + (dc[4 + i] >= fat ? 0.5 : 0) + car.damage.punct[i] * 0.3;
+    const pitch = clamp(-car.gLong * 0.006, -0.03, 0.03) - 0.05 * (low(0) + low(1) - low(2) - low(3)) / 2;
+    const roll = clamp(car.gLat * 0.006, -0.03, 0.03) + 0.06 * (low(1) + low(3) - low(0) - low(2)) / 2;
+    const PS = car.pit && car.pit.phase === 'stopped' ? car.pit : null, jel = PS ? PS.total - PS.timer : 0;
+    m.group.position.set(car.x, PS && jel > 0.25 && jel < PS.total - 0.2 ? 0.06 : 0.0, car.z);
     m.group.rotation.set(roll, -car.psi, pitch, 'YXZ');
+    updateDamageVisuals(car, m, sess);
     for (let i = 0; i < 4; i++) {
       const w = m.wheels[i];
       if (i < 2) w.steer.rotation.y = -car.steer;
@@ -4381,8 +5298,10 @@ function updateCarVisuals(dt) {
       if (wet && i >= 2 && car.speed > 15 && Math.random() < dt * (10 + car.speed * 0.9)) G.spray.emit(wx - c * 0.4, 0.35, wz - s * 0.4, car.vx * 0.55 + (Math.random() - .5) * 3, 0.8 + Math.random() * 1.5, car.vz * 0.55 + (Math.random() - .5) * 3, 0.9, 1.4, 4, 0.33);
     }
     if (car.speed > 72 && Math.random() < dt * 1.5) for (let k = 0; k < 8; k++) G.sparks.emit(car.x - c * 1.2, 0.08, car.z - s * 1.2, car.vx * 0.7 + (Math.random() - .5) * 6, Math.random() * 2, car.vz * 0.7 + (Math.random() - .5) * 6, 0.35, 0.12, 0, 1);
+    damageParticles(car, dt);
   }
-  G.smoke.update(dt, -0.3); G.spray.update(dt, 1.5); G.sparks.update(dt, 9.8);
+  G.smoke.update(dt, -0.3); G.spray.update(dt, 1.5); G.sparks.update(dt, 9.8); G.fire.update(dt, -2.5);
+  G.debris.update(dt, sess.cars); updatePitCrews();
   if (G.contact) { G.contact.count = nShadow; G.contact.instanceMatrix.needsUpdate = true; }
 }
 function processEvents() {
@@ -4394,6 +5313,16 @@ function processEvents() {
       if (d < 120) { G.audio.oneShot('impact', clamp(e.j / 9000, 0, 1) * clamp(30 / (d + 10), 0.2, 1)); for (let k = 0; k < 14; k++) G.sparks.emit(e.x, 0.3, e.z, (Math.random() - .5) * 10, Math.random() * 4, (Math.random() - .5) * 10, 0.5, 0.15, 0, 1); }
       const involved = e.a === G.focus || e.b === G.focus || e.car === G.focus;
       if (involved) G.camRig.shake = Math.min(0.25, e.j / 30000);
+    } else if (e.type === 'detach') { const m = G.models.get(e.car); if (m) G.debris.spawnWing(m, e.part, e.x, e.z, e.vx, e.vz, e.car.psi); }
+    else if (e.type === 'debris') {
+      const n = e.kind === 'tyre' ? 6 : e.n || 3, d = Math.hypot(e.x - camera.position.x, e.z - camera.position.z);
+      if (d < 300) G.debris.spawn(e.x, e.z, e.vx, e.vz, e.kind === 'tyre' ? n : Math.min(14, n * 2), e.kind === 'tyre' ? [0.05, 0.05, 0.05] : null);
+    } else if (e.type === 'puncture') {
+      const d = Math.hypot(e.car.x - camera.position.x, e.car.z - camera.position.z);
+      if (d < 120) { G.audio.oneShot('pop', clamp(40 / (d + 10), 0.2, 1)); const [x, z] = carPoint(e.car, e.wheel < 2 ? SIM.SPEC.a : -SIM.SPEC.b, e.wheel % 2 ? 0.75 : -0.75); G.debris.spawn(x, z, e.car.vx, e.car.vz, 3, [0.05, 0.05, 0.05]); }
+    } else if (e.type === 'failure') {
+      const d = Math.hypot(e.car.x - camera.position.x, e.car.z - camera.position.z);
+      if (d < 200) { G.audio.oneShot('bang', clamp(60 / (d + 10), 0.2, 1)); for (let k = 0; k < 25; k++) { const [x, z] = carPoint(e.car, -1.6, (Math.random() - .5) * 0.6); G.smoke.emit(x, 0.7, z, e.car.vx * 0.4 + (Math.random() - .5) * 3, 1 + Math.random() * 2, e.car.vz * 0.4 + (Math.random() - .5) * 3, 3, 0.9, 2.4, 0.6, [0.15, 0.15, 0.16]); } }
     } else if (e.type === 'lightsout') { if (!G.attract) G.audio.oneShot('go'); }
     else if (e.type === 'raceover') { if (!G.attract) setTimeout(() => showResults(), 1200); else setTimeout(() => { if (G.attract && G.mode === 'menu') startAttract(); }, 3000); }
     else if (e.type === 'qualiover') { if (!G.attract) setTimeout(() => showResults(), 800); }
@@ -4426,13 +5355,24 @@ function handleKeys(dt) {
     return;
   }
   const p = G.player; if (!p) return;
+  // after retiring, the driver can watch the rest of the race
+  if (p.dnf && sess.type === 'race') {
+    const order = sess.order || sess.cars, live = order.filter(c => !c.inGarage);
+    if (G.focus === p && p.inGarage && live.length) { G.focus = live[0]; G.camRig.init = false; pushMsg('Retired — watching the race. ←/→ change car · 1/2/4 speed · Esc menu', 'info', 5); }
+    let pos = live.indexOf(G.focus);
+    if (live.length && (takePress('ArrowRight') || takePress('BracketRight'))) { G.focus = live[(pos + 1) % live.length]; G.camRig.init = false; }
+    if (live.length && (takePress('ArrowLeft') || takePress('BracketLeft'))) { G.focus = live[(Math.max(0, pos) - 1 + live.length) % live.length]; G.camRig.init = false; }
+    if (takePress('Digit1')) G.timeScale = 1; if (takePress('Digit2')) G.timeScale = 2; if (takePress('Digit4')) G.timeScale = 4;
+    return;
+  }
   if (takePress('KeyP') || (G.pad && G.pad.box)) {
     if (!p.pit) { p.boxRequest = !p.boxRequest; if (p.boxRequest) { p.boxCompound = p.boxCompound || defaultBoxCompound(p, sess); pushMsg('BOX THIS LAP', 'pit', 2.5); } else { p.autoDrive = false; pushMsg('Pit stop cancelled', 'info', 1.5); } }
   }
   for (const [k, c] of [['Digit1', 'S'], ['Digit2', 'M'], ['Digit3', 'H'], ['Digit4', 'W']]) if (takePress(k) && p.boxRequest) p.boxCompound = c;
+  if (takePress('Digit5')) { p.skipWingRepair = !p.skipWingRepair; pushMsg(p.skipWingRepair ? 'Pit: keep damaged wings (faster stop)' : 'Pit: change damaged wings', 'pit', 2); }
   const respawn = takePress('Space');
   const reset = takePress('KeyR');
-  if ((respawn || reset) && !p.pit && sess.lightsOut && !p.inGarage && !p.finished && !p.dnf) {
+  if ((respawn || reset) && !p.pit && sess.lightsOut && !p.inGarage && !p.finished && !p.dnf && !p.retiring) {
     sess.marshalReset(p);
     p.u = p.v = p.speed = p.steer = p.throttle = p.brake = p.slideAngle = 0;
     p.axL = p.ayL = 0;
@@ -4441,7 +5381,7 @@ function handleKeys(dt) {
     G.camRig.init = false; pushMsg('Car respawned on track', 'warn', 2);
   }
   if (sess.type === 'quali') {
-    if (p.inGarage && !sess.sessionOver && (KEYS.KeyW || KEYS.ArrowUp || (G.pad && G.pad.throttle > 0.3))) { sess.releaseFromGarage(p); }
+    if (p.inGarage && !p.qualiOut && !sess.sessionOver && (KEYS.KeyW || KEYS.ArrowUp || (G.pad && G.pad.throttle > 0.3))) { sess.releaseFromGarage(p); }
     if (takePress('KeyK')) skipQuali();
   }
   G.lookBack = !!KEYS.KeyB;
@@ -4468,14 +5408,18 @@ function playerLogic(dt) {
     p.autoDrive = (toEntry > 0 && toEntry < 380) || (q >= 0 && q < G.track.pit.E + 30);
   } else if (!p.finished && !p.pit) p.autoDrive = false;
   if (p.autopilot) { p.autopilot.boxThisLap = p.boxRequest; }
-  if (p.pit || p.autoDrive) clearPlayerAssists(p);
-  if (!p.pit && !p.autoDrive) G.pc.apply(p, dt, sess);
+  if (p.pit || p.autoDrive || p.retiring) clearPlayerAssists(p);
+  if (!p.pit && !p.autoDrive && !p.retiring) G.pc.apply(p, dt, sess);
   else if (p.pit && p.pit.phase === 'stopped' && !G.pitNoted) { G.pitNoted = true; }
   if (!p.pit) G.pitNoted = false;
 }
 
 /* ---------------- spectator director ---------------- */
 function director(dt) {
+  // the watched car has been recovered after retiring: follow the leader instead
+  if ((G.mode === 'spectate' || G.attract) && G.focus && G.focus.inGarage && G.focus.dnf && G.session.order) {
+    const live = G.session.order.find(c => !c.inGarage); if (live) { G.focus = live; G.camRig.init = false; }
+  }
   if (!(G.mode === 'spectate' && G.director) && !G.attract) return;
   G.dirT = (G.dirT || 0) - dt; if (G.dirT > 0) return;
   G.dirT = 9 + Math.random() * 6;
@@ -4492,7 +5436,7 @@ function togglePause() {
   if (!$('settings').classList.contains('hidden') || !$('controls').classList.contains('hidden')) { $('settings').classList.add('hidden'); $('controls').classList.add('hidden'); if (G.paused) $('pause').classList.remove('hidden'); return; }
   if (G.mode === 'menu') return;
   clearKeys();
-  G.paused = !G.paused; $('pause').classList.toggle('hidden', !G.paused);
+  G.paused = !G.paused; $('pause').classList.toggle('hidden', !G.paused); renderDamageSel();
   const sess = G.session;
   $('btnSkipQ').classList.toggle('hidden', !(sess && sess.type === 'quali' && !sess.over && G.player));
   $('pauseSub').textContent = sess ? (sess.type === 'quali' ? 'Qualifying' : G.mode === 'spectate' ? 'Spectator race' : 'Race') + ' · ' + G.track.name : '';
@@ -4507,7 +5451,7 @@ function buildSettingsUI() {
       for (const o of f.opts) {
         const [val, txt] = Array.isArray(o) ? o : [o, String(o)];
         const b = document.createElement('button'); b.textContent = txt; if (String(S[f.k]) === String(val)) b.classList.add('sel');
-        b.onclick = () => { S[f.k] = typeof val === 'number' ? val : val; saveSettings(); buildSettingsUI(); if (f.k === 'volume') G.audio.setVolume(S.volume); };
+        b.onclick = () => { S[f.k] = typeof val === 'number' ? val : val; saveSettings(); if (f.k === 'damage') setDamageSetting(val); buildSettingsUI(); if (f.k === 'volume') G.audio.setVolume(S.volume); };
         seg.appendChild(b);
       }
       wrap.appendChild(seg);
@@ -4522,7 +5466,7 @@ function buildSettingsUI() {
       const sel = document.createElement('select'); for (const [v, txt] of f.opts()) { const o = document.createElement('option'); o.value = v; o.textContent = txt; if (+S[f.k] === v) o.selected = true; sel.appendChild(o); }
       sel.onchange = () => { S[f.k] = +sel.value; saveSettings(); }; wrap.appendChild(sel);
     }
-    if (wrap._desc) wrap.appendChild(wrap._desc);
+    if (f.desc) { const d = document.createElement('div'); d.className = 'desc'; d.textContent = f.desc(); wrap.appendChild(d); }
     grid.appendChild(wrap);
   }
 }
@@ -4531,7 +5475,7 @@ function showResults() {
   G.paused = false;
   const tbl = $('resTable'); const quali = sess.type === 'quali';
   $('resTitle').innerHTML = quali ? 'Qualifying <span>Results</span>' : 'Race <span>Results</span>';
-  $('resSub').textContent = G.track.name + ' · ' + (quali ? (sess.qualiTime / 60) + ' minute session' : sess.totalLaps + ' laps · ' + (sess.wet ? 'wet' : 'dry') + ' · AI ' + Math.round(sess.difficulty * 100) + '%');
+  $('resSub').textContent = G.track.name + ' · ' + (quali ? (sess.qualiTime / 60) + ' minute session' : sess.totalLaps + ' laps · ' + (sess.wet ? 'wet' : 'dry') + ' · AI ' + Math.round(sess.difficulty * 100) + '% · ' + sess.damageLevel.name + ' damage');
   let h = '';
   if (quali) {
     h = '<tr><th>Pos</th><th>Driver</th><th>Team</th><th>Best lap</th><th>Gap</th><th>Laps</th></tr>';
