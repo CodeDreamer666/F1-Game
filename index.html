@@ -31,117 +31,198 @@
   .hidden { display: none !important; }
   .num { font-variant-numeric: tabular-nums; }
 
-  /* ---------------- HUD ---------------- */
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
-  .panel { background: var(--panel); border-radius: 7px; box-shadow: 0 4px 18px rgba(0,0,0,.35); backdrop-filter: blur(3px); }
-  #hud-tl { position: absolute; left: 18px; top: 16px; width: 290px; padding: 10px 14px 10px; }
-  #hud-tl .lap { display: flex; align-items: baseline; gap: 10px; font-weight: 600; font-size: 18px; letter-spacing: .5px; }
-  #hud-tl .lap b { font-size: 32px; font-weight: 700; line-height: 1; }
-  #hud-tl .lap span.tot { font-size: 20px; color: #dfe3ea; }
-  #hud-tl .sess { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.5px; margin-left: auto; }
-  #board { margin-top: 6px; font-size: 15px; }
-  .row { display: grid; grid-template-columns: 22px 6px 1fr auto; gap: 8px; align-items: center; height: 25px; padding: 0 4px; border-radius: 3px; }
-  .row .p { color: #dfe3ea; text-align: right; }
-  .row .bar { width: 4px; height: 16px; border-radius: 1px; }
-  .row .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .g { color: #dfe3ea; font-size: 14px; }
-  .row.me { background: rgba(201, 162, 74, .28); }
-  .row.me .g, .row.me .n { color: #fff; font-weight: 700; }
+  /* ---------------- HUD ----------------
+     Panels are laid out on a virtual canvas of at least 1600×900 px and scaled to the window with `zoom` (--hz, set by fitHud). */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; --hz: 1; --hp: rgba(9, 13, 22, .78); --hb: rgba(255, 255, 255, .09); --hl: rgba(255, 255, 255, .07); --hdim: #98a3b6; --hlbl: #c9d1de; --hblue: #3b8bff; }
+  .hz { zoom: var(--hz); }
+  #hud .panel { background: var(--hp); border: 1px solid var(--hb); border-radius: 10px; box-shadow: 0 8px 26px rgba(0,0,0,.32); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .plabel { font-size: 12px; font-weight: 700; letter-spacing: 1.6px; color: var(--hdim); text-transform: uppercase; }
+  #accentbar { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--accent); box-shadow: 0 0 10px rgba(225, 6, 0, .55); z-index: 1; }
+  #flagbar { position: absolute; left: 0; right: 0; top: 0; height: 6px; z-index: 2; }
+  #flagbar.yellow { background: repeating-linear-gradient(90deg, #f5c518 0 40px, #222 40px 80px); }
+  #flagbar.blue { background: #1e88e5; }
+
+  /* left column: leaderboard, weather, track map */
+  #hud-left { position: absolute; left: 24px; top: 24px; bottom: 24px; width: 350px; display: flex; flex-direction: column; gap: 12px; }
+  #hud-tl { flex: 0 1 auto; min-height: 0; overflow: hidden; padding: 12px 16px 8px; }
+  #hud-tl .lap { display: flex; align-items: baseline; gap: 10px; font-weight: 600; font-size: 22px; letter-spacing: .5px; padding: 0 4px; }
+  #hud-tl .lap b { font-size: 40px; font-weight: 700; line-height: 1; white-space: nowrap; }
+  #hud-tl .lap b.txt { font-size: 24px; }
+  #hud-tl .lap span.tot { font-size: 24px; color: #dfe4ec; font-weight: 400; }
+  #hud-tl .sess { font-size: 13px; color: var(--hdim); text-transform: uppercase; letter-spacing: 2px; margin-left: auto; font-weight: 700; white-space: nowrap; }
+  .bhead, .row { display: grid; grid-template-columns: 26px 5px 1fr auto; gap: 10px; align-items: center; padding: 0 8px; }
+  .bhead { height: 24px; margin-top: 8px; border-bottom: 1px solid var(--hl); font-size: 12px; font-weight: 700; letter-spacing: 1.4px; color: var(--hdim); }
+  .bhead span:first-child { text-align: right; }
+  #board { padding-top: 3px; font-size: 15px; }
+  .row { height: 24px; border-radius: 4px; border: 1px solid transparent; }
+  .row .p { color: #dfe4ec; text-align: right; }
+  .row .bar { width: 5px; height: 16px; border-radius: 1px; }
+  .row .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #eef2f8; }
+  .row .g { color: #dfe4ec; font-size: 14px; }
+  .row.me { background: linear-gradient(90deg, rgba(48, 104, 196, .62), rgba(48, 104, 196, .38)); border-color: rgba(120, 172, 255, .38); }
+  .row.me .g, .row.me .n, .row.me .p { color: #fff; font-weight: 700; }
   .row .tag { font-size: 11px; padding: 0 5px; border-radius: 3px; background: #333; margin-left: 6px; color: #fff; }
   .row .tag.pit { background: #c9a24a; color: #111; }
   .row .tag.pen { background: #b71c1c; }
   .row .tag.out { background: #555; }
-  .row.sep { height: 6px; }
+  .row.sep { display: block; height: 14px; line-height: 6px; text-align: center; color: var(--hdim); letter-spacing: 4px; font-size: 14px; }
+  .lstack { margin-top: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+  #weatherPanel { padding: 10px 16px 8px; }
+  #weatherPanel .wmain { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+  #wIcon { width: 48px; height: 37px; flex-shrink: 0; }
+  #weatherPanel .wair b { display: block; font-size: 27px; font-weight: 700; line-height: 1; }
+  #weatherPanel .wair span { display: block; font-size: 13px; color: var(--hlbl); line-height: 1.3; }
+  #weatherPanel .wtrack { margin-left: auto; padding-left: 16px; border-left: 1px solid rgba(255,255,255,.18); font-size: 16px; color: var(--hlbl); white-space: nowrap; }
+  #weatherPanel .wtrack b { color: #fff; font-size: 20px; margin-left: 4px; }
+  #weatherSurface { font-size: 12px; color: var(--hlbl); margin: 0 0 0 62px; }
+  #weatherPanel .wfc { display: flex; align-items: center; gap: 8px; margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--hl); font-size: 13px; color: #dfe4ec; white-space: nowrap; }
+  #weatherPanel .wfc svg { width: 12px; height: 15px; flex-shrink: 0; }
+  .vsep { display: inline-block; width: 1px; height: 14px; background: rgba(255,255,255,.22); margin: 0 6px; }
+  #hud-bl { padding: 9px 12px 5px; }
+  #hud-bl .plabel { padding-left: 4px; }
+  #minimap { display: block; width: 100%; height: 88px; margin-top: 2px; }
 
-  #hud-tr { position: absolute; right: 18px; top: 16px; width: 270px; padding: 10px 14px 10px; }
-  #hud-tr .pos { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; font-weight: 600; font-size: 18px; }
-  #hud-tr .pos b { font-size: 32px; line-height: 1; }
-  .kv { display: flex; justify-content: space-between; font-size: 15px; height: 24px; align-items: center; }
-  .kv .k { color: #dfe3ea; font-weight: 600; letter-spacing: .5px; }
+  /* right column: position & timing (top), tyres / vehicle status (bottom) */
+  #hud-tr { position: absolute; right: 24px; top: 24px; width: 350px; padding: 14px 16px 12px; }
+  #hud-tr .pos { display: flex; align-items: baseline; gap: 12px; font-weight: 600; font-size: 22px; padding: 0 4px 8px; border-bottom: 1px solid var(--hl); }
+  #hud-tr .pos b { font-size: 46px; line-height: 1; font-weight: 700; margin-left: 12px; }
+  #hud-tr .pos span.num { font-size: 24px; font-weight: 400; color: #dfe4ec; }
+  .kv { display: flex; justify-content: space-between; align-items: center; font-size: 16px; height: 34px; padding: 0 4px; border-bottom: 1px solid var(--hl); }
+  .kv .k { color: var(--hlbl); font-weight: 600; letter-spacing: .6px; }
   .kv .v { font-weight: 600; }
-  .delta-pos { color: #ff3b3b; } .delta-neg { color: #2bd46c; }
-  .sectors { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 6px; }
-  .sectors div { height: 16px; font-size: 11px; text-align: center; line-height: 16px; background: #2b2f38; border-radius: 2px; font-weight: 700; }
-  .sectors .purple { background: var(--purple); } .sectors .green { background: #1c9e4b; } .sectors .yellow { background: #b8960f; color: #111; } .sectors .cur { background: #3c4250; }
+  .delta-pos { color: #ff4b4b; } .delta-neg { color: #2bd46c; }
+  .sectors { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin-top: 10px; }
+  .sectors > div { text-align: center; background: rgba(255,255,255,.05); border-radius: 3px; padding: 3px 0 5px; position: relative; overflow: hidden; }
+  .sectors span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--hlbl); }
+  .sectors b { display: block; font-size: 13px; font-weight: 600; color: #dfe4ec; }
+  .sectors > div::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: transparent; }
+  .sectors .purple::after { background: var(--purple); } .sectors .green::after { background: #1fbf5b; } .sectors .yellow::after { background: #e0b412; } .sectors .cur::after { background: var(--hblue); }
+  .sectors .purple b { color: #d38bff; } .sectors .green b { color: #4be38a; } .sectors .yellow b { color: #f5d24a; }
+  #hud-right { position: absolute; right: 24px; bottom: 24px; width: 350px; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh / var(--hz) - 48px - 280px); }
+  #hud-br { padding: 14px 18px 12px; min-height: 0; overflow: hidden; }
+  #hud-br .vhead { display: none; justify-content: space-between; align-items: center; font-weight: 700; letter-spacing: 1px; font-size: 18px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--hl); }
+  #hud-br.dmg .vhead { display: flex; }
+  #vsBadge { font-size: 12px; padding: 2px 10px; border-radius: 4px; letter-spacing: 1.2px; color: #fff; }
+  #hud-br .head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; letter-spacing: 1px; font-size: 18px; }
+  #hud-br.dmg .head { font-size: 14px; }
+  #hud-br .cmpw { display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 1px; }
+  .cmp { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--c, #e8212e); display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; color: #fff; background: #111; }
+  #hud-br.dmg .cmp { width: 24px; height: 24px; font-size: 12px; border-width: 2px; }
+  #tyrew { display: grid; grid-template-columns: 1fr 14px 70px 14px 1fr; grid-template-rows: 1fr 1fr; column-gap: 12px; align-items: center; height: 150px; margin-top: 8px; }
+  #hud-br.dmg #tyrew { height: 118px; margin-top: 4px; }
+  #tyrew .tw { width: 14px; height: 36px; border-radius: 3px; background: #2f7bff; justify-self: center; }
+  #hud-br.dmg #tyrew .tw { height: 28px; }
+  #tyrew .tt { font-size: 17px; font-weight: 600; white-space: nowrap; }
+  #tyrew .tt small { display: block; color: var(--hlbl); font-size: 13px; font-weight: 400; }
+  #hud-br.dmg #tyrew .tt { font-size: 15px; } #hud-br.dmg #tyrew .tt small { font-size: 12px; }
+  #tt0, #tt2 { text-align: left; padding-left: 8px; } #tt1, #tt3 { text-align: left; }
+  #tyrew svg { grid-column: 3; grid-row: 1 / span 2; width: 60px; height: 130px; justify-self: center; }
+  #hud-br.dmg #tyrew svg { height: 106px; width: 50px; }
+  #tw0 { grid-area: 1 / 2; } #tw1 { grid-area: 1 / 4; } #tw2 { grid-area: 2 / 2; } #tw3 { grid-area: 2 / 4; }
+  #tt0 { grid-area: 1 / 1; } #tt1 { grid-area: 1 / 5; } #tt2 { grid-area: 2 / 1; } #tt3 { grid-area: 2 / 5; }
+  #hud-br .trow { display: flex; align-items: center; font-size: 14px; color: var(--hlbl); height: 32px; border-top: 1px solid var(--hl); white-space: nowrap; }
+  #hud-br .trow:first-of-type { margin-top: 8px; }
+  #hud-br .trow > span { flex: 1; } #hud-br .trow > span + span { padding-left: 12px; border-left: 1px solid rgba(255,255,255,.18); flex: 0 1 auto; margin-left: 12px; }
+  #hud-br .trow b { color: #fff; margin-left: 6px; }
+  #hud-br.dmg .trow { height: 26px; font-size: 13px; }
+  #vstat { margin-top: 6px; font-size: 13px; }
+  #vstat .sh { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: 1px; font-size: 14px; padding: 8px 0 4px; border-top: 1px solid var(--hl); }
+  #vstat .sh i { width: 15px; height: 15px; background: #f59e0b; -webkit-mask: var(--ic-wrench) center / contain no-repeat; mask: var(--ic-wrench) center / contain no-repeat; }
+  #vstat .rows > div { display: grid; grid-template-columns: 4px 1fr auto; column-gap: 10px; align-items: center; padding: 3px 0; }
+  #vstat .rows i { grid-row: 1 / span 2; align-self: stretch; border-radius: 2px; }
+  #vstat .rows .c { font-weight: 600; color: #eef2f8; }
+  #vstat .rows .s { font-weight: 700; font-size: 12px; letter-spacing: .8px; text-align: right; }
+  #vstat .rows .e { grid-column: 3; font-size: 12px; color: var(--hlbl); text-align: right; }
+  #vstat .rows .e.l { grid-column: 2; text-align: left; }
+  #vsPit > div { display: flex; justify-content: space-between; gap: 10px; padding: 1px 0; color: var(--hlbl); }
+  #vsPit > div b { font-weight: 600; text-align: right; }
+  #strategyToggle { flex-shrink: 0; width: 100%; margin: 0; justify-content: center; flex-direction: row; gap: 10px; padding: 9px 14px; font-size: 15px; letter-spacing: 1.5px; border-radius: 8px; border: 1px solid rgba(120, 172, 255, .45); background: linear-gradient(180deg, rgba(40, 96, 190, .92), rgba(28, 70, 150, .92)); }
+  #strategyToggle:hover, #strategyToggle:focus-visible { transform: none; filter: brightness(1.15); border-left-color: rgba(120, 172, 255, .45); }
+  #strategyToggle kbd { font-size: 11px; min-width: 20px; padding: 0 5px; background: rgba(0,0,0,.3); border-color: rgba(255,255,255,.3); }
 
-  #hud-bc { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: 470px; height: 132px; }
+  /* bottom centre: speed, gear, rpm, ERS / DRS / fuel */
+  #hud-bc { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: 600px; height: 162px; }
   #dash { position: absolute; inset: 0; }
-  #dash .leds { position: absolute; left: 42px; right: 42px; top: 4px; height: 12px; display: flex; gap: 3px; justify-content: center; }
-  #dash .leds i { width: 13px; height: 9px; border-radius: 2px; background: #2a2d33; transition: background .04s; }
-  #dash .body { position: absolute; left: 0; right: 0; top: 22px; height: 92px; background: linear-gradient(180deg, rgba(14,16,22,.88), rgba(10,12,16,.92)); clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%); border-top: 2px solid rgba(80, 160, 255, .5); }
-  #dash .spd, #dash .rpm { position: absolute; top: 14px; width: 150px; text-align: center; }
-  #dash .spd { left: 30px; } #dash .rpm { right: 30px; }
-  #dash .spd b, #dash .rpm b { font-size: 40px; font-weight: 700; line-height: 1; display: block; }
-  #dash .spd small, #dash .rpm small { font-size: 13px; color: var(--dim); letter-spacing: 1px; }
-  #dash .gear { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: 96px; height: 92px; text-align: center; font-size: 66px; font-weight: 700; line-height: 92px; background: linear-gradient(180deg, rgba(30,60,110,.55), rgba(20,30,50,.25)); clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%); }
+  #dash .leds { position: absolute; left: 0; right: 0; top: 0; height: 9px; display: flex; gap: 4px; justify-content: center; }
+  #dash .leds i { width: 20px; height: 8px; border-radius: 2px; background: rgba(120, 130, 150, .45); transition: background .04s; }
+  #dash .body { position: absolute; left: 34px; right: 34px; top: 18px; height: 110px; background: linear-gradient(180deg, rgba(16, 22, 36, .88), rgba(8, 11, 19, .94)); clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%); }
+  #dash .body::before { content: ''; position: absolute; left: 7%; right: 7%; top: 0; height: 1px; background: rgba(140, 180, 255, .35); }
+  #dash .spd, #dash .rpm { position: absolute; top: 16px; width: 170px; text-align: center; }
+  #dash .spd { left: 22px; } #dash .rpm { right: 22px; }
+  #dash .spd b, #dash .rpm b { font-size: 54px; font-weight: 700; line-height: 1; display: block; }
+  #dash .spd small, #dash .rpm small { font-size: 15px; color: var(--hlbl); letter-spacing: 1px; }
+  #dash .gear { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 132px; height: 110px; text-align: center; font-size: 78px; font-weight: 700; line-height: 116px; background: linear-gradient(180deg, rgba(44, 96, 180, .62), rgba(20, 36, 66, .3)); clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%); }
+  #dash .gear::before { content: ''; position: absolute; left: 20%; right: 20%; top: 0; height: 2px; background: rgba(120, 180, 255, .8); }
   /* in the cockpit the steering-wheel display shows speed, gear, rpm and shift lights */
   #hud-bc.ck #dash .leds, #hud-bc.ck #dash .body { display: none; }
-  #dash .sub { position: absolute; left: 50%; transform: translateX(-50%); bottom: -16px; display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 700; letter-spacing: 1px; white-space: nowrap; }
-  .chip { padding: 2px 8px; border-radius: 4px; background: rgba(12,14,19,.85); border: 1px solid #333; color: #8c95a5; }
-  .chip.on { background: #19a34a; border-color: #19a34a; color: #fff; }
-  .chip.avail { border-color: #19a34a; color: #19e35e; }
-  .chip.warn { background: #b71c1c; border-color: #b71c1c; color: #fff; }
-  .chip.ot { background: #7b1fa2; border-color: #a020f0; color: #fff; }
-  .ers { display: flex; align-items: center; gap: 6px; }
-  .ers .barw { width: 90px; height: 8px; background: #2a2d33; border-radius: 4px; overflow: hidden; }
-  .ers .barw i { display: block; height: 100%; background: linear-gradient(90deg, #1db954, #6cf); width: 50%; }
+  #dash .sub { position: absolute; left: 0; right: 0; bottom: 0; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; letter-spacing: .8px; white-space: nowrap; border-radius: 8px; padding: 0 6px; }
+  #dash .sub > span { display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 20px; }
+  #dash .sub > span + span { border-left: 1px solid rgba(255,255,255,.18); }
+  .chip { color: #dfe4ec; }
+  .chip .k, .ers .k { color: #fff; font-weight: 700; }
+  .chip b { font-weight: 600; color: var(--hlbl); }
+  .chip.on b { color: #3ee07a; } .chip.avail b { color: #3ee07a; }
+  .chip.warn, .chip.warn b { color: #ff5a5a; }
+  .chip.ot b, .chip.ot { color: #c77dff; }
+  .ers .barw { width: 104px; height: 8px; background: rgba(255,255,255,.14); border-radius: 4px; overflow: hidden; }
+  .ers .barw i { display: block; height: 100%; background: linear-gradient(90deg, #1f6fe5, #39b5ff); width: 50%; }
+  .ers b { min-width: 38px; text-align: right; }
 
-  #hud-bl { position: absolute; left: 18px; bottom: 16px; width: 280px; height: 210px; padding: 6px; }
-  #minimap { width: 100%; height: 100%; }
-  #hud-br { position: absolute; right: 18px; bottom: 16px; width: 200px; padding: 10px 12px; }
-  #hud-br .head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; letter-spacing: 1px; font-size: 15px; }
-  .cmp { width: 30px; height: 30px; border-radius: 50%; border: 4px solid var(--c, #e8212e); display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; color: #fff; background: #111; }
-  #tyrew { position: relative; height: 130px; margin-top: 6px; }
-  #tyrew .carsil { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); width: 46px; height: 118px; }
-  #tyrew .tw { position: absolute; width: 14px; height: 30px; border-radius: 3px; background: #c33; }
-  #tyrew .tt { position: absolute; font-size: 13px; font-weight: 600; width: 52px; }
-  #tyrew .tt small { display: block; color: var(--dim); font-size: 11px; }
-  #hud-br .foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-top: 2px; }
-  #hud-br .foot b { color: #fff; }
-
-  #msgs { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .msg { padding: 6px 18px; border-radius: 5px; font-weight: 700; font-size: 17px; letter-spacing: 1px; background: rgba(12,14,19,.88); border-left: 4px solid #6cf; animation: msgin .25s ease-out; white-space: nowrap; }
-  .msg.big { font-size: 26px; padding: 8px 26px; border-left-color: var(--accent); }
-  .msg.warn { border-left-color: #f5c518; } .msg.pen { border-left-color: #e53935; background: rgba(90, 10, 10, .9); }
+  /* top centre: messages, race-start sequence, pit stop timer */
+  #topc { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); width: 720px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #hud.starting #topc { top: 108px; }
+  #msgs { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #msgs:empty { display: none; }
+  .msg { display: flex; align-items: center; gap: 14px; padding: 10px 24px 10px 16px; border-radius: 6px; font-weight: 600; font-size: 20px; letter-spacing: .3px; background: rgba(12, 14, 20, .86); border: 1px solid rgba(255,255,255,.08); border-left: 5px solid #5aa9ff; box-shadow: 0 6px 20px rgba(0,0,0,.35); animation: msgin .25s ease-out; white-space: nowrap; --ic: none; --icc: #5aa9ff; }
+  .msg::before { content: ''; width: 26px; height: 26px; flex-shrink: 0; background: var(--icc); -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; display: none; }
+  .msg.big { font-size: 26px; font-weight: 700; padding: 10px 30px; border-left-color: var(--accent); }
+  .msg.warn { border-left-color: #f5c518; --icc: #f5c518; --ic: var(--ic-warn); }
+  .msg.pen { border-left-color: #e53935; background: rgba(70, 10, 12, .9); --icc: #ff3b3b; --ic: var(--ic-warn); }
+  .msg.dmg { border-left-color: #f59e0b; --icc: #f59e0b; --ic: var(--ic-wrench); }
+  .msg.pit { border-left-color: var(--gold); --icc: var(--gold); --ic: var(--ic-wrench); }
+  .msg.rc { border-left-color: #f5c518; background: rgba(36, 31, 6, .92); --icc: #f5c518; --ic: var(--ic-flag); }
+  .msg.warn::before, .msg.pen::before, .msg.dmg::before, .msg.pit::before, .msg.rc::before { display: block; }
   .msg.yellow { background: rgba(245, 197, 24, .95); color: #111; border-left-color: #111; }
-  .msg.purple { border-left-color: var(--purple); } .msg.pit { border-left-color: var(--gold); }
+  .msg.purple { border-left-color: var(--purple); }
   @keyframes msgin { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-
-  #lights { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); display: flex; gap: 14px; padding: 14px 18px; }
-  #lights .pod { width: 46px; background: #111; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 6px; border: 2px solid #222; }
-  #lights .pod i { width: 34px; height: 34px; border-radius: 50%; background: #2a0505; display: block; }
-  #lights .pod.on i { background: radial-gradient(circle at 40% 35%, #ff8a80, #ff1a1a 45%, #a00000); box-shadow: 0 0 22px #ff2a2a; }
-
-  #pitstop { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); padding: 8px 26px; text-align: center; }
-  #pitstop .t { font-size: 13px; color: #dfe3ea; letter-spacing: 1px; font-weight: 700; }
+  #launchHint { display: flex; align-items: center; gap: 12px; padding: 10px 22px 10px 14px; font-size: 18px; font-weight: 600; white-space: nowrap; }
+  #launchHint kbd { margin: 0; min-width: 0; padding: 3px 18px; font-size: 17px; letter-spacing: 1px; background: rgba(255,255,255,.04); border: 1.5px solid rgba(255,255,255,.75); border-radius: 6px; transition: background .08s, color .08s; }
+  #launchHint kbd.on { background: #fff; color: #0b1020; }
+  #launchText { margin-left: 8px; }
+  #lights { display: flex; gap: 22px; padding: 18px 24px; }
+  #hud #lights.panel { background: rgba(8, 10, 16, .88); }
+  #lights .pod { width: 76px; background: #07080c; border-radius: 10px; padding: 9px; display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(255,255,255,.07); box-shadow: inset 0 2px 8px rgba(0,0,0,.6); }
+  #lights .pod i { width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle at 45% 40%, #3a0a0a, #1c0303 70%); display: block; }
+  #lights .pod.on i { background: radial-gradient(circle at 40% 35%, #ff9a90, #ff1f1f 45%, #b30000); box-shadow: 0 0 24px rgba(255, 40, 40, .85); }
+  #launchStatus { display: flex; align-items: center; gap: 10px; padding: 10px 24px; font-size: 15px; white-space: nowrap; }
+  #launchStatus .k { color: var(--hlbl); font-weight: 600; letter-spacing: 1px; }
+  #launchStatus b { font-size: 24px; font-weight: 700; }
+  #launchStatus .vsep { height: 24px; margin: 0 12px; }
+  #rpmBar { display: flex; gap: 4px; margin-left: 10px; }
+  #rpmBar i { width: 6px; height: 20px; border-radius: 2px; background: rgba(255,255,255,.16); }
+  #rpmBar i.on { background: var(--hblue); }
+  #rpmBar i.hi { background: #ff3b3b; }
+  #pitstop { padding: 8px 28px; text-align: center; }
+  #pitstop .t { font-size: 13px; color: #dfe4ec; letter-spacing: 1px; font-weight: 700; }
   #pitstop b { font-size: 40px; color: var(--yellow); line-height: 1.1; }
-  #boxpanel { position: absolute; right: 230px; bottom: 16px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
-  #boxRep { margin-top: 6px; font-size: 12px; color: #dfe3ea; font-weight: 600; }
+  #pitJobs { font-size: 12px; color: #dfe4ec; margin-top: 2px; letter-spacing: .5px; }
+  #boxpanel { padding: 10px 16px; font-size: 14px; font-weight: 700; letter-spacing: 1px; pointer-events: auto; }
+  #boxRep { margin-top: 6px; font-size: 12px; color: #dfe4ec; font-weight: 600; letter-spacing: 0; }
   #boxRep kbd { min-width: 18px; padding: 0 5px; font-size: 11px; }
-  #vstat { position: absolute; right: 18px; top: 250px; width: 200px; padding: 9px 12px 10px; font-size: 12px; }
-  #vstat .head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; letter-spacing: 1px; font-size: 14px; }
-  #vstat .head b { font-size: 11px; padding: 1px 7px; border-radius: 3px; letter-spacing: 1px; color: #111; }
-  #vstat svg { display: block; width: 56px; height: 122px; margin: 6px auto 4px; }
-  #vstat .rows div { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-weight: 700; }
-  #vstat .rows span { color: var(--dim); font-weight: 600; text-align: right; }
-  #vstat .pitrec { margin-top: 6px; font-weight: 700; line-height: 1.35; }
-  @media (max-height: 760px) { #vstat { top: 232px; } #vstat svg { height: 96px; width: 44px; } }
-  #pitJobs { font-size: 12px; color: #dfe3ea; margin-top: 2px; letter-spacing: .5px; }
-  .msg.dmg { border-left-color: #ff8a1f; }
-  .msg.rc { border-left-color: #f5c518; background: rgba(36, 31, 6, .92); }
-  .dmgsel { margin-top: 10px; pointer-events: auto; }
-  .dmgsel .lbl { font-size: 12px; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; }
-  .dmgsel .desc, .field .desc { font-size: 12px; color: #8a93a3; margin-top: 6px; line-height: 1.4; }
-  #boxpanel .opts { display: flex; gap: 8px; margin-top: 6px; }
+  #boxpanel .opts { display: flex; gap: 10px; margin-top: 6px; }
   #boxpanel .opt { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--dim); opacity: .5; }
   #boxpanel .opt.sel { opacity: 1; color: #fff; }
-  #flagbar { position: absolute; left: 0; right: 0; top: 0; height: 6px; }
-  #flagbar.yellow { background: repeating-linear-gradient(90deg, #f5c518 0 40px, #222 40px 80px); }
-  #flagbar.blue { background: #1e88e5; }
-  #telemetry { position: absolute; left: 50%; bottom: 162px; transform: translateX(-50%); width: 620px; padding: 8px 10px; display: grid; grid-template-columns: 1fr 140px; gap: 10px; }
+  #qtimer { padding: 6px 20px; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  #telemetry { position: absolute; left: 50%; bottom: 206px; transform: translateX(-50%); width: 620px; padding: 8px 10px; display: grid; grid-template-columns: 1fr 140px; gap: 10px; }
   #telemetry canvas { width: 100%; height: 120px; display: block; }
-  #qtimer { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 6px 18px; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
-  #fps { position: absolute; right: 8px; top: 2px; font-size: 11px; color: #8f8; text-shadow: 0 0 3px #000; }
+  #fps { position: absolute; right: 8px; top: 6px; font-size: 11px; color: #8f8; text-shadow: 0 0 3px #000; }
+  #vstat svg rect, #vstat svg line { transition: fill .2s, stroke .2s; }
+  #hud {
+    --ic-warn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M12 1.5 0.8 21.5h22.4zM11 9h2v6h-2zM11 16.6h2v2.2h-2z'/%3E%3C/svg%3E");
+    --ic-wrench: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z'/%3E%3C/svg%3E");
+    --ic-flag: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 2h2v20H5zM8 3h12l-2.5 4.5L20 12H8z'/%3E%3C/svg%3E");
+  }
+
 
   /* ---------------- MENUS ---------------- */
   .screen { position: fixed; inset: 0; z-index: 20; display: flex; }
@@ -199,8 +280,8 @@
   #loading .err { color: #ff6b6b; max-width: 640px; text-align: center; font-size: 15px; line-height: 1.5; }
   #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 60; background: #5a1010; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13px; max-width: 80vw; }
   .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; }
-  #strategyToggle { position:absolute; right:18px; top:240px; width:200px; font-size:13px; padding:8px 10px; }
-  #strategyPanel { position:absolute; right:230px; top:240px; width:min(350px,94vw); max-height:calc(100vh - 390px); overflow:auto; padding:14px; pointer-events:auto; }
+  /* the strategy and pit-service panels open over the tyre panel, in the right column */
+  #strategyPanel { position:absolute; z-index:2; right:24px; bottom:78px; width:350px; max-height:calc(100vh / var(--hz) - 78px - 304px); overflow:auto; padding:16px; pointer-events:auto; }
   #strategyPanel h3 { margin:0 0 8px; letter-spacing:1px; }
   #strategyPanel p, #tyreLife { font-size:13px; line-height:1.35; color:#cfd5df; margin:7px 0; }
   .strategyChoices { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; }
@@ -214,15 +295,14 @@
   #raceBrief .strategyChoices { margin:16px 0; }
   #raceBrief .dialog { width:min(760px,94vw); }
   #pitStage { color:#f5c518; }
-  #pitSelection { position:absolute; z-index:30; right:18px; top:105px; width:min(370px,calc(100vw - 36px)); max-height:calc(100vh - 125px); overflow:auto; padding:18px; pointer-events:auto; scrollbar-width:none; }
+  #pitSelection { position:absolute; z-index:30; right:24px; bottom:24px; width:350px; max-height:calc(100vh / var(--hz) - 48px - 280px); overflow:auto; padding:18px; pointer-events:auto; scrollbar-width:none; }
   #pitSelection::-webkit-scrollbar { display:none; }
   #pitSelection h3 { margin:0 0 10px; color:var(--gold); font-size:16px; letter-spacing:1px; }
   #pitSelection p { font-size:13px; line-height:1.4; }
   #pitSelectError { color:#ff8c8c; min-height:18px; }
   #pitSelection .strategyChoices { grid-template-columns:1fr 1fr; }
   #pitConfirm { width:100%; }
-  @media(max-height:720px) { #strategyPanel { top:185px; max-height:calc(100vh - 240px); } #strategyToggle { top:155px; } }
-  @media(max-width:760px) { #hud-tl { width:220px; } #hud-tr { width:220px; } #strategyToggle { top:210px; } #strategyPanel { right:18px; top:250px; max-height:calc(100vh - 270px); } #raceBrief .strategyChoices { grid-template-columns:1fr 1fr; } }
+  @media(max-width:760px) { #raceBrief .strategyChoices { grid-template-columns:1fr 1fr; } }
 
   .dialog, #strategyPanel, .menu-left { scrollbar-width:none; }
   .dialog::-webkit-scrollbar, #strategyPanel::-webkit-scrollbar, .menu-left::-webkit-scrollbar { display:none; }
@@ -233,12 +313,7 @@
   #settings .dialog { padding:28px; }
   #settings .field { padding:14px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.025); }
   #settings .actions { position:sticky; bottom:-28px; margin:18px -8px -8px; padding:14px 8px; background:#161921; border-top:1px solid var(--line); }
-  #weatherPanel { left:18px; bottom:236px; position:absolute; width:280px; padding:10px 12px; font-size:13px; line-height:1.45; }
-  #weatherPanel small { display:block; color:#bdc8d8; }
-  #launchStatus { position:absolute; top:calc(22% + 132px); left:50%; transform:translateX(-50%); padding:10px 18px; text-align:center; font-size:14px; }
-  #strategyToggle { right:230px; top:auto; bottom:16px; width:155px; }
-  #strategyPanel { right:230px; top:auto; bottom:65px; max-height:70vh; }
-  @media(max-width:760px) { .grid2 { grid-template-columns:1fr; } .circuit-card { display:none; } #strategyPanel { right:18px; bottom:225px; top:auto; width:min(350px,calc(100vw - 36px)); } #weatherPanel { width:220px; font-size:11px; } }
+  @media(max-width:760px) { .grid2 { grid-template-columns:1fr; } .circuit-card { display:none; } }
 
 </style>
 </head>
@@ -247,20 +322,70 @@
 <div id="fxFlash" class="fxl"></div><div id="fxDmg" class="fxl"></div><div id="fxCut" class="fxl"></div>
 
 <div id="hud" class="hidden">
+  <div id="accentbar"></div>
   <div id="flagbar"></div>
-  <div id="hud-tl" class="panel">
-    <div class="lap"><span>LAP</span><b class="num" id="lapNow">1</b><span class="tot num" id="lapTot">/ 10</span><span class="sess" id="sessName">RACE</span></div>
-    <div id="board"></div>
+  <div id="hud-left" class="hz">
+    <div id="hud-tl" class="panel">
+      <div class="lap"><span>LAP</span><b class="num" id="lapNow">1</b><span class="tot num" id="lapTot">/ 10</span><span class="sess" id="sessName">RACE</span></div>
+      <div class="bhead"><span>#</span><span></span><span>TEAM</span><span id="boardGapH">GAP</span></div>
+      <div id="board"></div>
+    </div>
+    <div class="lstack">
+      <div id="weatherPanel" class="panel" aria-label="Weather forecast">
+        <div class="plabel">Weather</div>
+        <div class="wmain">
+          <svg id="wIcon" viewBox="0 0 52 40" aria-hidden="true"></svg>
+          <div class="wair"><b class="num" id="weatherAir">--°C</b><span id="weatherNow">--</span></div>
+          <div class="wtrack">Track<b class="num" id="weatherTrack">--°C</b></div>
+        </div>
+        <div id="weatherSurface"></div>
+        <div class="wfc"><svg viewBox="0 0 12 15" aria-hidden="true"><path d="M6 0C4 4 0 7 0 10a6 5.2 0 0 0 12 0C12 7 8 4 6 0z" fill="#9ec5ff"/></svg><span id="weatherForecast"></span><i class="vsep"></i><span id="weatherWindow"></span></div>
+      </div>
+      <div id="hud-bl" class="panel"><div class="plabel">Track map</div><canvas id="minimap" width="640" height="176"></canvas></div>
+    </div>
   </div>
-  <div id="hud-tr" class="panel">
+  <div id="hud-tr" class="panel hz">
     <div class="pos"><span>POS</span><b class="num" id="posNow">1</b><span class="num" id="posTot">/ 20</span></div>
     <div class="kv"><span class="k">BEST</span><span class="v num" id="tBest">--:--.---</span></div>
     <div class="kv"><span class="k">LAST</span><span class="v num" id="tLast">--:--.---</span></div>
     <div class="kv"><span class="k">CURRENT</span><span class="v num" id="tCur">0:00.000</span></div>
-    <div class="kv"><span class="k">DELTA</span><span class="v num" id="tDelta">--</span></div>
-    <div class="sectors"><div id="s1">S1</div><div id="s2">S2</div><div id="s3">S3</div></div>
+    <div class="kv"><span class="k">DELTA</span><span class="v num" id="tDelta">--.--</span></div>
+    <div class="sectors"><div id="s1"><span>S1</span><b class="num" id="s1t">--.---</b></div><div id="s2"><span>S2</span><b class="num" id="s2t">--.---</b></div><div id="s3"><span>S3</span><b class="num" id="s3t">--.---</b></div></div>
   </div>
-  <div id="hud-bc">
+  <div id="hud-right" class="hz">
+    <div id="hud-br" class="panel">
+      <div class="vhead"><span>VEHICLE STATUS</span><b id="vsBadge">OK</b></div>
+      <div class="head"><span id="tyreLabel">TYRES</span><span class="cmpw"><span class="cmp" id="cmpIcon">S</span><span id="cmpName">SOFT</span></span></div>
+      <div id="tyrew">
+        <div class="tt num" id="tt0"></div><div class="tw" id="tw0"></div>
+        <svg viewBox="0 0 60 130" aria-hidden="true">
+          <rect id="vsFloor" x="13" y="36" width="34" height="68" rx="7" fill="none" stroke-width="2"/>
+          <rect id="vsChas" x="24.5" y="12" width="11" height="62" rx="5"/>
+          <rect id="vsCoolL" x="14.5" y="48" width="8.5" height="26" rx="3"/><rect id="vsCoolR" x="37" y="48" width="8.5" height="26" rx="3"/>
+          <rect id="vsEng" x="24.5" y="77" width="11" height="22" rx="3"/>
+          <rect id="vsFwL" x="2" y="2" width="27" height="7" rx="2"/><rect id="vsFwR" x="31" y="2" width="27" height="7" rx="2"/>
+          <rect id="vsRw" x="12" y="119" width="36" height="8" rx="2"/>
+          <line id="vsS0" x1="12" y1="31" x2="25" y2="31" stroke-width="3"/><line id="vsS1" x1="35" y1="31" x2="48" y2="31" stroke-width="3"/>
+          <line id="vsS2" x1="13" y1="99" x2="25" y2="99" stroke-width="3"/><line id="vsS3" x1="35" y1="99" x2="47" y2="99" stroke-width="3"/>
+          <rect id="vsT0" x="2" y="22" width="10" height="18" rx="3"/><rect id="vsT1" x="48" y="22" width="10" height="18" rx="3"/>
+          <rect id="vsT2" x="1" y="88" width="12" height="22" rx="3"/><rect id="vsT3" x="47" y="88" width="12" height="22" rx="3"/>
+        </svg>
+        <div class="tw" id="tw1"></div><div class="tt num" id="tt1"></div>
+        <div class="tt num" id="tt2"></div><div class="tw" id="tw2"></div>
+        <div class="tw" id="tw3"></div><div class="tt num" id="tt3"></div>
+      </div>
+      <div class="trow"><span id="tyreLife">USEFUL LIFE <b>—</b></span><span id="tyreNext">NEXT <b>--</b></span></div>
+      <div class="trow"><span>WEAR <b class="num" id="wearPct">0%</b></span><span>AGE <b class="num" id="tyreAge">0.0L</b></span><span id="dmgTxt">CAR <b>OK</b></span></div>
+      <div id="vstat" class="hidden">
+        <div class="sh"><i></i>DAMAGE &amp; EFFECTS</div>
+        <div class="rows" id="vsRows"></div>
+        <div class="sh"><i></i>PIT SERVICE</div>
+        <div id="vsPit"></div>
+      </div>
+    </div>
+    <button id="strategyToggle" class="btn" type="button" aria-expanded="false">Tyres &amp; pits <kbd>V</kbd></button>
+  </div>
+  <div id="hud-bc" class="hz">
     <div id="dash">
       <div class="leds" id="leds"></div>
       <div class="body">
@@ -268,37 +393,32 @@
         <div class="gear num" id="gear">N</div>
         <div class="rpm"><b class="num" id="rpm">0</b><small>RPM</small></div>
       </div>
-      <div class="sub">
-        <span class="ers">ERS <span class="barw"><i id="ersBar"></i></span><span class="num" id="ersPct">50%</span></span>
-        <span class="chip" id="chipErs">BALANCED</span>
-        <span class="chip" id="chipDrs">DRS</span>
-        <span class="chip" id="chipLim" style="display:none">PIT LIMITER</span>
+      <div class="sub panel">
+        <span class="ers"><span class="k">ERS</span><span class="barw"><i id="ersBar"></i></span><b class="num" id="ersPct">50%</b></span>
+        <span class="chip" id="chipErs"><span class="k">MODE</span><b id="ersMode">BALANCED</b></span>
+        <span class="chip" id="chipDrs"><span class="k">DRS</span><b id="drsVal">OFF</b></span>
+        <span class="chip warn" id="chipLim" style="display:none">PIT LIMITER</span>
         <span class="chip ot" id="chipDrift" style="display:none">SLIDE</span>
-        <span class="chip" id="chipFuel">FUEL</span>
+        <span class="chip" id="chipFuel"><span class="k">FUEL</span><b class="num" id="fuelVal">+0.0</b></span>
       </div>
     </div>
   </div>
-  <div id="hud-bl" class="panel"><canvas id="minimap" width="560" height="420"></canvas></div>
-  <div id="hud-br" class="panel">
-    <div class="head"><span id="tyreLabel">TYRES</span><span class="cmp" id="cmpIcon">S</span></div>
-    <div id="tyrew">
-      <svg class="carsil" viewBox="0 0 46 118"><path d="M23 2 L27 14 L27 30 L33 34 L33 44 L29 48 L31 78 L37 84 L37 104 L30 112 L16 112 L9 104 L9 84 L15 78 L17 48 L13 44 L13 34 L19 30 L19 14 Z" fill="#cfd5df" opacity=".85"/></svg>
-      <div class="tw" id="tw0" style="left:58px;top:18px"></div><div class="tw" id="tw1" style="left:126px;top:18px"></div>
-      <div class="tw" id="tw2" style="left:56px;top:84px"></div><div class="tw" id="tw3" style="left:128px;top:84px"></div>
-      <div class="tt num" id="tt0" style="left:0;top:20px"></div><div class="tt num" id="tt1" style="left:146px;top:20px"></div>
-      <div class="tt num" id="tt2" style="left:0;top:86px"></div><div class="tt num" id="tt3" style="left:146px;top:86px"></div>
-    </div>
-    <p id="tyreLife"></p>
-    <div class="foot"><span>WEAR <b class="num" id="wearPct">0%</b></span><span>AGE <b class="num" id="tyreAge">0</b></span><span id="dmgTxt">WING <b>OK</b></span></div>
+  <div id="topc" class="hz">
+    <div id="qtimer" class="panel hidden"></div>
+    <div id="msgs"></div>
+    <div id="launchHint" class="panel hidden"><kbd id="kW">W</kbd><span id="launchText">Hold W to rev, launch is automatic when the lights go out</span></div>
+    <div id="lights" class="panel hidden"><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div></div>
+    <div id="launchStatus" class="panel hidden" aria-live="polite"><span class="k">LAUNCH</span><b id="launchState">STANDBY</b><i class="vsep"></i><b class="num" id="launchRpm">4000</b><span class="k">RPM</span><span id="rpmBar"></span></div>
+    <div id="pitstop" class="panel hidden"><div class="t" id="pitStage">PIT STOP</div><b class="num" id="pitTime">0.0 s</b><div id="pitJobs"></div></div>
+    <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP</div><div class="opts" id="boxOpts"></div><div id="boxRep"></div></div>
   </div>
-  <button id="strategyToggle" class="btn" type="button" aria-expanded="false">Tyres & pits · V</button>
-  <div id="strategyPanel" class="panel hidden" aria-label="Race strategy">
+  <div id="strategyPanel" class="panel hz hidden" aria-label="Race strategy">
     <h3>TYRES &amp; PIT STOP</h3><p id="strategyCurrent"></p><p id="pitFacts"></p>
     <div id="strategyChoices" class="strategyChoices"></div>
     <button id="strategyBox" type="button" class="btn primary">Request pit stop</button>
     <p class="strategyNote" id="strategyRule"></p>
-  </div><div id="msgs"></div>
-  <div id="pitSelection" class="panel hidden" role="region" aria-labelledby="pitSelectTitle">
+  </div>
+  <div id="pitSelection" class="panel hz hidden" role="region" aria-labelledby="pitSelectTitle">
     <h3 id="pitSelectTitle">CONFIRM PIT SERVICE</h3>
     <p id="pitSelectFacts"></p><div id="pitSelectChoices" class="strategyChoices"></div>
     <p id="pitSelectJobs"></p><p id="pitSelectRule"></p>
@@ -306,30 +426,7 @@
     <button id="pitConfirm" class="btn primary" type="button">Confirm &amp; begin service</button>
     <p class="strategyNote">Your car waits at the garage. The race continues.</p>
   </div>
-  <div id="lights" class="panel hidden"><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div><div class="pod"><i></i><i></i></div></div>
-  <div id="pitstop" class="panel hidden"><div class="t" id="pitStage">PIT STOP</div><b class="num" id="pitTime">0.0 s</b><div id="pitJobs"></div></div>
-  <div id="boxpanel" class="panel hidden"><div>BOX THIS LAP</div><div class="opts" id="boxOpts"></div><div id="boxRep"></div></div>
-  <div id="vstat" class="panel hidden">
-    <div class="head"><span>VEHICLE</span><b id="vsBadge">OK</b></div>
-    <svg viewBox="0 0 60 130" aria-hidden="true">
-      <rect id="vsFloor" x="13" y="36" width="34" height="68" rx="7" fill="none" stroke-width="2"/>
-      <rect id="vsChas" x="24.5" y="12" width="11" height="62" rx="5"/>
-      <rect id="vsCoolL" x="14.5" y="48" width="8.5" height="26" rx="3"/><rect id="vsCoolR" x="37" y="48" width="8.5" height="26" rx="3"/>
-      <rect id="vsEng" x="24.5" y="77" width="11" height="22" rx="3"/>
-      <rect id="vsFwL" x="2" y="2" width="27" height="7" rx="2"/><rect id="vsFwR" x="31" y="2" width="27" height="7" rx="2"/>
-      <rect id="vsRw" x="12" y="119" width="36" height="8" rx="2"/>
-      <line id="vsS0" x1="12" y1="31" x2="25" y2="31" stroke-width="3"/><line id="vsS1" x1="35" y1="31" x2="48" y2="31" stroke-width="3"/>
-      <line id="vsS2" x1="13" y1="99" x2="25" y2="99" stroke-width="3"/><line id="vsS3" x1="35" y1="99" x2="47" y2="99" stroke-width="3"/>
-      <rect id="vsT0" x="2" y="22" width="10" height="18" rx="3"/><rect id="vsT1" x="48" y="22" width="10" height="18" rx="3"/>
-      <rect id="vsT2" x="1" y="88" width="12" height="22" rx="3"/><rect id="vsT3" x="47" y="88" width="12" height="22" rx="3"/>
-    </svg>
-    <div class="rows" id="vsRows"></div>
-    <div class="pitrec" id="vsPit"></div>
-  </div>
-  <div id="telemetry" class="panel hidden"><canvas id="telCanvas" width="900" height="240"></canvas><canvas id="gCanvas" width="280" height="240"></canvas></div>
-  <div id="weatherPanel" class="panel" aria-label="Weather forecast"><b id="weatherNow"></b><div id="weatherSurface"></div><small id="weatherForecast"></small></div>
-  <div id="launchStatus" class="panel hidden" aria-live="polite"></div>
-  <div id="qtimer" class="panel hidden"></div>
+  <div id="telemetry" class="panel hz hidden"><canvas id="telCanvas" width="900" height="240"></canvas><canvas id="gCanvas" width="280" height="240"></canvas></div>
   <div id="fps" class="hidden"></div>
 </div>
 
@@ -340,7 +437,7 @@
     <button class="btn primary" data-act="play">Start Grand Prix <small>One race. Every decision counts.</small></button>
     <button class="btn" data-act="settings">Race Settings</button>
     <button class="btn" data-act="controls">Controls</button>
-    <div class="menu-foot">Optional single-lap qualifying. Dynamic weather. Manual clutch starts. Choose your own tyre strategy.</div>
+    <div class="menu-foot">Optional single-lap qualifying. Dynamic weather. Automatic launch-control starts. Choose your own tyre strategy.</div>
   </div>
   <div class="circuit-card panel">
     <div class="country">Circuit</div>
@@ -371,7 +468,7 @@
 <div id="controls" class="overlay hidden">
   <div class="dialog">
     <h2>Con<span>trols</span></h2>
-    <div class="sub">Super Star Car-style keyboard controls: WASD / arrows to drive. Hold Space + W on the grid; release Space when the red lights go out. Drive into the pit entry for automatic control, confirm tyres at your garage, and resume driving at pit exit. C changes camera. Gamepad: left stick steer, RT throttle, LT brake, X DRS, Y camera, Start pause.</div>
+    <div class="sub">Super Star Car-style keyboard controls: WASD / arrows to drive. On the grid, hold W to rev to the launch rpm; launch control holds the car and releases it automatically when the red lights go out. Drive into the pit entry for automatic control, confirm tyres at your garage, and resume driving at pit exit. C changes camera. Gamepad: left stick steer, RT throttle, LT brake, X DRS, Y camera, Start pause.</div>
     <div class="keys">
       <div>Accelerate <span><kbd>W</kbd><kbd>↑</kbd></span></div>
       <div>Brake <span><kbd>S</kbd><kbd>↓</kbd></span></div>
@@ -386,7 +483,7 @@
       <div>Look back <span><kbd>B</kbd></span></div>
       <div>Full leaderboard <span><kbd>Tab</kbd></span></div>
       <div>Telemetry panel <span><kbd>T</kbd></span></div>
-      <div>Launch clutch (hold, then release) <span><kbd>Space</kbd></span></div>
+      <div>Launch: hold before lights out <span><kbd>W</kbd></span></div>
       <div>Respawn after launch <span><kbd>Space</kbd><kbd>R</kbd></span></div>
       <div>Mute audio <span><kbd>M</kbd></span></div>
       <div>Pause menu <span><kbd>Esc</kbd></span></div>
@@ -945,6 +1042,7 @@ const SIM = (function () {
     mass: 800, Iz: 1150, L: 3.6, a: 1.98, b: 1.62, h: 0.29, tw: 0.8, rollF: 0.62,
     clA: 4.1, cdA: 1.13, aeroBal: 0.405, Rw: 0.36,
     gears: [13.4, 10.4, 8.6, 7.35, 6.4, 5.65, 5.03, 4.48], revLimit: 12500, idle: 4000,
+    launchRpm: 7000, launchRevRate: 16000, launchEngage: 0.65, // launch control: regulated grid rpm, rpm/s, clutch engagement time (s)
     brakeMax: 44000, brakeBias: 0.60, maxLock: 0.34, ersMax: 4.0e6,
     B: 16, C: 1.45, aPk: 0.116, rearGrip: 1.06, // pacejka
   };
@@ -968,11 +1066,12 @@ const SIM = (function () {
       this.isPlayer = !!entry.isPlayer; this.name = entry.name || entry.driver.name; this.num = entry.driver.num;
       this.x = 0; this.z = 0; this.psi = 0; this.vx = 0; this.vz = 0; this.r = 0; this.u = 0; this.v = 0; this.speed = 0;
       this.steer = 0; this.throttle = 0; this.brake = 0; this.gear = 1; this.rpm = SPEC.idle; this.shiftT = 0;
-      this.input = { clutch:false, steer: 0, throttle: 0, brake: 0, gearUp: false, gearDown: false, drs: false, ers: 1, auto: true };
+      this.input = { steer: 0, throttle: 0, brake: 0, gearUp: false, gearDown: false, drs: false, ers: 1, auto: true };
       this.axL = 0; this.ayL = 0; this.gLong = 0; this.gLat = 0;
       this.load = new Float64Array(4); this.slipA = new Float64Array(4); this.lock = new Uint8Array(4); this.spin = new Uint8Array(4);
       this.slipPow = new Float64Array(4); this.surf = new Uint8Array(4); this.wheelRot = new Float64Array(4); this.util = new Float64Array(4);
-      this.launch={active:race.type==='race',engagement:1,releasedAt:null}; this.surfaceWet=null;
+      // Launch control (race starts): the automatic clutch stays open on the grid and engages after lights out.
+      this.launch={active:race.type==='race',engagement:race.type==='race'?0:1,releasedAt:null}; this.surfaceWet=null;
       this.engineResponse = 0; this.driveForce = 0; this.pitHistory = []; this.repairWing = true;
       this.tyre = { distance: 0, measuredWpl: 0, stress: 0.50, style: drivingStyle(0.50), lastThrottle: 0, c: 'M', wear: new Float64Array(4), temp: new Float64Array([80, 80, 80, 80]), age: 0, used: new Set() };
       this.fuel = 50; this.ers = SPEC.ersMax * 0.6; this.ersDeploy = 0; this.harvesting = false;
@@ -987,7 +1086,7 @@ const SIM = (function () {
       this.penalty = 0; this.warnings = 0; this.offTrackFlag = false; this.penaltyLog = [];
       this.pitStops = 0; this.pit = null; // pit state object when in pit lane
       this.boxRequest = false; this.boxCompound = null; this.outLap = false; this.inGarage = false;
-      this.started = false; this.jumpStart = false; this.frozen = false; this.ghost = false;
+      this.started = false; this.frozen = false; this.ghost = false;
       this.lastDeltaRef = null; this.delta = 0; this.lapTrace = []; this.fastestLapCount = 0;
       this.spun = false; this.offTime = 0; this.collisionCount = 0;
       this.ai = null;
@@ -1030,14 +1129,16 @@ const SIM = (function () {
     const speed = Math.hypot(u, v);
     // body slip angle: how far the direction of travel is from the way the car points
     const beta = Math.atan2(v, Math.max(Math.abs(u), 3)); car.slideAngle = beta;
-    // The clutch disconnects engine torque. Releasing the keyboard clutch
-    // engages the same drivetrain progressively for every car.
+    // Launch control, identical for every car: on the grid the automatic clutch stays fully open, so no
+    // drive reaches the wheels before lights out. After lights out it engages over a fixed time while the
+    // throttle is applied; without throttle the car stays where it is.
     const launch=car.launch;
+    const gridHold=!!(launch && launch.active && !car.race.lightsOut);
     if(launch && launch.active) {
-      if(inp.clutch) launch.engagement=0;
-      else {
+      if(gridHold) launch.engagement=0;
+      else if(car.throttle>0.05) {
         if(launch.releasedAt==null)launch.releasedAt=car.race.time;
-        launch.engagement=Math.min(1,launch.engagement+dt/0.65);
+        launch.engagement=Math.min(1,launch.engagement+dt/sp.launchEngage);
       }
       car.gear=1;
       if(car.race.lightsOut && launch.engagement>=1 && (speed>24 || car.race.time-car.race.lightsOutTime>12))launch.active=false;
@@ -1050,11 +1151,14 @@ const SIM = (function () {
       let rpm = wheelRpm * ratio;
       if (car.gear === 1 && rpm < 7500) rpm = Math.max(rpm, lerp(sp.idle, 9500, car.throttle)); // clutch slip
       if(launch && launch.active) {
-        const free=sp.idle+car.throttle*7400;
+        // The limiter holds the free-revving engine at the launch rpm whatever the pedal position.
+        const free=car.throttle>0.05?sp.launchRpm:sp.idle;
         const coupled=Math.max(sp.idle,wheelRpm*ratio);
         rpm=lerp(free,Math.max(coupled,free*0.64),launch.engagement*clamp(speed/24,0,1));
       }
-      car.rpm = lerp(car.rpm, Math.max(sp.idle, Math.min(rpm, 13000)), Math.min(1, dt * 30));
+      // On the grid the rpm is rate-limited onto its target, so every car settles on exactly the same value.
+      if (gridHold) car.rpm += clamp(rpm - car.rpm, -sp.launchRevRate * dt, sp.launchRevRate * dt);
+      else car.rpm = lerp(car.rpm, Math.max(sp.idle, Math.min(rpm, 13000)), Math.min(1, dt * 30));
       if (inp.auto && !(launch && launch.active)) {
         if (car.rpm > 11850 && car.gear < 8 && car.shiftT <= 0 && car.throttle > 0.2) { car.gear++; car.shiftT = 0.06; car.shiftEvt = 1; }
         else if (car.gear > 1 && car.shiftT <= 0) {
@@ -1084,7 +1188,8 @@ const SIM = (function () {
         const P = mode === 2 ? 120000 : 60000;
         fDrive += P / Math.max(u, 12) * car.throttle; car.ers -= P * dt; car.ersDeploy = P;
       }
-      car.fuel -= env.fuelRate * (0.15 + 0.85 * car.throttle) * (car.rpm / 12000) * dt;
+      // The grid is not metered, so revving early does not change the fuel load (and the car's mass).
+      if (!gridHold) car.fuel -= env.fuelRate * (0.15 + 0.85 * car.throttle) * (car.rpm / 12000) * dt;
     } else if (car.gear === -1) {
       fDrive = -car.throttle * 4500 * (u > -6 ? 1 : 0);
       car.rpm = lerp(car.rpm, sp.idle + car.throttle * 5000, Math.min(1, dt * 10));
@@ -1220,6 +1325,7 @@ const SIM = (function () {
       const DP = car.damage.perf;
       const misfire = DP.misfire > 0 ? 1 - DP.misfire * (0.5 + 0.5 * Math.sin(car.damage.vibPh * 41)) : 1;
       car.engineResponse += (car.throttle - car.engineResponse) * Math.min(1, dt / 0.075);
+      if (gridHold) car.engineResponse = car.throttle; // armed launch control: the grid state does not depend on how early W was pressed
       let rearTraction = 0;
       for (let i = 2; i < 4; i++) {
         const loadSensitivity = clamp(1 - 0.12 * (ld[i] / 3500 - 1), 0.72, 1.15);
@@ -1824,7 +1930,6 @@ const SIM = (function () {
       this.brakeCommit = lerp(0.70,0.985,diff) * (0.965 + 0.035 * p.brake);
       this.mistakeScale = lerp(1.7, 0.55, diff);
       this.segMax = 1 + 0.08 * diff * (0.6 + 0.4 * p.pace); // how far a driver will learn to push beyond the safe estimate
-      this.reaction=lerp(0.50,0.16,diff)*(1.15-0.30*p.start)+rand(0,0.08*(1-0.5*diff));
       this.laneD = 0; this.laneW = 0; this.laneWTarget = 0;
       this.vEnv = 110; this.vLimit = 105; this.yawUse = 0;
       this.mode = 'race'; this.recoverT = 0; this.stuckT = 0; this.waitT = 0;
@@ -1872,17 +1977,9 @@ const SIM = (function () {
       const fresh = this.lastStep !== step - 1; this.lastStep = step;
       if ((step + this.tick) % 24 === 0 || fresh) this.tactical();
       if (fresh) { this.computeEnvelope(); this.vFollow = this.followLimit(this.neighbors, !!car.pit); this.laneW = 0; }
-      if(race.type==='race' && !this.pitOnly && car.launch.active) {
-        if(this.launchError==null) {
-          this.launchError=rnd()<0.018*(1-this.p.start)*this.mistakeScale ? -0.18 : 0;
-          this.launchThrottle=clamp(0.68+this.p.start*0.22+(1-this.p.start)*gauss()*0.12,0.5,1);
-        }
-        if(this.launchError<0 && race.lights===5 && this.guessedReleaseAt==null)this.guessedReleaseAt=race.startSeqT+rand(0.25,1.3);
-        const early=this.guessedReleaseAt!=null && race.startSeqT>=this.guessedReleaseAt;
-        const release=early || race.lightsOut && race.time-race.lightsOutTime>=this.reaction+Math.max(0,this.launchError);
-        car.input.clutch=!release;
-        if(!release){inp.brake=0;inp.throttle=this.launchThrottle;inp.steer=0;return;}
-      } else car.input.clutch=false;
+      // On the grid a bot holds full throttle, as a player holding W does; the shared launch control
+      // regulates the rpm and releases the clutch at lights out.
+      if(race.type==='race' && !this.pitOnly && car.launch.active && !race.lightsOut){inp.brake=0;inp.throttle=1;inp.steer=0;return;}
       if (car.retiring) { this.retireDrive(); return; }
       if (car.pit) { this.drivePit(dt); return; }
       const speed = car.speed, D = car.damage;
@@ -2050,7 +2147,7 @@ const SIM = (function () {
     // No strategy choices, recovery respawns or racing mistakes run in this lane.
     drivePit(dt) {
       const car=this.car, race=this.race, t=this.track, p=t.pit, P=car.pit, cmd=this.cmd;
-      car.input.clutch=false; car.input.drs=false; car.input.ers=0;
+      car.input.drs=false; car.input.ers=0;
       if (['awaiting','stopped','release'].includes(P.phase)) { cmd.throttle=0;cmd.brake=1;cmd.steer=0;return; }
       const speed=car.speed, wet=car.surfaceWet ?? race.wet;
       const look=clamp(5+speed*0.35,5,22), s=t.wrapS(car.s+look);
@@ -2708,12 +2805,6 @@ const SIM = (function () {
         t.project(car.x, car.z, car.idx, car.proj); car.idx = car.proj.i; car.s = car.proj.s; car.d = car.proj.d;
         const ds = t.dS(prevS, car.s); if (Math.abs(ds) < 30) car.totalDist += ds;
         if(this.weather)this.weather.displace(car,dt);
-        if(this.type==='race' && !this.lightsOut && !car.jumpStart) {
-          const gs=t.gridSlots[car.gridSlot];
-          if(Math.abs(t.dS(gs.s,car.s))>0.5 || Math.abs(car.d-gs.d)>0.6) {
-            car.jumpStart=true;this.addPenalty(car,5,'False start');
-          }
-        }
         collideWalls(car, t, this);
         this.pitLogic(car, dt);
         this.timing(car, prevS, dt);
@@ -5672,7 +5763,7 @@ function readPad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : []; const p = pads && Array.from(pads).find(x => x && x.connected);
   if (!p) return null;
   const b = (i) => p.buttons[i] ? p.buttons[i].value : 0; const pressed = (i) => p.buttons[i] && p.buttons[i].pressed && !padPrev[i];
-  const out = { steer: Math.abs(p.axes[0]) > 0.06 ? p.axes[0] : 0, throttle: b(7), brake: b(6), drs: pressed(2), cam: pressed(3), start: pressed(9), ot: b(5) > 0.5, box: pressed(4), clutch:b(0)>0.5 };
+  const out = { steer: Math.abs(p.axes[0]) > 0.06 ? p.axes[0] : 0, throttle: b(7), brake: b(6), drs: pressed(2), cam: pressed(3), start: pressed(9), ot: b(5) > 0.5, box: pressed(4) };
   padPrev = p.buttons.map(x => x.pressed);
   return out;
 }
@@ -5695,7 +5786,6 @@ class PlayerControl {
     car.playerHandling=this.handling;
     car.control=(dt,sess)=>{
       if(!car.autoDrive && !car.pit) {
-        car.input.clutch=!!(car.launch.active && (KEYS.Space || (G.pad && G.pad.clutch)));
         this.handling.step(car,dt,sess,readDriveInput(dt));
       }
     };
@@ -6020,7 +6110,7 @@ function startRace(gridOrder, entries) {
       b.onclick=()=>{ G.briefCompound=c; draw(); }; $('briefChoices').appendChild(b);
     }
     $('briefPlan').textContent='Choose every stint yourself. Tyre condition and weather change as you drive.';
-    $('briefRule').textContent='Two different dry compounds are required unless you use Intermediate or Full Wet tyres. Pit-lane loss ≈ '+Math.round(pitLoss)+' s, plus repairs. No refuelling. On the grid: hold Space + W, then release Space when all five red lights go out.';
+    $('briefRule').textContent='Two different dry compounds are required unless you use Intermediate or Full Wet tyres. Pit-lane loss ≈ '+Math.round(pitLoss)+' s, plus repairs. No refuelling. On the grid: hold W; launch control holds the car and launches it automatically when all five red lights go out.';
   };
   draw(); clearKeys(); G.paused = true; $('raceBrief').classList.remove('hidden');
 }
@@ -6074,14 +6164,14 @@ $('strategyBox').onclick = () => {
   pushMsg(p.boxRequest ? 'BOX THIS LAP — ' + p.boxCompound : 'Pit stop cancelled', 'pit', 2);
 };
 function updateStrategyUI(p, sess) {
-  if (sess.type !== 'race') { $('tyreLife').textContent = 'One qualifying attempt · ' + p.tyre.style.name + ' driving'; return; }
+  if (sess.type !== 'race') { $('tyreLife').innerHTML = 'QUALIFYING <b>1 attempt</b>'; $('tyreNext').innerHTML = 'STYLE <b>' + p.tyre.style.name + '</b>'; return; }
   $('strategyToggle').classList.toggle('hidden', G.attract || G.mode === 'menu');
   if (sess.time < (G.strategyRefresh || 0) && G.strategyCar === p) return;
   G.strategyRefresh = sess.time + 1; G.strategyCar = p;
   const wear=Math.max(...p.tyre.wear), rate=SIM.wearPerLap(sess,p,p.tyre.c);
   const life=rate>0?Math.max(0,(SIM.USEFUL_WEAR-wear)/rate):Infinity;
   const lifeText=isFinite(life)?life.toFixed(1)+' laps':'—';
-  $('tyreLife').textContent='USEFUL LIFE ~'+lifeText+' · NEXT '+(p.boxCompound||'—');
+  $('tyreLife').innerHTML='USEFUL LIFE <b>~'+lifeText+'</b>'; $('tyreNext').innerHTML='NEXT <b>'+(p.boxCompound||'--')+'</b>';
   if($('strategyPanel').classList.contains('hidden')) return;
   $('strategyCurrent').textContent=SIM.COMPOUNDS[p.tyre.c].name+' · '+Math.round(wear*100)+'% worst wear · age '+p.tyre.age.toFixed(1)+' laps · '+Math.round([...p.tyre.temp].reduce((a,b)=>a+b,0)/4)+'°C · ~'+lifeText+' to significant degradation';
   const repair=p.damage.repairPlan({allRepairable:true});
@@ -6125,9 +6215,24 @@ function initHud() {
   const leds = $('leds'); for (let k = 0; k < LED_N; k++) leds.appendChild(document.createElement('i'));
   G.ledEls = Array.from(leds.children);
   const opts = $('boxOpts'); for (const c of ['S', 'M', 'H', 'I', 'W']) { const d = document.createElement('div'); d.className = 'opt'; d.dataset.c = c; d.style.pointerEvents = 'auto'; d.style.cursor = 'pointer'; d.onclick = () => { if (G.player && !G.player.pit) { G.player.boxCompound = c; G.strategyRefresh = 0; } }; d.innerHTML = `<span class="cmp" style="--c:${SIM.COMPOUNDS[c].color}">${c}</span>${SIM.COMPOUNDS[c].name} <kbd>${({S:1,M:2,H:3,W:4,I:6})[c]}</kbd>`; opts.appendChild(d); }
+  for (let k = 0; k < 10; k++) $('rpmBar').appendChild(document.createElement('i'));
   G.mm = { cvs: $('minimap'), ctx: $('minimap').getContext('2d') };
+  fitHud(); window.addEventListener('resize', fitHud);
   G.tel = { cvs: $('telCanvas'), ctx: $('telCanvas').getContext('2d'), g: $('gCanvas').getContext('2d'), buf: [] };
   prepMinimap();
+}
+// Scale the HUD with the window: panels are laid out on a virtual canvas of at least 1600×900 px.
+function fitHud() {
+  const hz = clamp(Math.min(window.innerWidth / 1600, window.innerHeight / 900), 0.55, 1.5);
+  G.hudZoom = hz; $('hud').style.setProperty('--hz', hz.toFixed(4)); G.boardCap = 0;
+}
+// How many leaderboard rows fit between the top of the board and the weather panel.
+function boardCapacity() {
+  if (G.boardCap && performance.now() < G.boardCapT) return G.boardCap;
+  const board = $('board').getBoundingClientRect(), stack = document.querySelector('#hud-left .lstack').getBoundingClientRect();
+  const hz = G.hudZoom || 1, room = stack.top - board.top - (12 + 10) * hz;
+  G.boardCap = Math.max(4, Math.floor(room / (24 * hz))); G.boardCapT = performance.now() + 1000;
+  return G.boardCap;
 }
 function prepMinimap() {
   const t = G.track; let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
@@ -6140,7 +6245,7 @@ function prepMinimap() {
     const tf = (x, z) => [ox + (x - minX) * sc, oz + (z - minZ) * sc];
     return { g, tf, sc, W, H, widthPx };
   };
-  G.mmT = draw(G.mm.cvs, 24, 8);
+  G.mmT = draw(G.mm.cvs, 16, 8);
   // static layer
   const st = document.createElement('canvas'); st.width = G.mm.cvs.width; st.height = G.mm.cvs.height; const sg = st.getContext('2d');
   const path = (g, tf, w, col) => { g.beginPath(); for (let i = 0; i <= t.N; i += 2) { const [x, y] = tf(t.cx[i % t.N], t.cz[i % t.N]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); } g.closePath(); g.strokeStyle = col; g.lineWidth = w; g.lineJoin = 'round'; g.stroke(); };
@@ -6173,21 +6278,27 @@ function drawMinimap() {
     g.lineWidth = me ? 3.5 : 2; g.strokeStyle = me ? '#fff' : 'rgba(0,0,0,.7)'; g.stroke();
   }
 }
-function boardRows() {
+function boardRows(cap) {
   const sess = G.session; const order = sess.order || sess.cars; const focus = G.focus;
-  const n = order.length; const pi = order.indexOf(focus);
+  const n = order.length; const pi = Math.max(0, order.indexOf(focus));
   let idx = [];
-  if (G.showFullBoard || n <= 8) idx = order.map((c, k) => k);
-  else { idx = [0, 1, 2]; for (let k = Math.max(3, pi - 2); k <= Math.min(n - 1, Math.max(pi + 2, 6)); k++) idx.push(k); if (pi < 5) idx = [0, 1, 2, 3, 4, 5, 6]; }
+  // the whole field on the grid (or on Tab) when it fits; otherwise the top three and the cars around the focus car
+  if (n <= Math.min(cap, 8) || ((G.showFullBoard || !sess.lightsOut) && n <= cap)) idx = order.map((c, k) => k);
+  else {
+    let top = 3, r = 2;
+    const build = () => { const a = []; for (let k = 0; k < top; k++) a.push(k); for (let k = Math.max(top, pi - r); k <= Math.min(n - 1, Math.max(pi + r, top + 2 * r)); k++) a.push(k); return [...new Set(a)].filter(k => k < n); };
+    idx = build();
+    while (idx.length + (idx[idx.length - 1] >= idx.length ? 0.5 : 0) > cap && (r > 1 || top > 1)) { if (r > 1) r--; else top--; idx = build(); }
+  }
   idx = [...new Set(idx)].filter(k => k < n).sort((a, b) => a - b);
   let html = ''; let prev = -1;
   for (const k of idx) {
-    if (prev >= 0 && k !== prev + 1) html += '<div class="row sep"></div>';
+    if (prev >= 0 && k !== prev + 1) html += '<div class="row sep">•••</div>';
     prev = k;
     const c = order[k]; let gap;
     if (sess.type === 'quali') { gap = c.bestLap ? (k === 0 ? fmt(c.bestLap) : '+' + (c.bestLap - order[0].bestLap).toFixed(3)) : (c.q.phase === 'out' ? 'OUT LAP' : c.q.phase === 'flying' ? (c.lapValid ? 'FLYING' : 'INVALID') : c.q.phase === 'waiting' ? 'WAITING' : c.q.result === 'invalid' ? 'INVALID' : c.q.result === 'dnf' ? 'DNF' : 'NO TIME'); }
     else if (c.dnf) gap = 'DNF';
-    else if (k === 0) gap = sess.lightsOut ? 'LAP ' + Math.min(c.laps + 1, sess.totalLaps) : 'GRID';
+    else if (k === 0) gap = '--';
     else if (c.lapsDown > 0 && !c.finished) gap = '+' + c.lapsDown + ' LAP' + (c.lapsDown > 1 ? 'S' : '');
     else gap = G.boardMode === 'interval' ? '+' + Math.max(0, c.intervalAhead).toFixed(3) : '+' + Math.max(0, c.gapLeader).toFixed(3);
     if (c === focus && sess.type === 'race' && k > 0) {
@@ -6203,8 +6314,10 @@ function boardRows() {
   }
   return html;
 }
+// the sector time shown for sector k: this lap's once completed, last lap's at the start of a lap
+const sectorTime = (car, k) => car.sectorIdx > k ? car.curSectors[k] : (car.sectorIdx === 0 && car.lastSectors[k] ? car.lastSectors[k] : 0);
 function sectorClass(car, k, sess) {
-  const t = car.sectorIdx > k ? car.curSectors[k] : (car.sectorIdx === 0 && car.lastSectors[k] ? car.lastSectors[k] : 0);
+  const t = sectorTime(car, k);
   if (!t) return car.sectorIdx === k ? 'cur' : '';
   if (sess.bestSectors[k] && t <= sess.bestSectors[k] + 1e-6) return 'purple';
   if (car.bestSectors[k] && t <= car.bestSectors[k] + 1e-6) return 'green';
@@ -6217,58 +6330,63 @@ const WHEEL_SHORT = ['FL', 'FR', 'RL', 'RR'];
 function updateVehicleStatus(p, sess) {
   const el = $('vstat'), D = p.damage, c = D.c;
   const show = !p.inGarage && (!D.isClean() || D.engT > 115 || !!p.retiring || D.scuff > 0.05);
-  el.classList.toggle('hidden', !show); if (!show) return;
-  const fill = (id, d) => { const e = $(id); e.setAttribute('fill', DMG_COL(d)); };
+  el.classList.toggle('hidden', !show); $('hud-br').classList.toggle('dmg', show);
+  // the car silhouette in the tyre panel doubles as the component diagram: neutral while the car is healthy
+  const fill = (id, d) => { $(id).setAttribute('fill', show ? DMG_COL(d) : '#cfd5df'); };
   fill('vsFwL', D.detached[0] ? 1 : c[0]); fill('vsFwR', D.detached[1] ? 1 : c[1]); fill('vsRw', D.detached[2] ? 1 : c[2]);
-  $('vsFloor').setAttribute('stroke', DMG_COL(c[3]));
+  $('vsFloor').setAttribute('stroke', show ? DMG_COL(c[3]) : 'rgba(207,213,223,.6)');
   fill('vsChas', c[10]); fill('vsEng', D.failed === 'engine' ? 1 : Math.max(c[8], D.engT > 125 ? 0.3 : 0));
   fill('vsCoolL', c[9]); fill('vsCoolR', c[9]);
   const blink = performance.now() % 600 < 300;
   for (let i = 0; i < 4; i++) {
-    $('vsS' + i).setAttribute('stroke', DMG_COL(c[4 + i] >= sess.damageLevel.fatal ? 1 : c[4 + i]));
-    $('vsT' + i).setAttribute('fill', D.shred[i] ? '#4a4f58' : D.punctRate[i] > 0 ? (blink ? '#ff3b3b' : '#5a1010') : '#c9ced8');
+    $('vsS' + i).setAttribute('stroke', show ? DMG_COL(c[4 + i] >= sess.damageLevel.fatal ? 1 : c[4 + i]) : 'rgba(207,213,223,.7)');
+    $('vsT' + i).setAttribute('fill', D.shred[i] ? '#4a4f58' : D.punctRate[i] > 0 ? (blink ? '#ff3b3b' : '#5a1010') : '#7d8696');
   }
-  // problems, worst first
+  if (!show) return;
+  // problems, worst first: [severity, component, state, effect]
   const rows = [];
   const pct = (d) => Math.round(d * 100) + '%';
+  const state = (d) => d >= 0.55 ? 'SEVERE' : d >= 0.25 ? 'DAMAGED' : 'MINOR';
   const fw = D.fw;
-  if (D.detached[0] || D.detached[1]) rows.push([1, 'FRONT WING', 'Part lost · understeer']);
-  else if (fw > 0.04) rows.push([fw, 'FRONT WING ' + pct(fw), fw > 0.4 ? 'Heavy understeer' : 'Less front grip']);
+  if (D.detached[0] || D.detached[1]) rows.push([1, 'Front wing', 'LOST', 'Heavy understeer']);
+  else if (fw > 0.04) rows.push([fw, 'Front wing ' + pct(fw), state(fw), fw > 0.4 ? 'Heavy understeer' : 'Less front grip']);
   for (let i = 0; i < 4; i++) {
-    if (D.shred[i]) rows.push([1.2, WHEEL_SHORT[i] + ' TYRE', 'Destroyed · box now']);
-    else if (D.punctRate[i] > 0) rows.push([1.1, WHEEL_SHORT[i] + ' TYRE', 'Puncture · pit']);
+    if (D.shred[i]) rows.push([1.2, WHEEL_SHORT[i] + ' tyre', 'DESTROYED', 'Box now']);
+    else if (D.punctRate[i] > 0) rows.push([1.1, WHEEL_SHORT[i] + ' tyre', 'PUNCTURE', 'Pit']);
   }
-  if (D.detached[2]) rows.push([1, 'REAR WING', 'Lost · unstable rear']);
-  else if (c[2] > 0.04) rows.push([c[2], 'REAR WING ' + pct(c[2]), 'Less rear stability']);
-  for (let i = 0; i < 4; i++) if (c[4 + i] > 0.04) rows.push([c[4 + i], 'SUSP. ' + WHEEL_SHORT[i] + ' ' + pct(c[4 + i]), c[4 + i] >= sess.damageLevel.fatal ? 'Broken' : 'Pulls ' + (i % 2 ? 'right' : 'left')]);
-  if (c[3] > 0.04) rows.push([c[3] * 0.9, 'FLOOR ' + pct(c[3]), 'Less downforce']);
-  if (D.failed === 'engine') rows.push([1.3, 'POWER UNIT', D.fire ? 'FIRE' : 'Failed']);
-  else if (c[8] > 0.04) rows.push([c[8], 'POWER UNIT ' + pct(c[8]), '−' + Math.round((1 - D.perf.power) * 100) + '% power']);
-  if (D.engT > 115 && D.failed !== 'engine') rows.push([D.engT > 125 ? 0.7 : 0.3, 'ENGINE ' + Math.round(D.engT) + '°C', D.engT > 125 ? 'Overheating · lift' : 'Running hot']);
-  if (c[9] > 0.04) rows.push([c[9], 'COOLING ' + pct(c[9]), D.leak > 0.05 ? 'Leaking' : 'Runs hot']);
-  if (c[10] > 0.04) rows.push([c[10] * 1.4, 'CHASSIS ' + pct(c[10]), 'Structural']);
-  if (!rows.length && D.scuff > 0.05) rows.push([0, 'BODYWORK', 'Cosmetic only']);
+  if (D.detached[2]) rows.push([1, 'Rear wing', 'LOST', 'Unstable rear']);
+  else if (c[2] > 0.04) rows.push([c[2], 'Rear wing ' + pct(c[2]), state(c[2]), 'Less rear stability']);
+  for (let i = 0; i < 4; i++) if (c[4 + i] > 0.04) rows.push([c[4 + i], WHEEL_SHORT[i] + ' suspension ' + pct(c[4 + i]), c[4 + i] >= sess.damageLevel.fatal ? 'BROKEN' : state(c[4 + i]), 'Pulls ' + (i % 2 ? 'right' : 'left')]);
+  if (c[3] > 0.04) rows.push([c[3] * 0.9, 'Floor ' + pct(c[3]), state(c[3]), 'Less downforce']);
+  if (D.failed === 'engine') rows.push([1.3, 'Power unit', D.fire ? 'FIRE' : 'FAILED', 'No power']);
+  else if (c[8] > 0.04) rows.push([c[8], 'Power unit ' + pct(c[8]), state(c[8]), '−' + Math.round((1 - D.perf.power) * 100) + '% power']);
+  if (D.engT > 115 && D.failed !== 'engine') rows.push([D.engT > 125 ? 0.7 : 0.3, 'Engine ' + Math.round(D.engT) + '°C', D.engT > 125 ? 'OVERHEATING' : 'HOT', D.engT > 125 ? 'Lift and coast' : 'Running hot']);
+  if (c[9] > 0.04) rows.push([c[9], 'Cooling ' + pct(c[9]), state(c[9]), D.leak > 0.05 ? 'Leaking' : 'Runs hot']);
+  if (c[10] > 0.04) rows.push([c[10] * 1.4, 'Chassis ' + pct(c[10]), state(c[10]), 'Structural']);
+  if (!rows.length && D.scuff > 0.05) rows.push([0, 'Bodywork', 'SCUFFED', 'Cosmetic only']);
   rows.sort((a, b) => b[0] - a[0]);
-  $('vsRows').innerHTML = rows.slice(0, 4).map(r => `<div>${r[1]}<span>${r[2]}</span></div>`).join('');
+  $('vsRows').innerHTML = rows.slice(0, 3).map(r => { const col = r[0] >= 1 ? '#ff3b3b' : DMG_COL(Math.max(0.06, r[0])); return `<div><i style="background:${col}"></i><span class="c">${r[1]}</span><span class="s" style="color:${col}">${r[2]}</span><span class="e l"></span><span class="e">${r[3]}</span></div>`; }).join('');
   const sev = p.retiring ? 2 : D.severity();
   const badge = $('vsBadge');
   badge.textContent = p.retiring ? (p.dnf ? 'RETIRED' : 'RETIRING') : sev < 0.05 ? 'OK' : sev < 0.25 ? 'MINOR' : sev < 0.55 ? 'DAMAGED' : 'SEVERE';
-  badge.style.background = p.retiring ? '#ff3b3b' : DMG_COL(sev);
+  badge.style.background = p.retiring ? '#e53935' : sev < 0.05 ? '#2e7d4f' : sev < 0.25 ? '#b8860b' : sev < 0.55 ? '#c2410c' : '#c62828';
   // Factual component and service estimates; no pit recommendation.
-  const pit = $('vsPit');
-  if (p.retiring) { pit.textContent = p.dnf ? 'Car out of the race' : 'Stop the car safely'; pit.style.color = '#ff6b6b'; return; }
-  if (p.pit) { const P = p.pit; pit.textContent = P.phase === 'awaiting' ? 'At garage · confirm tyre selection' : P.phase === 'release' ? 'Waiting for a safe release' : P.phase === 'stopped' ? 'Crew working: ' + pitJobsText(P) : P.phase === 'out' ? 'Automatic pit exit' : 'Automatic pit entry'; pit.style.color = '#f5c518'; return; }
+  const pit = $('vsPit'), kv = (k, v, col) => `<div>${k}<b style="color:${col || '#fff'}">${v}</b></div>`;
+  const drivable = p.retiring ? (p.dnf ? 'Out of the race' : 'Stop the car safely') : 'Drivable';
+  const status = kv('Car status', drivable, p.retiring ? '#ff6b6b' : '#3ee07a');
+  if (p.retiring) { pit.innerHTML = status; return; }
+  if (p.pit) { const P = p.pit; pit.innerHTML = kv('Pit lane', P.phase === 'awaiting' ? 'Confirm tyre selection' : P.phase === 'release' ? 'Waiting for a safe release' : P.phase === 'stopped' ? 'Crew working' : P.phase === 'out' ? 'Automatic pit exit' : 'Automatic pit entry', '#f5c518') + (P.phase === 'stopped' ? kv('Jobs', pitJobsText(P), '#dfe4ec') : '') + status; return; }
   const plan = D.repairPlan(); const loss = D.lapLoss();
   const punct = D.anyPuncture();
   const items = (punct ? ['Tyres'] : []).concat(plan.items);
   if (!items.length) {
     const fixed = loss.fixed > 0.3;
-    pit.textContent = fixed ? 'Not repairable in the pits' : 'No repair needed'; pit.style.color = fixed ? '#ff8a1f' : '#9aa3b2';
+    pit.innerHTML = kv('Repairable', fixed ? 'Not in the pits' : 'No repair needed', fixed ? '#ff8a1f' : '#9aa3b2') + status;
   } else {
     const urgent = punct || D.detached[0] || D.detached[1] || D.detached[2] || fw > 0.5 || c[2] > 0.5;
     const stopT = Math.max(2.4, plan.time) + 0.4;
-    pit.innerHTML = 'Repairable: ' + items.join(' + ') + ` · stop ≈ ${stopT.toFixed(0)} s` + (loss.rep < 20 ? ` · losing ≈ ${loss.rep.toFixed(1)} s/lap` : '');
-    pit.style.color = urgent ? '#ff6b6b' : loss.rep > 0.6 ? '#f5c518' : '#cfd5df';
+    pit.innerHTML = kv('Repairable', items.join(' + '), urgent ? '#ff6b6b' : '#fff') + kv('Est. stop time', '≈ ' + stopT.toFixed(1) + ' s') +
+      (loss.rep > 0.05 && loss.rep < 20 ? kv('Time lost', '≈ ' + loss.rep.toFixed(1) + ' s/lap', loss.rep > 0.6 ? '#f5c518' : '#dfe4ec') : '') + status;
   }
 }
 function pitJobsText(P) {
@@ -6290,14 +6408,16 @@ function updateHud(dt) {
   $('rpm').textContent = Math.round(car.rpm / 10) * 10;
   const frac = clamp((car.rpm - 9000) / (12100 - 9000), 0, 1); const lit = Math.round(frac * LED_N);
   const flash = car.rpm > 11900 && (performance.now() % 160 < 80);
-  for (let k = 0; k < LED_N; k++) { const on = k < lit; G.ledEls[k].style.background = !on ? '#2a2d33' : flash ? '#2f7bff' : k < 5 ? '#19e35e' : k < 10 ? '#ff2a2a' : '#2f7bff'; }
+  for (let k = 0; k < LED_N; k++) { const on = k < lit; G.ledEls[k].style.background = !on ? '' : flash ? '#2f7bff' : k < 5 ? '#19e35e' : k < 10 ? '#ff2a2a' : '#2f7bff'; }
   hudT += dt; if (hudT < 0.066) return; hudT = 0;
   const p = car;
   $('spdUnit').textContent = 'KM/H';
   // top-left
   if (sess.type === 'race') { $('lapNow').textContent = Math.max(1, Math.min(sess.totalLaps, p.laps + (p.finished ? 0 : 1))); $('lapTot').textContent = '/ ' + sess.totalLaps; }
-  else { $('lapNow').textContent = p.q.phase === 'waiting' ? 'PIT LANE' : p.q.phase === 'out' ? 'OUT LAP' : p.q.phase === 'flying' ? 'FLYING LAP' : 'COMPLETE'; $('lapTot').textContent = p.q.phase === 'flying' ? '1 / 1' : ''; }
-  $('board').innerHTML = boardRows();
+  $('lapNow').classList.toggle('txt', sess.type !== 'race');
+  if (sess.type !== 'race') { $('lapNow').textContent = p.q.phase === 'waiting' ? 'PIT LANE' : p.q.phase === 'out' ? 'OUT LAP' : p.q.phase === 'flying' ? 'FLYING LAP' : 'COMPLETE'; $('lapTot').textContent = p.q.phase === 'flying' ? '1 / 1' : ''; }
+  $('boardGapH').textContent = sess.type === 'quali' ? 'TIME' : 'GAP';
+  $('board').innerHTML = boardRows(boardCapacity());
   // top-right
   $('posNow').textContent = p.position || '-'; $('posTot').textContent = '/ ' + sess.cars.length;
   $('tBest').textContent = p.bestLap ? fmt(p.bestLap) : '--:--.---';
@@ -6307,26 +6427,26 @@ function updateHud(dt) {
   $('tCur').textContent = sess.type === 'quali' && p.q.phase === 'out' ? 'UNTIMED' : sess.type === 'quali' && p.q.phase === 'waiting' ? 'W TO LEAVE' : fmt(Math.max(0, cur)) + (!p.lapValid && sess.type === 'quali' && p.q.attempted ? ' ✕' : '');
   $('tCur').style.color = !p.lapValid && (sess.type === 'race' || p.q.attempted) ? '#ff6b6b' : '';
   if (p.bestTrace && p.bestTrace.length && p.lapTrace.length > 3 && started) { const d = p.delta; $('tDelta').textContent = (d >= 0 ? '+' : '') + d.toFixed(3); $('tDelta').className = 'v num ' + (d >= 0 ? 'delta-pos' : 'delta-neg'); }
-  else { $('tDelta').textContent = '--'; $('tDelta').className = 'v num'; }
-  for (let k = 0; k < 3; k++) { const el = $('s' + (k + 1)); el.className = sectorClass(p, k, sess); }
+  else { $('tDelta').textContent = '--.--'; $('tDelta').className = 'v num'; }
+  for (let k = 0; k < 3; k++) { const st = sectorTime(p, k); $('s' + (k + 1)).className = sectorClass(p, k, sess); $('s' + (k + 1) + 't').textContent = st ? (st < 60 ? st.toFixed(3) : fmt(st)) : '--.---'; }
   // ERS / DRS / fuel
   const ers = p.ers / SIM.SPEC.ersMax; $('ersBar').style.width = (ers * 100).toFixed(0) + '%'; $('ersPct').textContent = Math.round(ers * 100) + '%';
-  const em = p.input.ers | 0; const ce = $('chipErs'); ce.textContent = em === 2 ? 'OVERTAKE' : em === 1 ? 'BALANCED' : 'HARVEST'; ce.className = 'chip' + (em === 2 ? ' ot' : '');
-  const cd = $('chipDrs'); cd.className = 'chip' + (p.drsOpen ? ' on' : p.drsAvail ? ' avail' : '');
-  cd.textContent = sess.type === 'race' && !sess.drsEnabled ? 'DRS OFF' : 'DRS';
-  $('chipLim').style.display = p.pit && G.track.inLimiter(p.s) ? '' : 'none'; $('chipLim').className = 'chip warn';
+  const em = p.input.ers | 0; $('ersMode').textContent = em === 2 ? 'OVERTAKE' : em === 1 ? 'BALANCED' : 'HARVEST'; $('chipErs').className = 'chip' + (em === 2 ? ' ot' : '');
+  $('chipDrs').className = 'chip' + (p.drsOpen ? ' on' : p.drsAvail ? ' avail' : '');
+  $('drsVal').textContent = sess.type === 'race' && !sess.drsEnabled ? 'OFF' : p.drsOpen ? 'OPEN' : p.drsAvail ? 'READY' : 'CLOSED';
+  $('chipLim').style.display = p.pit && G.track.inLimiter(p.s) ? '' : 'none';
   const dr = $('chipDrift'); const sa = Math.abs(p.slideAngle || 0);
   if (sa > 0.08 && p.speed > 6) { dr.style.display = ''; dr.textContent = 'SLIDE ' + Math.round(sa * 57.3) + '°'; } else dr.style.display = 'none';
   const fuelLaps = sess.type === 'race' ? (p.fuel / sess.fuelPerLap - (sess.totalLaps - p.laps)) : p.fuel / sess.fuelPerLap;
-  const cf = $('chipFuel'); cf.textContent = sess.type === 'race' ? 'FUEL ' + (fuelLaps >= 0 ? '+' : '') + fuelLaps.toFixed(1) : 'FUEL ' + p.fuel.toFixed(1) + 'kg'; cf.className = 'chip' + (sess.type === 'race' && fuelLaps < 0 ? ' warn' : '');
+  $('fuelVal').textContent = sess.type === 'race' ? (fuelLaps >= 0 ? '+' : '') + fuelLaps.toFixed(1) : p.fuel.toFixed(1) + ' kg'; $('chipFuel').className = 'chip' + (sess.type === 'race' && fuelLaps < 0 ? ' warn' : '');
   // tyres
   const comp = SIM.COMPOUNDS[p.tyre.c];
-  $('cmpIcon').textContent = p.tyre.c; $('cmpIcon').style.setProperty('--c', comp.color);
+  $('cmpIcon').textContent = p.tyre.c; $('cmpIcon').style.setProperty('--c', comp.color); $('cmpName').textContent = comp.name.toUpperCase();
   $('tyreLabel').textContent = sess.wet >= 0.7 ? 'WET TRACK' : sess.wet ? 'DAMP TRACK' : 'TYRES';
   for (let i = 0; i < 4; i++) {
     const T = p.tyre.temp[i]; const dT = T - comp.topt;
     const col = dT < -25 ? '#2f7bff' : dT < -10 ? '#29b6f6' : dT < 12 ? '#21c55d' : dT < 25 ? '#f5c518' : '#e53935';
-    $('tw' + i).style.background = col; $('tw' + i).style.opacity = (1 - p.tyre.wear[i] * 0.7).toFixed(2);
+    $('tw' + i).style.background = col; $('tw' + i).style.opacity = (1 - p.tyre.wear[i] * 0.7).toFixed(2); $('tw' + i).style.boxShadow = '0 0 8px ' + col + '66';
     $('tt' + i).innerHTML = `${Math.round(T)}°C<small>${Math.round(p.tyre.wear[i] * 100)}% wear</small>`;
   }
   const wavg = (p.tyre.wear[0] + p.tyre.wear[1] + p.tyre.wear[2] + p.tyre.wear[3]) / 4;
@@ -6365,10 +6485,21 @@ function updateHud(dt) {
   drawMinimap();
 }
 function updateLights() {
-  const sess = G.session; if (!sess || sess.type !== 'race') return;
-  const launch=G.player && G.player.launch;
-  $('launchStatus').classList.toggle('hidden',sess.type!=='race'||!launch||!launch.active||G.attract);
-  if(launch && launch.active)$('launchStatus').textContent=(G.player.jumpStart?'FALSE START · +5 s · ':'')+(sess.lightsOut?(G.player.input.clutch?'Release SPACE to launch':'Launching'):'Hold SPACE + W · wait for lights out')+' · clutch '+Math.round(launch.engagement*100)+'% · '+Math.round(G.player.rpm)+' RPM';
+  const sess = G.session; if (!sess || sess.type !== 'race') { $('hud').classList.remove('starting'); return; }
+  const p = G.player, launch = p && p.launch;
+  // launch control: hold W on the grid; the clutch releases automatically at lights out
+  const showLaunch = !!(launch && launch.active && !G.attract && !(sess.lightsOut && launch.engagement >= 1));
+  $('launchHint').classList.toggle('hidden', !showLaunch); $('launchStatus').classList.toggle('hidden', !showLaunch);
+  if (showLaunch) {
+    const w = p.input.throttle > 0.05, armed = w && Math.abs(p.rpm - SIM.SPEC.launchRpm) < 1;
+    $('kW').classList.toggle('on', w);
+    $('launchText').textContent = !sess.lightsOut ? 'Hold W to rev, launch is automatic when the lights go out' : w ? 'Lights out, launching' : 'Lights out, press W to go';
+    $('launchState').textContent = sess.lightsOut ? (w ? 'ENGAGING' : 'PRESS W') : armed ? 'ARMED' : w ? 'REVVING' : 'HOLD W';
+    $('launchState').style.color = armed || (sess.lightsOut && w) ? '#3ee07a' : '';
+    $('launchRpm').textContent = Math.round(p.rpm / 10) * 10;
+    const bars = $('rpmBar').children, lit = Math.round(p.rpm / 12000 * bars.length), tgt = Math.round(SIM.SPEC.launchRpm / 12000 * bars.length);
+    for (let k = 0; k < bars.length; k++) bars[k].className = k < lit ? (k >= tgt + 1 ? 'hi' : 'on') : '';
+  }
   const n = sess.lightsOut ? 0 : sess.lights;
   if (n !== G.lastLights) {
     if (n > G.lastLights && !G.attract) G.audio.oneShot('beep');
@@ -6377,6 +6508,7 @@ function updateLights() {
     for (const l of G.trackObj.objs.gantryLamps) { l.mat.emissive.setHex(l.c < n ? 0xff1a1a : 0x000000); l.mat.color.setHex(l.c < n ? 0xff3030 : 0x220000); }
   }
   if (sess.lightsOut && !$('lights').classList.contains('hidden') && sess.time - sess.lightsOutTime > 1.5) $('lights').classList.add('hidden');
+  $('hud').classList.toggle('starting', showLaunch || !$('lights').classList.contains('hidden'));
 }
 function drawTelemetry(car, dt) {
   const T = G.tel; T.acc = (T.acc || 0) + dt; if (T.acc < 1 / 30) return; T.acc = 0;
@@ -7216,12 +7348,21 @@ function updateWeatherView(dt) {
   }
   if(w && sess.time>=(G.nextForecastView||0)) {
     G.nextForecastView=sess.time+1;const f=w.forecast();
-    $('weatherNow').textContent=w.label+' · '+Math.round(w.ambient)+'°C air / '+Math.round(w.trackTemp)+'°C track';
-    $('weatherSurface').textContent='Surface '+Math.round(w.water*100)+'% wet · racing line '+Math.round(w.lineWater*100)+'%';
-    $('weatherForecast').textContent=Math.round(f.probability*100)+'% rain chance (next 2 min) · '+f.window+'. '+f.intensity+'.';
+    $('weatherNow').textContent=w.label; $('weatherAir').textContent=Math.round(w.ambient)+'°C'; $('weatherTrack').textContent=Math.round(w.trackTemp)+'°C';
+    const icon=w.rain>0.025?'rain':w.cloud>0.55?'cloud':w.cloud>0.25?'partly':'sun';
+    if(G.weatherIcon!==icon){G.weatherIcon=icon;$('wIcon').innerHTML=WEATHER_ICONS[icon];}
+    $('weatherSurface').innerHTML='Surface '+Math.round(w.water*100)+'% wet<i class="vsep"></i>Racing line '+Math.round(w.lineWater*100)+'%';
+    $('weatherForecast').textContent=Math.round(f.probability*100)+'% rain chance (next 2 min)';
+    $('weatherWindow').textContent=(f.window.match(/~?\d+–\d+ min/)||[f.window])[0]; $('weatherWindow').title=f.window+'. '+f.intensity+'.';
   }
   if(G.rain && rain>0.01)updateRain(G.paused?0:dt);
 }
+const WEATHER_ICONS = {
+  sun: '<circle cx="26" cy="20" r="8" fill="#ffc93c"/><g stroke="#ffc93c" stroke-width="2.6" stroke-linecap="round"><path d="M26 3v4M26 33v4M9 20h4M39 20h4M14 8l3 3M35 29l3 3M14 32l3-3M35 11l3-3"/></g>',
+  partly: '<circle cx="19" cy="15" r="7" fill="#ffc93c"/><g stroke="#ffc93c" stroke-width="2.4" stroke-linecap="round"><path d="M19 2v3M6 15h3M9.5 5.5l2 2M28.5 5.5l-2 2"/></g><path d="M16 36h26a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-5 13z" fill="#e8edf5"/>',
+  cloud: '<path d="M12 35h28a9 9 0 0 0 0-18 12 12 0 0 0-23 3 7.5 7.5 0 0 0-5 15z" fill="#e8edf5"/>',
+  rain: '<path d="M12 27h28a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-7 13z" fill="#cfd6e2"/><g stroke="#5fb0ff" stroke-width="2.4" stroke-linecap="round"><path d="M16 31l-2 5M25 31l-2 5M34 31l-2 5"/></g>',
+};
 function updateRain(dt) {
   const cv = G.camVel || _v.set(0, 0, 0), D = G.rainDrops, P = G.rain.geometry.attributes.position.array;
   // drop velocity relative to the moving camera, so at speed the rain streaks fly at the lens
