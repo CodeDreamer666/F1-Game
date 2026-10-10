@@ -2544,6 +2544,10 @@ const SIM = (function () {
       const localWet=car.surfaceWet ?? race.wet;
       const suitable=weatherCompound(localWet);
       const forecast=race.weather?race.weather.forecast():null;
+      // Slicks on a surface that is already wet, with the public forecast saying
+      // the rain will persist: come in before the water builds further.
+      if(!reason && localWet>0.24 && car.tyre.c!=='I' && car.tyre.c!=='W' && race.weather && race.weather.raining &&
+        forecast.probability>0.7 && left>0.8)reason='rain expected to continue';
       if(localWet<0.14 && (car.tyre.c==='I'||car.tyre.c==='W') && left>0.7 &&
         (!forecast || forecast.probability<0.75 || Math.max(...car.tyre.temp)>COMPOUNDS[car.tyre.c].topt+18)) {
         reason='drying surface';compound=left>4?'H':left>2.2?'M':'S';
@@ -2567,59 +2571,153 @@ const SIM = (function () {
   /* ------------------------------------------------------------------
      SESSION (race / qualifying / attract)
      ------------------------------------------------------------------ */
-  // Evolving atmospheric fronts use their own RNG. There is no fixed race
-  // timeline: each front evolves and may strengthen, weaken or clear.
+  // Weather is a persistent two-level process with its own RNG. A large-scale
+  // air mass (dry or wet) lasts for minutes and flips with equal odds in either
+  // direction; inside it, regimes wander between neighbours (sunshine and cloud,
+  // or light, moderate and heavy rain and thunderstorms). Cloud, rainfall, air
+  // and track temperature and surface water then follow those targets with
+  // physical lags, so the sky darkens before rain arrives, rain eases before the
+  // cloud breaks, and the asphalt wets and dries progressively. A fresh event
+  // starts dry or wet with equal probability, with matching standing water.
+  const WEATHER_REGIMES = {
+    sunny:    { wet: false, cloud: [0.04, 0.30], rain: [0, 0] },
+    cloudy:   { wet: false, cloud: [0.52, 0.74], rain: [0, 0] },
+    light:    { wet: true,  cloud: [0.80, 0.90], rain: [0.07, 0.19] },
+    moderate: { wet: true,  cloud: [0.88, 0.96], rain: [0.28, 0.45] },
+    heavy:    { wet: true,  cloud: [0.95, 1.00], rain: [0.56, 0.74] },
+    storm:    { wet: true,  cloud: [0.98, 1.00], rain: [0.78, 0.95], storm: true },
+  };
+  // Weighted neighbours inside one air mass; a repeat re-rolls the intensity.
+  const REGIME_NEXT = {
+    sunny: [['cloudy', 0.55], ['sunny', 0.45]], cloudy: [['sunny', 0.5], ['cloudy', 0.5]],
+    light: [['moderate', 0.55], ['light', 0.45]], moderate: [['light', 0.45], ['heavy', 0.35], ['moderate', 0.2]],
+    heavy: [['moderate', 0.5], ['storm', 0.3], ['heavy', 0.2]], storm: [['heavy', 0.65], ['moderate', 0.35]],
+  };
+  const DRY_START = [['sunny', 0.55], ['cloudy', 0.45]];
+  const WET_START = [['light', 0.40], ['moderate', 0.35], ['heavy', 0.15], ['storm', 0.10]];
+  const FRONT_ARRIVAL = [['light', 0.42], ['moderate', 0.30], ['heavy', 0.14], ['storm', 0.14]];
+  const FRONT_CLEARANCE = [['cloudy', 0.7], ['sunny', 0.3]];
+  // An air mass lasts at least PATTERN_MIN seconds plus an exponential tail, so
+  // an 8-lap race sees a change in roughly half of all events, never on a timer.
+  const PATTERN_MIN = 200, PATTERN_MEAN = 1000;
+  const WEATHER_STATE = ['time','pattern','regime','storm','targetCloud','targetRain','cloudTau','rainRate','rainHold','patternEnds','regimeEnds',
+    'cloud','rain','water','lineWater','baseAmbient','ambient','trackTemp','wind','cloudTrend','rainTrend','forecastError','forecastTarget','forecastNext'];
   class DynamicWeather {
-    constructor(seed, initial = {}) {
-      initial=initial||{};
-      this.rng=makeRng((seed ^ 0x6a09e667) >>> 0); const r=this.rng;
-      this.cloud=initial.cloud ?? (0.12+r()*0.55); this.rain=initial.rain ?? 0;
-      this.water=initial.water ?? 0; this.lineWater=initial.lineWater ?? this.water;
-      this.ambient=initial.ambient ?? 23; this.trackTemp=initial.trackTemp ?? 34;
-      this.wind=initial.wind ?? 2; this.time=0; this.phase='approaching';
-      this.targetCloud=0.85+r()*0.15; this.targetRain=0; this.storm=r()<0.4;
-      this.nextFront=70+r()*100; this.frontAge=0; this.history=[];
-      this.forecastError=(r()-.5)*0.18; this.lightning=0;
+    constructor(seed, initial = null, gap = 0) {
+      this.rng = makeRng((seed ^ 0x6a09e667) >>> 0);
+      this.time = 0; this.lightning = 0;
+      if (initial && initial.regime) this.restore(initial);
+      else this.roll();
+      // The atmosphere keeps evolving between sessions (e.g. qualifying to the grid).
+      for (let left = gap; left > 0; left -= 0.25) this.update(Math.min(0.25, left));
+      this.start = { pattern: this.pattern, regime: this.regime, label: this.label, water: this.water };
     }
-    advanceFront() {
-      const r=this.rng; this.frontAge=0;
-      if(this.phase==='approaching') {
-        this.phase='rain'; this.storm=r()<0.48;
-        this.targetCloud=this.storm?1:0.82+r()*0.17;
-        this.targetRain=this.storm?0.80+r()*0.20:0.18+r()*0.43;
-        this.nextFront=this.time+100+r()*100;
-      } else if(this.phase==='rain') {
-        if(!this.storm && r()<0.30) {
-          this.storm=true;this.targetCloud=1;this.targetRain=0.85+r()*0.15;this.nextFront=this.time+75+r()*70;
-        } else {
-          this.phase='clearing';this.targetRain=0;this.targetCloud=0.10+r()*0.45;
-          this.nextFront=this.time+130+r()*130;
-        }
-      } else {
-        this.phase='approaching';this.targetCloud=0.82+r()*0.18;this.targetRain=0;
-        this.storm=r()<0.45;this.nextFront=this.time+65+r()*100;
+    pick(table) {
+      let x = this.rng() * table.reduce((a, e) => a + e[1], 0);
+      for (const [k, w] of table) { if ((x -= w) <= 0) return k; }
+      return table[table.length - 1][0];
+    }
+    span(range) { return lerp(range[0], range[1], this.rng()); }
+    patternLength() { return PATTERN_MIN - PATTERN_MEAN * Math.log(1 - this.rng() * 0.999); }
+    // Fresh conditions for a new event: 50% dry (sunny or cloudy), 50% rain.
+    roll() {
+      const r = this.rng;
+      this.pattern = r() < 0.5 ? 'dry' : 'wet';
+      this.setRegime(this.pick(this.pattern === 'dry' ? DRY_START : WET_START));
+      // The current air mass has already been around for a while.
+      this.patternEnds = 30 + r() * PATTERN_MIN * 0.5 - PATTERN_MEAN * Math.log(1 - r() * 0.999);
+      this.regimeEnds = this.regimeDwell() * (0.3 + r() * 0.7);
+      this.cloudTau = 90; this.rainRate = 0.006; this.rainHold = 0;
+      this.cloud = this.targetCloud; this.rain = this.targetRain;
+      this.baseAmbient = 18 + r() * 9;
+      this.ambient = this.ambientGoal();
+      this.wind = this.windGoal();
+      this.water = 0; this.trackTemp = this.trackTempGoal();
+      // A rainy start has a wet track, close to the balance between rainfall and
+      // drainage/evaporation; cars have not yet cleared a racing line.
+      if (this.rain > 0) {
+        const fill = this.rain * 0.015, loss = 0.0013 + this.evaporation();
+        this.water = clamp(fill / (fill + loss) * (0.78 + r() * 0.22), 0.2, 0.97);
+        this.trackTemp = this.trackTempGoal();
       }
-      this.forecastError=(r()-.5)*0.18;
+      this.lineWater = this.water * (0.9 + r() * 0.08);
+      this.bands = [r() * 6.283, r() * 6.283, 80 + r() * 60, 25 + r() * 15];
+      this.cloudTrend = 0; this.rainTrend = 0;
+      this.forecastError = (r() - 0.5) * 0.16; this.forecastTarget = this.forecastError; this.forecastNext = 30 + r() * 40;
     }
+    setRegime(name) {
+      const R = WEATHER_REGIMES[name]; this.regime = name; this.storm = !!R.storm;
+      this.targetCloud = this.span(R.cloud); this.targetRain = R.rain[1] > 0 ? this.span(R.rain) : 0;
+    }
+    regimeDwell() { return this.pattern === 'dry' ? 120 + this.rng() * 220 : 80 + this.rng() * 160; }
+    // The air mass changes: a front arrives or the rain moves away.
+    flipPattern() {
+      const r = this.rng;
+      this.pattern = this.pattern === 'dry' ? 'wet' : 'dry';
+      if (this.pattern === 'wet') {
+        this.setRegime(this.pick(FRONT_ARRIVAL));
+        // Convective storm cells build within a minute; ordinary fronts take longer.
+        // A fast cell still towers up visibly for half a minute or so first.
+        const fast = this.storm || (this.regime === 'heavy' && r() < 0.5);
+        this.cloudTau = fast ? 14 + r() * 12 : 55 + r() * 85;
+        this.rainRate = fast ? 0.01 + r() * 0.006 : 0.004 + r() * 0.005;
+        this.rainHold = fast ? this.time + 25 + r() * 30 : this.time;
+      } else {
+        this.setRegime(this.pick(FRONT_CLEARANCE));
+        this.cloudTau = 90 + r() * 90; this.rainRate = 0.0025 + r() * 0.004;
+      }
+      this.patternEnds = this.time + this.patternLength();
+      this.regimeEnds = this.time + this.regimeDwell() + 60;
+      this.forecastNext = Math.min(this.forecastNext, this.time + 5);
+    }
+    // Rain intensity strengthens or eases; cloud cover thickens or breaks.
+    shiftRegime() {
+      const r = this.rng, prev = this.regime;
+      this.setRegime(this.pick(REGIME_NEXT[prev]));
+      if (this.pattern === 'wet') {
+        this.cloudTau = this.storm ? 18 + r() * 14 : 40 + r() * 50;
+        this.rainRate = this.storm ? 0.012 + r() * 0.01 : 0.003 + r() * 0.006;
+      } else this.cloudTau = 80 + r() * 100;
+      this.regimeEnds = this.time + this.regimeDwell();
+    }
+    ambientGoal() { return this.baseAmbient - 5 * this.cloud - 3 * this.rain; }
+    trackTempGoal() { return this.ambient + 14 * (1 - this.cloud) - 3 * this.rain - 2 * this.water; }
+    windGoal() { return 2 + this.cloud * 3 + this.rain * (this.storm ? 8 : 3); }
+    evaporation() { return (0.0011 + 0.0025 * (1 - this.cloud)) * Math.max(0.35, this.trackTemp / 30) * (1 + this.wind / 20); }
     update(dt) {
-      this.time+=dt;this.frontAge+=dt;
-      if(this.time>=this.nextFront) this.advanceFront();
-      // Clouds arrive before precipitation. Storm fronts sharpen the transition
-      // over seconds, never teleport the asphalt between dry and soaked.
-      const cloudTau=this.storm && this.phase==='rain'?20:55;
-      this.cloud+=(this.targetCloud-this.cloud)*Math.min(1,dt/cloudTau);
-      const rainTarget=this.cloud>0.68?this.targetRain:0;
-      this.rain+=(rainTarget-this.rain)*Math.min(1,dt/(this.storm?12:32));
-      if(this.rain<0.001 && rainTarget===0)this.rain=0;
-      this.wind+=(2+this.cloud*3+this.rain*(this.storm?8:3)-this.wind)*dt/25;
-      this.ambient+=(24-5*this.cloud-3*this.rain-this.ambient)*dt/100;
-      this.trackTemp+=(this.ambient+13*(1-this.cloud)-5*this.rain-this.trackTemp)*dt/65;
-      const evaporation=(0.0011+0.0025*(1-this.cloud))*Math.max(0.35,this.trackTemp/30)*(1+this.wind/20);
-      const fill=this.rain*0.015;
-      this.water=clamp(this.water+(fill*(1-this.water)-this.water*(0.0013+evaporation))*dt,0,1);
-      this.lineWater=clamp(this.lineWater+(fill*(1-this.lineWater)-this.lineWater*(0.0024+evaporation))*dt,0,this.water);
-      this.lightning=Math.max(0,this.lightning-dt*4);
-      if(this.storm && this.rain>0.65 && this.rng()<dt/28)this.lightning=1;
+      if (dt <= 0) return;
+      this.time += dt;
+      if (this.time >= this.patternEnds) this.flipPattern();
+      else if (this.time >= this.regimeEnds) this.shiftRegime();
+      const t = this.time, b = this.bands, prevCloud = this.cloud, prevRain = this.rain;
+      // Cloud develops before precipitation and stays thick while it rains.
+      const drift = 0.04 * Math.sin(t / 47 + b[1]);
+      const cloudGoal = Math.max(clamp(this.targetCloud + drift, 0, 1), this.rain > 0.02 ? 0.76 + 0.24 * Math.min(1, this.rain * 2) : 0);
+      this.cloud += (cloudGoal - this.cloud) * Math.min(1, dt / this.cloudTau);
+      // Showers come in bands: slow, smooth intensity variation around the regime.
+      const band = 1 + 0.12 * Math.sin(t * 6.283 / b[2] + b[0]) + 0.06 * Math.sin(t * 6.283 / b[3] + b[1]);
+      const rainGoal = this.cloud > 0.72 && t >= this.rainHold ? clamp(this.targetRain * band, 0, 1) : 0;
+      const rate = clamp((rainGoal - this.rain) / (this.storm ? 8 : 20), -this.rainRate, this.rainRate);
+      this.rain = clamp(this.rain + rate * dt, 0, 1);
+      if (this.rain < 0.002 && rainGoal === 0) this.rain = 0;
+      this.wind += (this.windGoal() - this.wind) * Math.min(1, dt / 25);
+      this.ambient += (this.ambientGoal() - this.ambient) * Math.min(1, dt / 100);
+      this.trackTemp += (this.trackTempGoal() - this.trackTemp) * Math.min(1, dt / 65);
+      // Standing water: rainfall fills it, drainage and evaporation (sun, heat
+      // and wind) remove it, and the last thin film evaporates at a steady rate;
+      // the racing line also dries faster as cars clear it.
+      const evaporation = this.evaporation(), fill = this.rain * 0.015, film = 0.2 * evaporation;
+      this.water = clamp(this.water + (fill * (1 - this.water) - this.water * (0.0013 + evaporation) - film) * dt, 0, 1);
+      this.lineWater = clamp(this.lineWater + (fill * (1 - this.lineWater) - this.lineWater * (0.0024 + evaporation) - film) * dt, 0, this.water);
+      if (this.rain === 0 && this.water < 0.004) this.water = this.lineWater = 0;
+      // Observed trends (what a forecaster can measure), per second.
+      const k = Math.min(1, dt / 45);
+      this.cloudTrend += ((this.cloud - prevCloud) / dt - this.cloudTrend) * k;
+      this.rainTrend += ((this.rain - prevRain) / dt - this.rainTrend) * k;
+      if (t >= this.forecastNext) { this.forecastTarget = (this.rng() - 0.5) * 0.16; this.forecastNext = t + 35 + this.rng() * 45; }
+      this.forecastError += (this.forecastTarget - this.forecastError) * Math.min(1, dt / 30);
+      this.lightning = Math.max(0, this.lightning - dt * 4);
+      if (this.storm && this.rain > 0.6 && this.rng() < dt / 28) this.lightning = 1;
     }
     displace(car,dt) {
       if(!car.pit && car.speed>8 && Math.abs(car.d-car.race.track.rlOff[car.idx])<2.5)
@@ -2629,19 +2727,40 @@ const SIM = (function () {
       const off=Math.abs(car.d-track.rlOff[car.idx]);
       return lerp(this.lineWater,this.water,clamp(off/4,0,1));
     }
+    get raining() { return this.rain > 0.025; }
     get label() {
-      return this.rain>0.72?'Thunderstorm':this.rain>0.35?'Moderate rain':this.rain>0.025?'Light rain':
-        this.water>0.12 && this.phase==='clearing'?'Drying':this.cloud>0.55?'Cloudy':'Sunshine';
+      if (this.raining) return this.storm && this.rain > 0.6 ? 'Thunderstorm' : this.rain > 0.5 ? 'Heavy rain' : this.rain > 0.24 ? 'Moderate rain' : 'Light rain';
+      return this.water > 0.12 ? 'Drying' : this.cloud > 0.55 ? 'Cloudy' : this.cloud > 0.32 ? 'Partly cloudy' : 'Sunshine';
     }
     forecast() {
-      // Only noisy atmospheric observations, not nextFront or targetRain, enter
-      // the public forecast. Windows are broad and can miss a developing front.
-      const cloudTrend=(this.targetCloud-this.cloud)/55;
-      const probability=clamp(0.08+this.cloud*0.65+Math.max(0,cloudTrend)*14+this.rain*0.3+this.forecastError,0.05,0.95);
-      return { probability, window:this.rain>0.025?'Rain may vary over the next 1–3 min':this.cloud>0.65?'Possible rain in ~1–3 min':'Possible rain in ~2–5 min',
-        intensity:this.rain>0.5?'Intensity may ease or strengthen':this.cloud>0.75?'Light to heavy rain possible':'Intensity uncertain' };
+      // Only noisy observations (cloud cover, rainfall and their measured trends)
+      // enter the public forecast, never the hidden air-mass timers or targets.
+      // Windows are broad and can miss a developing front.
+      const ct = this.cloudTrend * 60, rt = this.rainTrend * 60; // per minute
+      let probability;
+      if (this.raining) probability = 0.7 + 0.4 * Math.min(this.rain, 0.5) - Math.min(0.35, 0.7 * Math.max(0, -rt - 0.03)) - 0.5 * Math.max(0, -ct);
+      else probability = 0.04 + 0.62 * clamp((this.cloud - 0.3) / 0.62, 0, 1) + 0.9 * clamp(ct, 0, 0.5) - 0.4 * clamp(-ct, 0, 0.5);
+      probability = clamp(probability + this.forecastError, 0.03, 0.97);
+      let window;
+      if (this.raining) window = rt < -0.06 ? 'Rain may ease within ~2–5 min' : 'Rain may vary over the next 1–3 min';
+      else if (ct > 0.12 && this.cloud > 0.55) window = 'Possible rain in ~1–3 min';
+      else if (this.cloud > 0.6 || ct > 0.05) window = 'Possible rain in ~2–5 min';
+      else window = 'Rain unlikely for ~5–10 min';
+      const intensity = ct > 0.3 ? 'Cloud building fast; heavy rain or a storm possible' :
+        this.rain > 0.5 ? 'Intensity may ease or strengthen' : this.raining ? 'Intensity may vary' :
+        this.cloud > 0.72 ? 'Light to heavy rain possible' : 'Intensity uncertain';
+      return { probability, window, intensity };
     }
-    snapshot() { return {cloud:this.cloud,rain:this.rain,water:this.water,lineWater:this.lineWater,ambient:this.ambient,trackTemp:this.trackTemp,wind:this.wind}; }
+    snapshot() {
+      const s = {}; for (const k of WEATHER_STATE) s[k] = this[k];
+      s.bands = this.bands.slice(); return s;
+    }
+    // Continue the same weather (e.g. from qualifying into the race) with its
+    // timers and shower bands, but fresh randomness for whatever happens next.
+    restore(s) {
+      for (const k of WEATHER_STATE) this[k] = s[k];
+      this.bands = s.bands.slice();
+    }
   }
 
   class Session {
@@ -2649,7 +2768,10 @@ const SIM = (function () {
       this.track = track; this.cfg = cfg; this.type = cfg.type; // 'race' | 'quali' | 'calib'
       rnd = makeRng(cfg.seed || (Date.now() & 0xffffff));
       this.difficulty = clamp(cfg.difficulty != null ? cfg.difficulty : 0.8, 0, 1);
-      this.totalLaps=8; this.weather=cfg.weather==='dynamic'?new DynamicWeather(cfg.seed||1,cfg.weatherState):null;
+      this.totalLaps=8;
+      // Dynamic weather either continues a previous session's state (qualifying ->
+      // race) or rolls fresh conditions for this event from its own seed.
+      this.weather=cfg.weather==='dynamic'?new DynamicWeather(cfg.weatherSeed ?? cfg.seed ?? ((Math.random()*1e9)|0),cfg.weatherState,cfg.weatherGap||0):null;
       this.wet=this.weather?this.weather.water:wetnessFor(cfg.weather); this.trackTemp=this.weather?this.weather.trackTemp:cfg.trackTemp ?? lerp(36,22,this.wet); this.fuelPerLap=track.length/6000*2.8;
       this.mistakeMul = cfg.mistakes != null ? cfg.mistakes : 1;
       this.tyreWearOn = cfg.tyreWear !== 'off';
@@ -6079,7 +6201,7 @@ function startSession(cfg) {
 function startAttract() {
   G.attract = true;
   const entries = buildEntries(true);
-  startSession(sessionConfig('race', { entries, laps: 8, weather:'dynamic', difficulty:0.85, gridOrder: quickGridOrder(entries), tyreWear: 'normal', seed: 4242 }));
+  startSession(sessionConfig('race', { entries, laps: 8, weather:'dynamic', difficulty:0.85, gridOrder: quickGridOrder(entries), tyreWear: 'normal', seed: 4242, weatherSeed: (Math.random()*1e9)|0 }));
   // skip the start for the background race
   const sess = G.session; sess.startSeqT = 99; sess.lightsHoldAt = 1;
   G.camRig.setMode('tv');
@@ -6089,18 +6211,26 @@ function startQuali() {
   G.weekend = { entries };
   startSession(sessionConfig('quali', { entries }));
 }
-function launchRace(gridOrder, entries) {
+// The race continues the weather qualifying ended with, after the time it takes
+// to form the grid; without qualifying a fresh 50/50 dry/wet start is rolled.
+const GRID_FORMATION_GAP = 120;
+function raceWeatherState() {
+  const q=G.session && !G.attract && G.session.type==='quali' && G.session.weather;
+  if(q) return G.session.raceWeather || (G.session.raceWeather=new SIM.DynamicWeather((Math.random()*1e9)|0,q.snapshot(),GRID_FORMATION_GAP).snapshot());
+  return new SIM.DynamicWeather((Math.random()*1e9)|0).snapshot();
+}
+function launchRace(gridOrder, entries, weatherState) {
   G.attract = false; entries = entries || buildEntries(false);
   G.weekend = G.weekend || { entries };
-  const weatherState=G.session && G.session.type==='quali' && G.session.weather?G.session.weather.snapshot():null;
-  startSession(sessionConfig('race',{entries,gridOrder:gridOrder||quickGridOrder(entries),weatherState}));
+  startSession(sessionConfig('race',{entries,gridOrder:gridOrder||quickGridOrder(entries),weatherState:weatherState||raceWeatherState()}));
 }
 function startRace(gridOrder, entries) {
-  G.pendingRace = { gridOrder, entries };
+  G.pendingRace = { gridOrder, entries, weatherState: raceWeatherState() };
+  const startWeather = new SIM.DynamicWeather(1, G.pendingRace.weatherState);
   const selectedEntries = entries || buildEntries(false);
   const pitLoss = Math.max(15, G.track.pit.len/G.track.pit.limit - G.track.pit.len/85 + 11.5);
   G.briefCompound = S.startTyre;
-  $('briefSub').textContent = '8 laps · 6 km circuit · 48 km race · 20 teams · Dynamic weather';
+  $('briefSub').textContent = '8 laps · 6 km circuit · 48 km race · 20 teams · Dynamic weather · Now: '+startWeather.label+', '+Math.round(startWeather.ambient)+'°C air, track '+Math.round(startWeather.water*100)+'% wet';
   const draw = () => {
     $('briefChoices').replaceChildren();
     for(const c of ['S','M','H','I','W']) {
@@ -6117,7 +6247,7 @@ function startRace(gridOrder, entries) {
 $('briefStart').onclick = () => {
   const pending = G.pendingRace; if (!pending) return;
   S.startTyre = G.briefCompound; saveSettings(); G.pendingRace = null; $('raceBrief').classList.add('hidden'); G.paused = false;
-  launchRace(pending.gridOrder, pending.entries);
+  launchRace(pending.gridOrder, pending.entries, pending.weatherState);
 };
 $('briefCancel').onclick = () => { G.pendingRace = null; $('raceBrief').classList.add('hidden'); G.paused = false; if(G.session && G.session.over) showResults(); };
 function toggleStrategy() {
@@ -6442,7 +6572,7 @@ function updateHud(dt) {
   // tyres
   const comp = SIM.COMPOUNDS[p.tyre.c];
   $('cmpIcon').textContent = p.tyre.c; $('cmpIcon').style.setProperty('--c', comp.color); $('cmpName').textContent = comp.name.toUpperCase();
-  $('tyreLabel').textContent = sess.wet >= 0.7 ? 'WET TRACK' : sess.wet ? 'DAMP TRACK' : 'TYRES';
+  $('tyreLabel').textContent = sess.wet >= 0.7 ? 'WET TRACK' : sess.wet > 0.05 ? 'DAMP TRACK' : 'TYRES';
   for (let i = 0; i < 4; i++) {
     const T = p.tyre.temp[i]; const dT = T - comp.topt;
     const col = dT < -25 ? '#2f7bff' : dT < -10 ? '#29b6f6' : dT < 12 ? '#21c55d' : dT < 25 ? '#f5c518' : '#e53935';
@@ -7349,7 +7479,7 @@ function updateWeatherView(dt) {
   if(w && sess.time>=(G.nextForecastView||0)) {
     G.nextForecastView=sess.time+1;const f=w.forecast();
     $('weatherNow').textContent=w.label; $('weatherAir').textContent=Math.round(w.ambient)+'°C'; $('weatherTrack').textContent=Math.round(w.trackTemp)+'°C';
-    const icon=w.rain>0.025?'rain':w.cloud>0.55?'cloud':w.cloud>0.25?'partly':'sun';
+    const icon=w.raining?(w.storm&&w.rain>0.6?'storm':'rain'):w.cloud>0.55?'cloud':w.cloud>0.32?'partly':'sun';
     if(G.weatherIcon!==icon){G.weatherIcon=icon;$('wIcon').innerHTML=WEATHER_ICONS[icon];}
     $('weatherSurface').innerHTML='Surface '+Math.round(w.water*100)+'% wet<i class="vsep"></i>Racing line '+Math.round(w.lineWater*100)+'%';
     $('weatherForecast').textContent=Math.round(f.probability*100)+'% rain chance (next 2 min)';
@@ -7362,6 +7492,7 @@ const WEATHER_ICONS = {
   partly: '<circle cx="19" cy="15" r="7" fill="#ffc93c"/><g stroke="#ffc93c" stroke-width="2.4" stroke-linecap="round"><path d="M19 2v3M6 15h3M9.5 5.5l2 2M28.5 5.5l-2 2"/></g><path d="M16 36h26a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-5 13z" fill="#e8edf5"/>',
   cloud: '<path d="M12 35h28a9 9 0 0 0 0-18 12 12 0 0 0-23 3 7.5 7.5 0 0 0-5 15z" fill="#e8edf5"/>',
   rain: '<path d="M12 27h28a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-7 13z" fill="#cfd6e2"/><g stroke="#5fb0ff" stroke-width="2.4" stroke-linecap="round"><path d="M16 31l-2 5M25 31l-2 5M34 31l-2 5"/></g>',
+  storm: '<path d="M12 27h28a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-7 13z" fill="#aab3c2"/><path d="M27 26l-6 8h5l-3 7 8-10h-5l3-5z" fill="#ffd23c"/><g stroke="#5fb0ff" stroke-width="2.4" stroke-linecap="round"><path d="M14 31l-2 5M37 31l-2 5"/></g>',
 };
 function updateRain(dt) {
   const cv = G.camVel || _v.set(0, 0, 0), D = G.rainDrops, P = G.rain.geometry.attributes.position.array;
