@@ -228,7 +228,7 @@
   .screen { position: fixed; inset: 0; z-index: 20; display: flex; }
   #menu { background: linear-gradient(90deg, rgba(5,6,9,.92) 0%, rgba(5,6,9,.75) 36%, rgba(5,6,9,.05) 70%); }
   .menu-left { width: 460px; padding: 56px 48px; display: flex; flex-direction: column; }
-  .logo { font-weight: 900; font-size: 46px; line-height: .95; letter-spacing: 1px; font-style: italic; }
+  .logo { margin: 0 0 6px; font-weight: 900; font-size: clamp(40px, 4.3vw, 70px); line-height: 1; letter-spacing: 0; font-style: italic; white-space: nowrap; text-shadow: 0 2px 18px rgba(0,0,0,.55); }
   .logo span { color: var(--accent); }
   .logo-sub { color: var(--dim); letter-spacing: 4px; font-size: 13px; margin: 10px 0 34px; text-transform: uppercase; }
   .btn { pointer-events: auto; display: flex; align-items: center; gap: 14px; width: 100%; padding: 13px 18px; margin: 5px 0; font: 700 18px var(--font); letter-spacing: 1.5px; text-transform: uppercase; color: #fff; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); border-left: 4px solid transparent; border-radius: 4px; cursor: pointer; transition: all .12s; text-align: left; }
@@ -237,18 +237,31 @@
   .btn.primary:hover { filter: brightness(1.15); }
   .btn:disabled { opacity: .35; cursor: default; transform: none; }
   .btn small { margin-left: auto; font-size: 12px; color: rgba(255,255,255,.6); letter-spacing: 1px; font-weight: 600; }
-  .menu-foot { margin-top: auto; color: #6d7585; font-size: 12px; line-height: 1.6; }
-  @media (max-height: 860px) {
-    .menu-left { padding: 30px 48px 20px; } .logo { font-size: 40px; } .logo-sub { margin: 8px 0 14px !important; }
-    .menu-left .btn { padding: 10px 18px; margin: 4px 0; font-size: 17px; }
-    .menu-foot { display: none; }
-  }
-  .circuit-card { position: absolute; right: 48px; bottom: 48px; width: 380px; padding: 16px 18px; pointer-events: auto; }
-  .circuit-card h3 { margin: 0; font-size: 22px; letter-spacing: .5px; }
-  .circuit-card .country { color: var(--dim); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
-  .circuit-card canvas { width: 100%; height: 170px; display: block; margin: 8px 0; }
-  .stats3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 12px; color: var(--dim); }
-  .stats3 b { display: block; color: #fff; font-size: 17px; }
+  .circuit-card { position: absolute; right: 48px; bottom: 48px; width: clamp(340px, 36vw, 610px); padding: 18px 22px 14px; pointer-events: auto; background: rgba(10,12,17,.86); transition: opacity .2s, transform .2s; }
+  .circuit-card h3, #circuitSelect h3 { margin: 0; font-size: clamp(22px, 2vw, 32px); letter-spacing: .3px; font-weight: 700; }
+  .circuit-card .country, #circuitSelect .country { color: var(--dim); font-size: 14px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .cmap { width: 100%; aspect-ratio: 760 / 340; display: block; margin: 8px 0 0; }
+  #menu.selecting .circuit-card { opacity: 0; transform: translateY(10px); pointer-events: none; }
+  /* circuit selection: three geometry-drawn maps; hover lifts, the selection glows red */
+  #circuitSelect { position: absolute; right: 48px; bottom: 48px; width: min(980px, calc(100vw - 690px)); padding: 18px 22px 20px; pointer-events: none; background: rgba(10,12,17,.9);
+    opacity: 0; transform: translateY(14px); transition: opacity .22s, transform .22s; }
+  #menu.selecting #circuitSelect { opacity: 1; transform: none; pointer-events: auto; }
+  .cs-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .cs-nav { display: flex; gap: 8px; }
+  .cs-nav button { width: 40px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #fff; font: 700 26px/1 var(--font); cursor: pointer; transition: background .12s, border-color .12s; }
+  .cs-nav button:hover, .cs-nav button:focus-visible { background: rgba(225,6,0,.22); border-color: var(--accent); outline: none; }
+  #csCards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .cs-card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 8px; text-align: left; color: #fff; font: 700 16px var(--font); letter-spacing: .3px;
+    background: #0b0d12; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; cursor: pointer; transition: transform .14s, border-color .14s, box-shadow .14s, background .14s; }
+  .cs-card .cmap { margin: 0; }
+  .cs-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.34); background: #10131a; }
+  .cs-card:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .cs-card:active { transform: translateY(0) scale(.985); }
+  .cs-card[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 26px rgba(225,6,0,.38); background: #120d10; }
+  .cs-card[aria-selected="true"]::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 3px; border-radius: 2px; background: var(--accent); }
+  .cs-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .cs-actions .btn { width: auto; margin: 0; padding: 12px 26px; }
+  @media (max-width: 1240px) { #circuitSelect { width: min(560px, calc(100vw - 690px)); min-width: 420px; } #csCards { grid-template-columns: 1fr; } .cs-card { flex-direction: row; align-items: center; } .cs-card .cmap { width: 46%; } }
   .overlay { position: fixed; inset: 0; z-index: 30; background: rgba(4,5,8,.82); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
   .dialog { width: min(860px, 94vw); max-height: 92vh; overflow: auto; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 26px 30px; pointer-events: auto; }
   .dialog h2 { margin: 0 0 4px; font-size: 28px; letter-spacing: 1px; text-transform: uppercase; }
@@ -306,14 +319,13 @@
 
   .dialog, #strategyPanel, .menu-left { scrollbar-width:none; }
   .dialog::-webkit-scrollbar, #strategyPanel::-webkit-scrollbar, .menu-left::-webkit-scrollbar { display:none; }
-  .menu-left { width:min(520px,100vw); padding:clamp(24px,6vh,64px) 40px; gap:12px; overflow-y:auto; }
-  .menu-left .btn { display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:16px 20px; }
-  .menu-left .btn small { margin-left:0; letter-spacing:.4px; text-transform:none; }
-  .race-spec { display:flex; flex-wrap:wrap; gap:16px; margin:16px 0 24px; color:#c2cad9; font-size:13px; letter-spacing:1px; }
+  .menu-left { width:min(640px,100vw); padding:clamp(28px,12vh,130px) 48px 24px; gap:14px; overflow-y:auto; }
+  .menu-left .btn { display:flex; align-items:center; padding:clamp(16px,2.6vh,26px) 30px; margin:0; font-size:clamp(18px,1.6vw,25px); letter-spacing:.5px; }
   #settings .dialog { padding:28px; }
   #settings .field { padding:14px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.025); }
   #settings .actions { position:sticky; bottom:-28px; margin:18px -8px -8px; padding:14px 8px; background:#161921; border-top:1px solid var(--line); }
   @media(max-width:760px) { .grid2 { grid-template-columns:1fr; } .circuit-card { display:none; } }
+  @media (prefers-reduced-motion: reduce) { .cs-card, #circuitSelect, .circuit-card { transition: none; } }
 
 </style>
 </head>
@@ -432,18 +444,23 @@
 
 <div id="menu" class="screen hidden">
   <div class="menu-left">
-    <div class="logo">APEX<br><span>GRAND PRIX</span></div>
-    <div class="race-spec">8 LAPS <span>6 KM CIRCUIT</span> 20 TEAMS</div>
-    <button class="btn primary" data-act="play">Start Grand Prix <small>One race. Every decision counts.</small></button>
+    <h1 class="logo">APEX <span>GRAND PRIX</span></h1>
+    <button class="btn primary" data-act="play">Start Grand Prix</button>
     <button class="btn" data-act="settings">Race Settings</button>
     <button class="btn" data-act="controls">Controls</button>
-    <div class="menu-foot">Optional single-lap qualifying. Dynamic weather. Automatic launch-control starts. Choose your own tyre strategy.</div>
   </div>
-  <div class="circuit-card panel">
+  <div class="circuit-card panel" id="circuitCard">
     <div class="country">Circuit</div>
-    <h3 id="ccName">Lakeside Alpine Circuit</h3>
-    <canvas id="ccMap" width="760" height="340"></canvas>
-    <div class="stats3"><div>Length<b id="ccLen">-</b></div><div>Corners<b id="ccTurns">-</b></div><div>DRS zones<b id="ccDrs">-</b></div></div>
+    <h3 id="ccName"></h3>
+    <canvas id="ccMap" class="cmap" width="760" height="340" aria-hidden="true"></canvas>
+  </div>
+  <div id="circuitSelect" class="panel" role="dialog" aria-labelledby="csTitle" aria-hidden="true">
+    <div class="cs-head">
+      <div><div class="country" id="csTitle">Select circuit</div><h3 id="csName"></h3></div>
+      <div class="cs-nav"><button type="button" id="csPrev" aria-label="Previous circuit">&#8249;</button><button type="button" id="csNext" aria-label="Next circuit">&#8250;</button></div>
+    </div>
+    <div id="csCards" role="listbox" aria-labelledby="csTitle"></div>
+    <div class="cs-actions"><button type="button" class="btn" id="csBack">Back</button><button type="button" class="btn primary" id="csGo">Race here</button></div>
   </div>
 </div>
 
@@ -593,17 +610,47 @@ const SIM = (function () {
   /* ------------------------------------------------------------------
      TRACK
      ------------------------------------------------------------------ */
-  const TRACK_DEF = {
-    name: 'Lakeside Alpine Circuit', country: 'Panoramic Valley', halfW: 7.0, length: 6000,
-    pts: [
-      [-650, 0], [0, 0], [600, 0], [700, 30], [730, 120], [680, 190], [560, 200], [420, 215], [360, 260], [330, 330],
-      [380, 420], [470, 490], [500, 590], [440, 690], [300, 760], [80, 790], [-300, 790], [-520, 770], [-610, 720],
-      [-600, 640], [-520, 580], [-430, 520], [-430, 430], [-520, 370], [-680, 330], [-800, 270], [-830, 160], [-790, 60],
-    ],
-    start: [-80, 0],
-    cornerNames: ['Lakeside', 'Castle Hairpin', 'Belvedere', 'Fontaine', 'Pine Esses', 'Ridge', 'Glacier', 'Chapel', 'Alpenhof', 'Panorama', 'Schloss', 'Lake Curve', 'Finale'],
-  };
+  // Three six-kilometre circuits. Each is a closed centre line (metres, x east,
+  // z south), a start point on its main straight, the number of DRS zones (the
+  // longest straights), an elevation field (Gaussian rises and dips: x, z,
+  // radius, height in metres) and the scenery the renderer builds around it.
+  const CIRCUITS = [
+    {
+      id: 'summit', name: 'Summit Grand Circuit', country: 'Alpine Highlands', halfW: 7.0, length: 6000, drs: 3,
+      pts: [[-821, 427], [39, 427], [859, 427], [961, 423], [1020, 399], [1051, 360], [1063, 321], [1063, 286], [1039, 255], [1028, 220], [1043, 181], [1039, 153], [1004, 130], [953, 95], [906, 59], [852, 63], [813, 102], [785, 149], [754, 192], [707, 185], [680, 130], [652, 9], [637, -81], [660, -136], [727, -155], [820, -136], [891, -120], [930, -140], [922, -187], [859, -249], [785, -335], [734, -402], [676, -437], [617, -425], [566, -398], [430, -312], [293, -226], [246, -187], [207, -167], [156, -198], [109, -218], [62, -198], [23, -148], [-28, -89], [-94, -66], [-153, -73], [-192, -105], [-223, -148], [-266, -171], [-340, -171], [-408, -164], [-462, -126], [-520, -84], [-580, -66], [-640, -28], [-790, 48], [-899, 102], [-958, 130], [-1005, 149], [-1040, 185], [-1059, 231], [-1063, 298], [-1048, 337], [-1016, 360], [-1005, 399], [-969, 431], [-891, 435]],
+      start: [39, 427],
+      elev: [[880, -230, 420, 34], [600, -360, 260, 10], [230, -190, 300, 9], [-420, -120, 380, -6], [960, 200, 200, 6]],
+      cornerNames: ['Gipfel', 'Kanzel', 'Felsen', 'Hairpin', 'Steinbock', 'Adler', 'Summit', 'Edelweiss', 'Gletscher', 'Lawine', 'Kamm', 'Enzian', 'Murmel', 'Sennerei', 'Talblick', 'Almrausch', 'Kapelle', 'Finale'],
+      env: { style: 'alpine', lake: { x: 1300, z: -1050, a: 700, b: 330, rot: 0.3 }, castle: null, hill: 1.35, mountain: 1.25, snowLine: 620, forest: 1.1, broadleaf: 0.12, grass: [0.92, 1.0, 0.9], village: { x: -1250, z: -900 } },
+    },
+    {
+      id: 'rivermere', name: 'Rivermere Grand Prix', country: 'Rivermere Valley', halfW: 7.0, length: 6000, drs: 2,
+      pts: [[-370, 369], [69, 379], [738, 394], [805, 385], [838, 335], [855, 239], [884, 172], [926, 151], [959, 185], [972, 294], [988, 373], [1039, 415], [1089, 406], [1106, 335], [1093, 231], [1043, 143], [968, 89], [257, -170], [-370, -371], [-495, -417], [-566, -392], [-579, -287], [-495, -187], [-487, -124], [-554, -91], [-637, -99], [-679, -162], [-692, -246], [-738, -275], [-934, -283], [-997, -262], [-1009, -212], [-972, -166], [-959, -124], [-1009, -87], [-1076, -37], [-1105, 14], [-1093, 68], [-1005, 110], [-850, 193], [-775, 268], [-696, 281], [-596, 260], [-495, 294], [-428, 352]],
+      start: [69, 379],
+      elev: [[-760, -150, 420, 9], [420, -260, 520, 6], [1000, 280, 260, -4]],
+      cornerNames: ['Mill', 'Weir', 'Lock', 'Ferry', 'Boathouse', 'Abbey', 'Orchard', 'Willow', 'Heron', 'Meadow', 'Bridge', 'Kingfisher', 'Reeds', 'Towpath', 'Mere'],
+      env: { style: 'river', lake: { x: 150, z: 120, a: 380, b: 120, rot: 0.33 }, castle: { x: 1650, z: -480 }, hill: 0.8, mountain: 0.85, snowLine: 1100, forest: 0.95, broadleaf: 0.65, grass: [0.86, 1.04, 0.84], village: { x: 1650, z: -480 },
+        river: [[-2900, -560], [-2000, -640], [-1300, -760], [-650, -720], [0, -660], [600, -700], [1150, -830], [1500, -960], [2100, -1080], [2900, -1150]] },
+    },
+    {
+      id: 'redridge', name: 'Redridge International Circuit', country: 'Redridge Canyon', halfW: 7.0, length: 6000, drs: 2,
+      pts: [[-1001, 344], [-106, 344], [890, 346], [1033, 331], [1054, 290], [1064, 200], [1067, 110], [1058, 36], [988, -18], [894, -10], [829, 38], [764, 91], [666, 106], [516, 87], [443, 34], [390, -55], [309, -116], [239, -128], [168, -96], [81, -63], [-15, -79], [-90, -120], [-269, -189], [-452, -267], [-631, -332], [-733, -352], [-859, -340], [-944, -269], [-956, -173], [-889, -92], [-747, -10], [-631, 79], [-574, 152], [-594, 219], [-676, 246], [-787, 254], [-832, 209], [-848, 161], [-909, 144], [-970, 177], [-1066, 266], [-1082, 321]],
+      start: [-106, 344],
+      elev: [[-820, -140, 430, 18], [330, -60, 360, 9], [980, 140, 260, 7], [-120, -330, 260, -5]],
+      cornerNames: ['Canyon', 'Butte', 'Mesa', 'Sandstone', 'Arroyo', 'Ridge', 'Coyote', 'Sunset', 'Juniper', 'Bluff', 'Ochre', 'Outlaw', 'Pinnacle', 'Hook', 'Corral', 'Finale'],
+      env: { style: 'canyon', lake: null, castle: null, hill: 1.1, mountain: 1.0, snowLine: 1250, forest: 0.45, broadleaf: 0.3, grass: [1.06, 0.9, 0.72], rock: true, village: null },
+    },
+  ];
+  const circuitById = id => CIRCUITS.find(c => c.id === id) || CIRCUITS[0];
+  const TRACK_DEF = CIRCUITS[0];
 
+  // Height of the land at (x, z): the circuit's rises and dips. Smooth and cheap,
+  // so the simulation (gradients) and the renderer (vertex warp) agree exactly.
+  function elevationAt(field, x, z) {
+    let h = 0;
+    for (const [bx, bz, r, a] of field) { const d2 = ((x - bx) * (x - bx) + (z - bz) * (z - bz)) / (r * r); if (d2 < 9) h += a * Math.exp(-d2); }
+    return h;
+  }
   function catmullClosed(P, samplesPer) {
     const out = []; const n = P.length;
     const dist = (a, b) => Math.pow(Math.hypot(b[0] - a[0], b[1] - a[1]), 0.5) || 1e-4;
@@ -633,28 +680,33 @@ const SIM = (function () {
     return res;
   }
 
+  // The circuit's centre line, sampled every DS metres from the start line.
+  // Track builds on it, and the menu's circuit maps draw it, so they agree.
+  function circuitCentreLine(def) {
+    let pts = resampleClosed(catmullClosed(def.pts, 80), DS);
+    for (let pass = 0; pass < 6; pass++) {
+      const n = pts.length; const np = [];
+      for (let i = 0; i < n; i++) { const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n]; np.push([(a[0] + 2 * b[0] + c[0]) / 4, (a[1] + 2 * b[1] + c[1]) / 4]); }
+      pts = np;
+    }
+    // Keep the circuit's shape and start position, and scale its physical geometry
+    // to six kilometres. Timing, projection, curvature and tyre distance agree.
+    if (def.length) {
+      let length = 0;
+      for (let i = 0; i < pts.length; i++) length += Math.hypot(pts[i][0] - pts[(i + 1) % pts.length][0], pts[i][1] - pts[(i + 1) % pts.length][1]);
+      const scale = def.length / length;
+      pts = pts.map(([x, z]) => [def.start[0] + (x - def.start[0]) * scale, def.start[1] + (z - def.start[1]) * scale]);
+    }
+    pts = resampleClosed(pts, DS);
+    // rotate so index 0 is closest to start point
+    let best = 0, bd = 1e18;
+    for (let i = 0; i < pts.length; i++) { const d = (pts[i][0] - def.start[0]) ** 2 + (pts[i][1] - def.start[1]) ** 2; if (d < bd) { bd = d; best = i; } }
+    return pts.slice(best).concat(pts.slice(0, best));
+  }
   class Track {
     constructor(def) {
       this.def = def; this.name = def.name; this.halfW = def.halfW;
-      let pts = resampleClosed(catmullClosed(def.pts, 80), DS);
-      for (let pass = 0; pass < 6; pass++) {
-        const n = pts.length; const np = [];
-        for (let i = 0; i < n; i++) { const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n]; np.push([(a[0] + 2 * b[0] + c[0]) / 4, (a[1] + 2 * b[1] + c[1]) / 4]); }
-        pts = np;
-      }
-      // Keep the circuit's shape and start position, and scale its physical geometry
-      // to six kilometres. Timing, projection, curvature and tyre distance agree.
-      if (def.length) {
-        let length = 0;
-        for (let i = 0; i < pts.length; i++) length += Math.hypot(pts[i][0] - pts[(i + 1) % pts.length][0], pts[i][1] - pts[(i + 1) % pts.length][1]);
-        const scale = def.length / length;
-        pts = pts.map(([x, z]) => [def.start[0] + (x - def.start[0]) * scale, def.start[1] + (z - def.start[1]) * scale]);
-      }
-      pts = resampleClosed(pts, DS);
-      // rotate so index 0 is closest to start point
-      let best = 0, bd = 1e18;
-      for (let i = 0; i < pts.length; i++) { const d = (pts[i][0] - def.start[0]) ** 2 + (pts[i][1] - def.start[1]) ** 2; if (d < bd) { bd = d; best = i; } }
-      pts = pts.slice(best).concat(pts.slice(0, best));
+      const pts = circuitCentreLine(def);
       const N = this.N = pts.length;
       this.ds = DS; this.length = N * DS;
       const F = (n) => new Float64Array(n);
@@ -671,11 +723,49 @@ const SIM = (function () {
         this.kappa[i] = dh / (4 * DS);
       }
       this.kappa = this.smoothArr(this.kappa, 4, 3);
+      // elevation along the lap and its gradient (rise per metre travelled)
+      this.elevField = def.elev || [];
+      this.elev = F(N); this.grade = F(N);
+      for (let i = 0; i < N; i++) this.elev[i] = elevationAt(this.elevField, this.cx[i], this.cz[i]);
+      for (let i = 0; i < N; i++) this.grade[i] = (this.elev[(i + 1) % N] - this.elev[(i - 1 + N) % N]) / (2 * DS);
       this.buildRacingLine();
       this.buildEdges();
       this.buildPit();
       this.buildTimingAndZones();
       this.buildGrid();
+    }
+    elevAt(x, z) { return elevationAt(this.elevField, x, z); }
+    // Geometry checks for a circuit definition: separate parts of the lap stay
+    // apart, barriers never reach another part of the road, no corner is
+    // tighter than a car can take, and every derived array is finite.
+    validate() {
+      const N = this.N, hw = this.halfW, issues = [], { cell, grid } = this.spatial;
+      // nearest centre-line sample to (x, z) that is at least `apart` samples away from i
+      const nearest = (x, z, i, apart, reach) => {
+        let best = Infinity; const gx = Math.floor(x / cell), gz = Math.floor(z / cell), n = Math.ceil(reach / cell);
+        for (let dx = -n; dx <= n; dx++) for (let dz = -n; dz <= n; dz++) {
+          const arr = grid.get((gx + dx + 1000) * 100000 + (gz + dz + 1000)); if (!arr) continue;
+          for (const j of arr) if (Math.min(Math.abs(i - j), N - Math.abs(i - j)) >= apart) best = Math.min(best, Math.hypot(x - this.cx[j], z - this.cz[j]));
+        }
+        return best;
+      };
+      let minSep = Infinity;
+      for (let i = 0; i < N; i += 2) minSep = Math.min(minSep, nearest(this.cx[i], this.cz[i], i, 75, 2 * hw + 40));
+      if (minSep < 2 * hw + 20) issues.push('track sections only ' + minSep.toFixed(1) + ' m apart');
+      for (let i = 0; i < N; i += 3) for (const sg of [-1, 1]) {
+        const w = sg > 0 ? this.wallR[i] : this.wallL[i];
+        if (!(w >= hw + 3.9)) { issues.push('barrier on the road at s=' + i * DS); continue; }
+        const x = this.cx[i] + this.rx[i] * sg * w, z = this.cz[i] + this.rz[i] * sg * w;
+        if (nearest(x, z, i, 40, hw + 1) < hw + 1) issues.push('barrier crosses the road at s=' + i * DS);
+      }
+      let minR = Infinity; for (let i = 0; i < N; i++) minR = Math.min(minR, 1 / Math.max(1e-9, Math.abs(this.kappa[i])));
+      if (minR < 18) issues.push('corner radius ' + minR.toFixed(1) + ' m');
+      for (const k of ['cx', 'cz', 'kappa', 'rlOff', 'rlKappa', 'wallL', 'wallR', 'refSpeed', 'elev', 'grade'])
+        if (!this[k].every(Number.isFinite)) issues.push('non-finite ' + k);
+      const maxGrade = Math.max(...this.grade.map(Math.abs));
+      if (maxGrade > 0.1) issues.push('gradient ' + (maxGrade * 100).toFixed(1) + '%');
+      if (Math.abs(this.length - (this.def.length || this.length)) > 4) issues.push('length ' + this.length);
+      return { ok: !issues.length, issues, minSep, minR, maxGrade };
     }
     wrapI(i) { const N = this.N; return ((i % N) + N) % N; }
     wrapS(s) { const L = this.length; return ((s % L) + L) % L; }
@@ -814,12 +904,21 @@ const SIM = (function () {
       const N = this.N, L = this.length;
       this.sector1 = Math.round(L * 0.33 / DS) * DS; this.sector2 = Math.round(L * 0.68 / DS) * DS;
       // corners: find segments of significant curvature on racing line
+      // A long same-direction bend with two distinct apexes (a clear easing of the
+      // curvature between them) counts as two corners, as circuits number them.
       const ak = this.rlKappa; this.corners = []; let inC = false, cs = 0;
+      const pushCorner = (a, b) => { let mk = 0, mi = a; for (let j = a; j < b; j++) if (Math.abs(ak[j]) > mk) { mk = Math.abs(ak[j]); mi = j; } this.corners.push({ start: a, apex: mi, end: b, R: 1 / mk, dir: Math.sign(ak[mi]) }); };
       for (let i = 0; i < N; i++) {
         const k = Math.abs(ak[i]);
         if (!inC && k > 1 / 260) { inC = true; cs = i; } else if (inC && k < 1 / 330) {
-          inC = false; let mk = 0, mi = cs; for (let j = cs; j < i; j++) if (Math.abs(ak[j]) > mk) { mk = Math.abs(ak[j]); mi = j; }
-          this.corners.push({ start: cs, apex: mi, end: i, R: 1 / mk, dir: Math.sign(ak[mi]) });
+          inC = false; const peaks = [];
+          for (let j = cs; j < i; j++) { const kj = Math.abs(ak[j]); if (kj < 1 / 260) continue; let top = true; for (let q = Math.max(cs, j - 10); q <= Math.min(i - 1, j + 10); q++) if (Math.abs(ak[q]) > kj) { top = false; break; } if (top && (!peaks.length || j - peaks[peaks.length - 1] > 25)) peaks.push(j); }
+          let a = cs;
+          for (let m = 0; m + 1 < peaks.length; m++) {
+            let lo = peaks[m], lk = 1e9; for (let j = peaks[m]; j < peaks[m + 1]; j++) if (Math.abs(ak[j]) < lk) { lk = Math.abs(ak[j]); lo = j; }
+            if (lk < 0.5 * Math.min(Math.abs(ak[peaks[m]]), Math.abs(ak[peaks[m + 1]]))) { pushCorner(a, lo); a = lo; }
+          }
+          pushCorner(a, i);
         }
       }
       this.corners.forEach((c, k) => { c.num = k + 1; c.name = (this.def.cornerNames[k] || ('Turn ' + (k + 1))); });
@@ -831,15 +930,18 @@ const SIM = (function () {
         this.nextCorner[i] = best;
       }
       // DRS zones: the two longest straights
+      // Scan one lap starting inside a bend, so a straight that spans the
+      // start/finish line is found once, whole.
       const straights = []; let st = -1;
       const sk = this.smoothArr(this.rlKappa.map(Math.abs), 5, 1);
-      for (let i = 0; i < 2 * N; i++) {
+      let i0 = 0; while (i0 < N && sk[i0] < 1 / 700) i0++;
+      for (let i = i0; i <= i0 + N; i++) {
         const k = sk[i % N] < 1 / 700;
-        if (k && st < 0) st = i; else if (!k && st >= 0) { if (i - st > 120) straights.push([st, i]); st = -1; if (i > N + 50) break; }
+        if (k && st < 0) st = i; else if (!k && st >= 0) { if (i - st > 120) straights.push([st, i]); st = -1; }
       }
-      const uniq = []; for (const [a, b] of straights) { const aa = a % N; if (!uniq.some(u => Math.abs(u[0] - aa) < 30)) uniq.push([aa, b - a]); }
+      const uniq = straights.map(([a, b]) => [a % N, b - a]);
       uniq.sort((a, b) => b[1] - a[1]);
-      this.drsZones = uniq.slice(0, 2).map(([a, len]) => ({ start: this.wrapS((a + 25) * DS), end: this.wrapS((a + len - 45) * DS), detect: this.wrapS((a - 60) * DS) }));
+      this.drsZones = uniq.slice(0, this.def.drs || 2).map(([a, len]) => ({ start: this.wrapS((a + 25) * DS), end: this.wrapS((a + len - 45) * DS), detect: this.wrapS((a - 60) * DS) }));
       this.marshalCount = 16; this.timingPoints = 50;
       // brake boards: before corners with large speed drop
       this.refSpeed = this.speedProfile(1.65, 0.5 * RHO * 4.0 / 830, 1.15 * 0.5 * RHO / 830, 790000 / 830);
@@ -1356,6 +1458,9 @@ const SIM = (function () {
       }
       if (env.pitLimiter && u > track.pit.limit) FxSum = Math.min(FxSum, -m * (u - track.pit.limit) * 4);
     }
+    // gravity along the slope: climbs cost speed, descents add it (a stationary
+    // car is held by its brakes or the launch clutch)
+    if (track.grade && car.idx != null && !car.pit && Math.abs(u) > 1) FxSum -= m * G * track.grade[car.idx] * Math.cos(car.psi - track.heading[car.idx]);
     // integrate
     const ax = FxSum / m, ay = FySum / m;
     const fwx = c * FxSum - s * FySum, fwz = s * FxSum + c * FySum;
@@ -2544,6 +2649,10 @@ const SIM = (function () {
       const localWet=car.surfaceWet ?? race.wet;
       const suitable=weatherCompound(localWet);
       const forecast=race.weather?race.weather.forecast():null;
+      // Slicks on a surface that is already wet, with the public forecast saying
+      // the rain will persist: come in before the water builds further.
+      if(!reason && localWet>0.24 && car.tyre.c!=='I' && car.tyre.c!=='W' && race.weather && race.weather.raining &&
+        forecast.probability>0.7 && left>0.8)reason='rain expected to continue';
       if(localWet<0.14 && (car.tyre.c==='I'||car.tyre.c==='W') && left>0.7 &&
         (!forecast || forecast.probability<0.75 || Math.max(...car.tyre.temp)>COMPOUNDS[car.tyre.c].topt+18)) {
         reason='drying surface';compound=left>4?'H':left>2.2?'M':'S';
@@ -2567,59 +2676,153 @@ const SIM = (function () {
   /* ------------------------------------------------------------------
      SESSION (race / qualifying / attract)
      ------------------------------------------------------------------ */
-  // Evolving atmospheric fronts use their own RNG. There is no fixed race
-  // timeline: each front evolves and may strengthen, weaken or clear.
+  // Weather is a persistent two-level process with its own RNG. A large-scale
+  // air mass (dry or wet) lasts for minutes and flips with equal odds in either
+  // direction; inside it, regimes wander between neighbours (sunshine and cloud,
+  // or light, moderate and heavy rain and thunderstorms). Cloud, rainfall, air
+  // and track temperature and surface water then follow those targets with
+  // physical lags, so the sky darkens before rain arrives, rain eases before the
+  // cloud breaks, and the asphalt wets and dries progressively. A fresh event
+  // starts dry or wet with equal probability, with matching standing water.
+  const WEATHER_REGIMES = {
+    sunny:    { wet: false, cloud: [0.04, 0.30], rain: [0, 0] },
+    cloudy:   { wet: false, cloud: [0.52, 0.74], rain: [0, 0] },
+    light:    { wet: true,  cloud: [0.80, 0.90], rain: [0.07, 0.19] },
+    moderate: { wet: true,  cloud: [0.88, 0.96], rain: [0.28, 0.45] },
+    heavy:    { wet: true,  cloud: [0.95, 1.00], rain: [0.56, 0.74] },
+    storm:    { wet: true,  cloud: [0.98, 1.00], rain: [0.78, 0.95], storm: true },
+  };
+  // Weighted neighbours inside one air mass; a repeat re-rolls the intensity.
+  const REGIME_NEXT = {
+    sunny: [['cloudy', 0.55], ['sunny', 0.45]], cloudy: [['sunny', 0.5], ['cloudy', 0.5]],
+    light: [['moderate', 0.55], ['light', 0.45]], moderate: [['light', 0.45], ['heavy', 0.35], ['moderate', 0.2]],
+    heavy: [['moderate', 0.5], ['storm', 0.3], ['heavy', 0.2]], storm: [['heavy', 0.65], ['moderate', 0.35]],
+  };
+  const DRY_START = [['sunny', 0.55], ['cloudy', 0.45]];
+  const WET_START = [['light', 0.40], ['moderate', 0.35], ['heavy', 0.15], ['storm', 0.10]];
+  const FRONT_ARRIVAL = [['light', 0.42], ['moderate', 0.30], ['heavy', 0.14], ['storm', 0.14]];
+  const FRONT_CLEARANCE = [['cloudy', 0.7], ['sunny', 0.3]];
+  // An air mass lasts at least PATTERN_MIN seconds plus an exponential tail, so
+  // an 8-lap race sees a change in roughly half of all events, never on a timer.
+  const PATTERN_MIN = 200, PATTERN_MEAN = 1000;
+  const WEATHER_STATE = ['time','pattern','regime','storm','targetCloud','targetRain','cloudTau','rainRate','rainHold','patternEnds','regimeEnds',
+    'cloud','rain','water','lineWater','baseAmbient','ambient','trackTemp','wind','cloudTrend','rainTrend','forecastError','forecastTarget','forecastNext'];
   class DynamicWeather {
-    constructor(seed, initial = {}) {
-      initial=initial||{};
-      this.rng=makeRng((seed ^ 0x6a09e667) >>> 0); const r=this.rng;
-      this.cloud=initial.cloud ?? (0.12+r()*0.55); this.rain=initial.rain ?? 0;
-      this.water=initial.water ?? 0; this.lineWater=initial.lineWater ?? this.water;
-      this.ambient=initial.ambient ?? 23; this.trackTemp=initial.trackTemp ?? 34;
-      this.wind=initial.wind ?? 2; this.time=0; this.phase='approaching';
-      this.targetCloud=0.85+r()*0.15; this.targetRain=0; this.storm=r()<0.4;
-      this.nextFront=70+r()*100; this.frontAge=0; this.history=[];
-      this.forecastError=(r()-.5)*0.18; this.lightning=0;
+    constructor(seed, initial = null, gap = 0) {
+      this.rng = makeRng((seed ^ 0x6a09e667) >>> 0);
+      this.time = 0; this.lightning = 0;
+      if (initial && initial.regime) this.restore(initial);
+      else this.roll();
+      // The atmosphere keeps evolving between sessions (e.g. qualifying to the grid).
+      for (let left = gap; left > 0; left -= 0.25) this.update(Math.min(0.25, left));
+      this.start = { pattern: this.pattern, regime: this.regime, label: this.label, water: this.water };
     }
-    advanceFront() {
-      const r=this.rng; this.frontAge=0;
-      if(this.phase==='approaching') {
-        this.phase='rain'; this.storm=r()<0.48;
-        this.targetCloud=this.storm?1:0.82+r()*0.17;
-        this.targetRain=this.storm?0.80+r()*0.20:0.18+r()*0.43;
-        this.nextFront=this.time+100+r()*100;
-      } else if(this.phase==='rain') {
-        if(!this.storm && r()<0.30) {
-          this.storm=true;this.targetCloud=1;this.targetRain=0.85+r()*0.15;this.nextFront=this.time+75+r()*70;
-        } else {
-          this.phase='clearing';this.targetRain=0;this.targetCloud=0.10+r()*0.45;
-          this.nextFront=this.time+130+r()*130;
-        }
-      } else {
-        this.phase='approaching';this.targetCloud=0.82+r()*0.18;this.targetRain=0;
-        this.storm=r()<0.45;this.nextFront=this.time+65+r()*100;
+    pick(table) {
+      let x = this.rng() * table.reduce((a, e) => a + e[1], 0);
+      for (const [k, w] of table) { if ((x -= w) <= 0) return k; }
+      return table[table.length - 1][0];
+    }
+    span(range) { return lerp(range[0], range[1], this.rng()); }
+    patternLength() { return PATTERN_MIN - PATTERN_MEAN * Math.log(1 - this.rng() * 0.999); }
+    // Fresh conditions for a new event: 50% dry (sunny or cloudy), 50% rain.
+    roll() {
+      const r = this.rng;
+      this.pattern = r() < 0.5 ? 'dry' : 'wet';
+      this.setRegime(this.pick(this.pattern === 'dry' ? DRY_START : WET_START));
+      // The current air mass has already been around for a while.
+      this.patternEnds = 30 + r() * PATTERN_MIN * 0.5 - PATTERN_MEAN * Math.log(1 - r() * 0.999);
+      this.regimeEnds = this.regimeDwell() * (0.3 + r() * 0.7);
+      this.cloudTau = 90; this.rainRate = 0.006; this.rainHold = 0;
+      this.cloud = this.targetCloud; this.rain = this.targetRain;
+      this.baseAmbient = 18 + r() * 9;
+      this.ambient = this.ambientGoal();
+      this.wind = this.windGoal();
+      this.water = 0; this.trackTemp = this.trackTempGoal();
+      // A rainy start has a wet track, close to the balance between rainfall and
+      // drainage/evaporation; cars have not yet cleared a racing line.
+      if (this.rain > 0) {
+        const fill = this.rain * 0.015, loss = 0.0013 + this.evaporation();
+        this.water = clamp(fill / (fill + loss) * (0.78 + r() * 0.22), 0.2, 0.97);
+        this.trackTemp = this.trackTempGoal();
       }
-      this.forecastError=(r()-.5)*0.18;
+      this.lineWater = this.water * (0.9 + r() * 0.08);
+      this.bands = [r() * 6.283, r() * 6.283, 80 + r() * 60, 25 + r() * 15];
+      this.cloudTrend = 0; this.rainTrend = 0;
+      this.forecastError = (r() - 0.5) * 0.16; this.forecastTarget = this.forecastError; this.forecastNext = 30 + r() * 40;
     }
+    setRegime(name) {
+      const R = WEATHER_REGIMES[name]; this.regime = name; this.storm = !!R.storm;
+      this.targetCloud = this.span(R.cloud); this.targetRain = R.rain[1] > 0 ? this.span(R.rain) : 0;
+    }
+    regimeDwell() { return this.pattern === 'dry' ? 120 + this.rng() * 220 : 80 + this.rng() * 160; }
+    // The air mass changes: a front arrives or the rain moves away.
+    flipPattern() {
+      const r = this.rng;
+      this.pattern = this.pattern === 'dry' ? 'wet' : 'dry';
+      if (this.pattern === 'wet') {
+        this.setRegime(this.pick(FRONT_ARRIVAL));
+        // Convective storm cells build within a minute; ordinary fronts take longer.
+        // A fast cell still towers up visibly for half a minute or so first.
+        const fast = this.storm || (this.regime === 'heavy' && r() < 0.5);
+        this.cloudTau = fast ? 14 + r() * 12 : 55 + r() * 85;
+        this.rainRate = fast ? 0.01 + r() * 0.006 : 0.004 + r() * 0.005;
+        this.rainHold = fast ? this.time + 25 + r() * 30 : this.time;
+      } else {
+        this.setRegime(this.pick(FRONT_CLEARANCE));
+        this.cloudTau = 90 + r() * 90; this.rainRate = 0.0025 + r() * 0.004;
+      }
+      this.patternEnds = this.time + this.patternLength();
+      this.regimeEnds = this.time + this.regimeDwell() + 60;
+      this.forecastNext = Math.min(this.forecastNext, this.time + 5);
+    }
+    // Rain intensity strengthens or eases; cloud cover thickens or breaks.
+    shiftRegime() {
+      const r = this.rng, prev = this.regime;
+      this.setRegime(this.pick(REGIME_NEXT[prev]));
+      if (this.pattern === 'wet') {
+        this.cloudTau = this.storm ? 18 + r() * 14 : 40 + r() * 50;
+        this.rainRate = this.storm ? 0.012 + r() * 0.01 : 0.003 + r() * 0.006;
+      } else this.cloudTau = 80 + r() * 100;
+      this.regimeEnds = this.time + this.regimeDwell();
+    }
+    ambientGoal() { return this.baseAmbient - 5 * this.cloud - 3 * this.rain; }
+    trackTempGoal() { return this.ambient + 14 * (1 - this.cloud) - 3 * this.rain - 2 * this.water; }
+    windGoal() { return 2 + this.cloud * 3 + this.rain * (this.storm ? 8 : 3); }
+    evaporation() { return (0.0011 + 0.0025 * (1 - this.cloud)) * Math.max(0.35, this.trackTemp / 30) * (1 + this.wind / 20); }
     update(dt) {
-      this.time+=dt;this.frontAge+=dt;
-      if(this.time>=this.nextFront) this.advanceFront();
-      // Clouds arrive before precipitation. Storm fronts sharpen the transition
-      // over seconds, never teleport the asphalt between dry and soaked.
-      const cloudTau=this.storm && this.phase==='rain'?20:55;
-      this.cloud+=(this.targetCloud-this.cloud)*Math.min(1,dt/cloudTau);
-      const rainTarget=this.cloud>0.68?this.targetRain:0;
-      this.rain+=(rainTarget-this.rain)*Math.min(1,dt/(this.storm?12:32));
-      if(this.rain<0.001 && rainTarget===0)this.rain=0;
-      this.wind+=(2+this.cloud*3+this.rain*(this.storm?8:3)-this.wind)*dt/25;
-      this.ambient+=(24-5*this.cloud-3*this.rain-this.ambient)*dt/100;
-      this.trackTemp+=(this.ambient+13*(1-this.cloud)-5*this.rain-this.trackTemp)*dt/65;
-      const evaporation=(0.0011+0.0025*(1-this.cloud))*Math.max(0.35,this.trackTemp/30)*(1+this.wind/20);
-      const fill=this.rain*0.015;
-      this.water=clamp(this.water+(fill*(1-this.water)-this.water*(0.0013+evaporation))*dt,0,1);
-      this.lineWater=clamp(this.lineWater+(fill*(1-this.lineWater)-this.lineWater*(0.0024+evaporation))*dt,0,this.water);
-      this.lightning=Math.max(0,this.lightning-dt*4);
-      if(this.storm && this.rain>0.65 && this.rng()<dt/28)this.lightning=1;
+      if (dt <= 0) return;
+      this.time += dt;
+      if (this.time >= this.patternEnds) this.flipPattern();
+      else if (this.time >= this.regimeEnds) this.shiftRegime();
+      const t = this.time, b = this.bands, prevCloud = this.cloud, prevRain = this.rain;
+      // Cloud develops before precipitation and stays thick while it rains.
+      const drift = 0.04 * Math.sin(t / 47 + b[1]);
+      const cloudGoal = Math.max(clamp(this.targetCloud + drift, 0, 1), this.rain > 0.02 ? 0.76 + 0.24 * Math.min(1, this.rain * 2) : 0);
+      this.cloud += (cloudGoal - this.cloud) * Math.min(1, dt / this.cloudTau);
+      // Showers come in bands: slow, smooth intensity variation around the regime.
+      const band = 1 + 0.12 * Math.sin(t * 6.283 / b[2] + b[0]) + 0.06 * Math.sin(t * 6.283 / b[3] + b[1]);
+      const rainGoal = this.cloud > 0.72 && t >= this.rainHold ? clamp(this.targetRain * band, 0, 1) : 0;
+      const rate = clamp((rainGoal - this.rain) / (this.storm ? 8 : 20), -this.rainRate, this.rainRate);
+      this.rain = clamp(this.rain + rate * dt, 0, 1);
+      if (this.rain < 0.002 && rainGoal === 0) this.rain = 0;
+      this.wind += (this.windGoal() - this.wind) * Math.min(1, dt / 25);
+      this.ambient += (this.ambientGoal() - this.ambient) * Math.min(1, dt / 100);
+      this.trackTemp += (this.trackTempGoal() - this.trackTemp) * Math.min(1, dt / 65);
+      // Standing water: rainfall fills it, drainage and evaporation (sun, heat
+      // and wind) remove it, and the last thin film evaporates at a steady rate;
+      // the racing line also dries faster as cars clear it.
+      const evaporation = this.evaporation(), fill = this.rain * 0.015, film = 0.2 * evaporation;
+      this.water = clamp(this.water + (fill * (1 - this.water) - this.water * (0.0013 + evaporation) - film) * dt, 0, 1);
+      this.lineWater = clamp(this.lineWater + (fill * (1 - this.lineWater) - this.lineWater * (0.0024 + evaporation) - film) * dt, 0, this.water);
+      if (this.rain === 0 && this.water < 0.004) this.water = this.lineWater = 0;
+      // Observed trends (what a forecaster can measure), per second.
+      const k = Math.min(1, dt / 45);
+      this.cloudTrend += ((this.cloud - prevCloud) / dt - this.cloudTrend) * k;
+      this.rainTrend += ((this.rain - prevRain) / dt - this.rainTrend) * k;
+      if (t >= this.forecastNext) { this.forecastTarget = (this.rng() - 0.5) * 0.16; this.forecastNext = t + 35 + this.rng() * 45; }
+      this.forecastError += (this.forecastTarget - this.forecastError) * Math.min(1, dt / 30);
+      this.lightning = Math.max(0, this.lightning - dt * 4);
+      if (this.storm && this.rain > 0.6 && this.rng() < dt / 28) this.lightning = 1;
     }
     displace(car,dt) {
       if(!car.pit && car.speed>8 && Math.abs(car.d-car.race.track.rlOff[car.idx])<2.5)
@@ -2629,19 +2832,40 @@ const SIM = (function () {
       const off=Math.abs(car.d-track.rlOff[car.idx]);
       return lerp(this.lineWater,this.water,clamp(off/4,0,1));
     }
+    get raining() { return this.rain > 0.025; }
     get label() {
-      return this.rain>0.72?'Thunderstorm':this.rain>0.35?'Moderate rain':this.rain>0.025?'Light rain':
-        this.water>0.12 && this.phase==='clearing'?'Drying':this.cloud>0.55?'Cloudy':'Sunshine';
+      if (this.raining) return this.storm && this.rain > 0.6 ? 'Thunderstorm' : this.rain > 0.5 ? 'Heavy rain' : this.rain > 0.24 ? 'Moderate rain' : 'Light rain';
+      return this.water > 0.12 ? 'Drying' : this.cloud > 0.55 ? 'Cloudy' : this.cloud > 0.32 ? 'Partly cloudy' : 'Sunshine';
     }
     forecast() {
-      // Only noisy atmospheric observations, not nextFront or targetRain, enter
-      // the public forecast. Windows are broad and can miss a developing front.
-      const cloudTrend=(this.targetCloud-this.cloud)/55;
-      const probability=clamp(0.08+this.cloud*0.65+Math.max(0,cloudTrend)*14+this.rain*0.3+this.forecastError,0.05,0.95);
-      return { probability, window:this.rain>0.025?'Rain may vary over the next 1–3 min':this.cloud>0.65?'Possible rain in ~1–3 min':'Possible rain in ~2–5 min',
-        intensity:this.rain>0.5?'Intensity may ease or strengthen':this.cloud>0.75?'Light to heavy rain possible':'Intensity uncertain' };
+      // Only noisy observations (cloud cover, rainfall and their measured trends)
+      // enter the public forecast, never the hidden air-mass timers or targets.
+      // Windows are broad and can miss a developing front.
+      const ct = this.cloudTrend * 60, rt = this.rainTrend * 60; // per minute
+      let probability;
+      if (this.raining) probability = 0.7 + 0.4 * Math.min(this.rain, 0.5) - Math.min(0.35, 0.7 * Math.max(0, -rt - 0.03)) - 0.5 * Math.max(0, -ct);
+      else probability = 0.04 + 0.62 * clamp((this.cloud - 0.3) / 0.62, 0, 1) + 0.9 * clamp(ct, 0, 0.5) - 0.4 * clamp(-ct, 0, 0.5);
+      probability = clamp(probability + this.forecastError, 0.03, 0.97);
+      let window;
+      if (this.raining) window = rt < -0.06 ? 'Rain may ease within ~2–5 min' : 'Rain may vary over the next 1–3 min';
+      else if (ct > 0.12 && this.cloud > 0.55) window = 'Possible rain in ~1–3 min';
+      else if (this.cloud > 0.6 || ct > 0.05) window = 'Possible rain in ~2–5 min';
+      else window = 'Rain unlikely for ~5–10 min';
+      const intensity = ct > 0.3 ? 'Cloud building fast; heavy rain or a storm possible' :
+        this.rain > 0.5 ? 'Intensity may ease or strengthen' : this.raining ? 'Intensity may vary' :
+        this.cloud > 0.72 ? 'Light to heavy rain possible' : 'Intensity uncertain';
+      return { probability, window, intensity };
     }
-    snapshot() { return {cloud:this.cloud,rain:this.rain,water:this.water,lineWater:this.lineWater,ambient:this.ambient,trackTemp:this.trackTemp,wind:this.wind}; }
+    snapshot() {
+      const s = {}; for (const k of WEATHER_STATE) s[k] = this[k];
+      s.bands = this.bands.slice(); return s;
+    }
+    // Continue the same weather (e.g. from qualifying into the race) with its
+    // timers and shower bands, but fresh randomness for whatever happens next.
+    restore(s) {
+      for (const k of WEATHER_STATE) this[k] = s[k];
+      this.bands = s.bands.slice();
+    }
   }
 
   class Session {
@@ -2649,7 +2873,10 @@ const SIM = (function () {
       this.track = track; this.cfg = cfg; this.type = cfg.type; // 'race' | 'quali' | 'calib'
       rnd = makeRng(cfg.seed || (Date.now() & 0xffffff));
       this.difficulty = clamp(cfg.difficulty != null ? cfg.difficulty : 0.8, 0, 1);
-      this.totalLaps=8; this.weather=cfg.weather==='dynamic'?new DynamicWeather(cfg.seed||1,cfg.weatherState):null;
+      this.totalLaps=8;
+      // Dynamic weather either continues a previous session's state (qualifying ->
+      // race) or rolls fresh conditions for this event from its own seed.
+      this.weather=cfg.weather==='dynamic'?new DynamicWeather(cfg.weatherSeed ?? cfg.seed ?? ((Math.random()*1e9)|0),cfg.weatherState,cfg.weatherGap||0):null;
       this.wet=this.weather?this.weather.water:wetnessFor(cfg.weather); this.trackTemp=this.weather?this.weather.trackTemp:cfg.trackTemp ?? lerp(36,22,this.wet); this.fuelPerLap=track.length/6000*2.8;
       this.mistakeMul = cfg.mistakes != null ? cfg.mistakes : 1;
       this.tyreWearOn = cfg.tyreWear !== 'off';
@@ -3551,7 +3778,7 @@ const SIM = (function () {
     return (neg ? '-' : plus ? '+' : '') + str;
   }
 
-  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, wearPerLap, needsCompound, fmtTime, clamp, lerp, makeRng, stepCarPhysics, PlayerHandling, KeyboardDriveInput, HANDLING, USEFUL_WEAR, TYRE_STYLES, drivingStyle, tyreWearGrip, tyreWeatherGrip, tyreMismatch, updateTyres, wetnessFor, weatherCompound, DynamicWeather, CarDamage, DAMAGE_LEVELS, PART_KEYS, PART_NAMES, WHEEL_NAMES, REPAIR_TIME, normalizeDamageLevel, partExposure, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
+  return { G, RHO, PHYS_DT, DS, TEAMS, DRIVERS, TRACK_DEF, CIRCUITS, circuitById, circuitCentreLine, elevationAt, COMPOUNDS, SPEC, Track, Car, Session, AIDriver, planStrategy, wearPerLap, needsCompound, fmtTime, clamp, lerp, makeRng, stepCarPhysics, PlayerHandling, KeyboardDriveInput, HANDLING, USEFUL_WEAR, TYRE_STYLES, drivingStyle, tyreWearGrip, tyreWeatherGrip, tyreMismatch, updateTyres, wetnessFor, weatherCompound, DynamicWeather, CarDamage, DAMAGE_LEVELS, PART_KEYS, PART_NAMES, WHEEL_NAMES, REPAIR_TIME, normalizeDamageLevel, partExposure, torqueAt, defaultCompoundModel, setSeed: (s) => { rnd = makeRng(s); } };
 })();
 // ==SIM-END==
 if (typeof module !== 'undefined') module.exports = SIM;
@@ -3575,6 +3802,32 @@ if (!THREE) {
    RENDERING — procedural world, cars and effects (Three.js)
    ===================================================================== */
 const R = {}; // render namespace
+// Circuit elevation. The scene is modelled on a flat plane (the simulation is
+// 2D); every vertex is lifted in the shader by the same analytic elevation field
+// the simulation uses for gradients. The lift is relative to the camera's own
+// ground height, so the camera rig and anything carried with the camera need no
+// changes. ELEV[0] = (camera x, camera z, ground height under the camera);
+// ELEV[1..8] = rises and dips (x, z, radius, height), radius 0 when unused.
+const ELEV = Array.from({ length: 9 }, () => new THREE.Vector4());
+const ELEV_GLSL = `uniform vec4 apexElev[9];
+float apexWarp(vec2 p){ float h = 0.0; for (int k = 1; k < 9; k++) { vec4 b = apexElev[k]; if (b.z > 0.0) { vec2 d = (p - b.xy) / b.z; float q = dot(d, d); if (q < 9.0) h += b.w * exp(-q); } } return h - apexElev[0].z; }
+`;
+THREE.ShaderChunk.common += '\n' + ELEV_GLSL;
+THREE.ShaderChunk.project_vertex = THREE.ShaderChunk.project_vertex.replace('mvPosition = modelViewMatrix * mvPosition;',
+  '{ vec4 apexW = modelMatrix * mvPosition; apexW.y += apexWarp(apexW.xz); mvPosition = viewMatrix * apexW; }');
+THREE.ShaderChunk.worldpos_vertex = THREE.ShaderChunk.worldpos_vertex.replace('worldPosition = modelMatrix * worldPosition;',
+  'worldPosition = modelMatrix * worldPosition; worldPosition.y += apexWarp(worldPosition.xz);');
+// built-in materials clone these uniforms per material; the array is copied
+// shallowly, so every material shares the same Vector4s
+for (const k in THREE.ShaderLib) THREE.ShaderLib[k].uniforms.apexElev = { value: ELEV };
+const ELEV_UNIFORM = { value: ELEV };
+function setElevationField(track) {
+  const f = track.elevField || [];
+  for (let k = 1; k < 9; k++) { const b = f[k - 1]; if (b) ELEV[k].set(b[0], b[1], b[2], b[3]); else ELEV[k].set(0, 0, 0, 0); }
+}
+// height of the warped scene at (x, z) as seen from a camera at (cx, cz)
+function elevWarp(x, z, cx, cz) { const t = G.track; return t ? t.elevAt(x, z) - t.elevAt(cx, cz) : 0; }
+function setElevationCamera(x, z) { ELEV[0].set(x, z, G.track ? G.track.elevAt(x, z) : 0, 0); }
 
 // ---------- small helpers ----------
 function canvasTex(w, h, draw, opts = {}) {
@@ -3637,7 +3890,8 @@ function ribbon(track, i0, i1, step, fnD, opts = {}) {
     const v = (k * SIM.DS) / (opts.vScale || 10);
     uv.push(opts.uFlip ? 1 : 0, v, opts.uFlip ? 0 : 1, v);
     if (opts.color) { const c = opts.color(i, k); col.push(c[0], c[1], c[2], c[3] != null ? c[3] : c[0], c[4] != null ? c[4] : c[1], c[5] != null ? c[5] : c[2]); }
-    if (prevOk) { const a = vcount - 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    // keep the faces upward whichever side of the centre line the strip lies on
+    if (prevOk) { const a = vcount - 2; if (d1 >= d0) idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); else idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
     vcount += 2; prevOk = true;
   }
   const g = new THREE.BufferGeometry();
@@ -3937,18 +4191,42 @@ function buildSky(scene, wet) {
   scene.add(sky); return sky;
 }
 
-// Lake ellipse (shared by terrain, water, trees and scenery placement)
-const LAKE = { x: 1350, z: -900, a: 1560, b: 760, rot: 0.35 };
-function lakeE(x, z) { const c = Math.cos(LAKE.rot), s = Math.sin(LAKE.rot); const dx = x - LAKE.x, dz = z - LAKE.z; const u = dx * c + dz * s, v = -dx * s + dz * c; return (u / LAKE.a) ** 2 + (v / LAKE.b) ** 2; }
-const CASTLE = { x: 900, z: -520 };
+// Per-circuit scenery: lake, river, castle and village come from the circuit's
+// env; R.center is the middle of the circuit (terrain, mountains, sky dressing).
+let LAKE = null, CASTLE = null, RIVER = null;
+function lakeE(x, z) { if (!LAKE) return 99; const c = Math.cos(LAKE.rot), s = Math.sin(LAKE.rot); const dx = x - LAKE.x, dz = z - LAKE.z; const u = dx * c + dz * s, v = -dx * s + dz * c; return (u / LAKE.a) ** 2 + (v / LAKE.b) ** 2; }
+// distance to the river's centre line (polyline), Infinity without a river
+function riverDist(x, z) {
+  if (!RIVER) return Infinity; let best = Infinity;
+  for (let k = 0; k + 1 < RIVER.length; k++) {
+    const [ax, az] = RIVER[k], [bx, bz] = RIVER[k + 1], vx = bx - ax, vz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz)));
+    best = Math.min(best, Math.hypot(x - ax - vx * t, z - az - vz * t));
+  }
+  return best;
+}
+function setScenery(track) {
+  const env = track.def.env || {};
+  LAKE = env.lake || null; CASTLE = env.castle || null; RIVER = env.river || null;
+  let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+  for (let i = 0; i < track.N; i++) { minX = Math.min(minX, track.cx[i]); maxX = Math.max(maxX, track.cx[i]); minZ = Math.min(minZ, track.cz[i]); maxZ = Math.max(maxZ, track.cz[i]); }
+  R.center = { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2 }; R.env = env;
+  // a warmer, dustier horizon haze in the canyon
+  const sky = env.style === 'canyon' ? { top: 0x2160b3, mid: 0x86b4dc, hor: 0xecd9c0, fog: 0xd9d0c4 } : { top: 0x1d58ad, mid: 0x7aaee0, hor: 0xe4dccd, fog: 0xcdd3d4 };
+  Object.assign(SKY.dry, sky);
+}
+R.center = { x: 0, z: 0 }; R.env = {};
 
-// Height field around the circuit: flat near the track, rolling hills further out, a dip for the lake and a castle hill.
+// Height field around the circuit: flat near the track, then each circuit's
+// own hills (alpine ridges, gentle river-valley slopes or flat-topped canyon
+// mesas), a dip for a lake or river, a castle hill, and mountains further out.
 function buildTerrain(world, track, T, opts) {
-  const Q = opts.quality, wet = opts.wet;
-  const n = makeNoise(9);
-  const cx = -50, cz = 400, half = 2900, R = Q === 2 ? 220 : Q === 1 ? 160 : 110;
-  const step = (2 * half) / R, W = R + 1;
+  const Q = opts.quality, wet = opts.wet, env = R.env, style = env.style || 'alpine';
+  const n = makeNoise(style === 'canyon' ? 17 : style === 'river' ? 23 : 9);
+  const cx = R.center.x, cz = R.center.z, half = 2900, Rn = Q === 2 ? 220 : Q === 1 ? 160 : 110;
+  const step = (2 * half) / Rn, W = Rn + 1;
   const x0 = cx - half, z0 = cz - half;
+  const hill = env.hill ?? 1, mountain = env.mountain ?? 1;
   // distance to the centre line for every grid vertex (coarse brute force over decimated samples)
   const sx = [], sz = []; for (let i = 0; i < track.N; i += 6) { sx.push(track.cx[i]); sz.push(track.cz[i]); }
   const H = new Float32Array(W * W), dT = new Float32Array(W * W);
@@ -3960,39 +4238,55 @@ function buildTerrain(world, track, T, opts) {
   const hAt = (x, z, dist) => {
     const flat = smooth01(150, 460, dist);
     const r = Math.hypot(x - cx, z - cz);
-    let h = (n.fbm(x / 1100, z / 1100, 5) * 0.5 + 0.42) * 120 + n.ridge(x / 700 + 3, z / 700, 3) * 40;
+    let h;
+    if (style === 'canyon') {
+      // terraced sandstone: flat-topped mesas with steep sides over dry plains
+      const m = n.fbm(x / 950 + 4, z / 950, 4) * 0.5 + 0.5, step1 = smooth01(0.52, 0.56, m), step2 = smooth01(0.66, 0.69, m);
+      h = (step1 * 55 + step2 * 45) * hill + n.fbm(x / 300, z / 300, 3) * 8;
+    } else {
+      h = (n.fbm(x / 1100, z / 1100, 5) * 0.5 + 0.42) * 120 * hill + n.ridge(x / 700 + 3, z / 700, 3) * 40 * hill;
+    }
     h = Math.max(0, h) * flat;
-    h += smooth01(1500, 3300, r) * (190 + n.fbm(x / 600, z / 600, 3) * 120);
-    const dc = Math.hypot((x - CASTLE.x) / 210, (z - CASTLE.z) / 165); h = Math.max(h, 74 * smooth01(1.0, 0.28, dc) + (dc < 0.28 ? 0 : 0));
+    h += smooth01(1500, 3300, r) * (190 + n.fbm(x / 600, z / 600, 3) * 120) * mountain;
+    if (CASTLE) { const dc = Math.hypot((x - CASTLE.x) / 210, (z - CASTLE.z) / 165); h = Math.max(h, 74 * smooth01(1.0, 0.28, dc)); }
     const e = lakeE(x, z); if (e < 1.4) h = -7 + (h + 7) * smooth01(0.9, 1.35, e);
+    if (RIVER) { const dr = riverDist(x, z); if (dr < 160) h = -5 + (h + 5) * smooth01(26, 160, dr); }
     return dist < 150 ? -0.06 : h - 0.06;
   };
   for (let j = 0; j < W; j++) for (let k = 0; k < W; k++) H[j * W + k] = hAt(x0 + k * step, z0 + j * step, dT[j * W + k]);
   const heightAt = (x, z) => {
-    const fx = (x - x0) / step, fz = (z - z0) / step; if (fx < 0 || fz < 0 || fx >= R || fz >= R) return 0;
+    const fx = (x - x0) / step, fz = (z - z0) / step; if (fx < 0 || fz < 0 || fx >= Rn || fz >= Rn) return 0;
     const k = Math.floor(fx), j = Math.floor(fz), u = fx - k, v = fz - j;
     // match the mesh's triangle split (a, c, b / b, c, d)
     const a = H[j * W + k], b = H[j * W + k + 1], c = H[(j + 1) * W + k], d = H[(j + 1) * W + k + 1];
     return u + v < 1 ? a + (b - a) * u + (c - a) * v : d + (c - d) * (1 - u) + (b - d) * (1 - v);
   };
-  const distAt = (x, z) => { const k = Math.min(R, Math.max(0, Math.round((x - x0) / step))), j = Math.min(R, Math.max(0, Math.round((z - z0) / step))); return dT[j * W + k]; };
+  const distAt = (x, z) => { const k = Math.min(Rn, Math.max(0, Math.round((x - x0) / step))), j = Math.min(Rn, Math.max(0, Math.round((z - z0) / step))); return dT[j * W + k]; };
   // geometry
   const pos = new Float32Array(W * W * 3), col = new Float32Array(W * W * 3), uv = new Float32Array(W * W * 2), idx = [];
   for (let j = 0; j < W; j++) for (let k = 0; k < W; k++) {
     const i = j * W + k, x = x0 + k * step, z = z0 + j * step;
     pos[i * 3] = x; pos[i * 3 + 1] = H[i]; pos[i * 3 + 2] = z; uv[i * 2] = x / 7; uv[i * 2 + 1] = z / 7;
   }
-  for (let j = 0; j < R; j++) for (let k = 0; k < R; k++) { const a = j * W + k, b = a + 1, c = a + W, d = c + 1; idx.push(a, c, b, b, c, d); }
+  for (let j = 0; j < Rn; j++) for (let k = 0; k < Rn; k++) { const a = j * W + k, b = a + 1, c = a + W, d = c + 1; idx.push(a, c, b, b, c, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const nr = g.attributes.normal.array;
+  const nr = g.attributes.normal.array, tint = env.grass || [1, 1, 1];
   for (let i = 0; i < W * W; i++) {
     const x = pos[i * 3], h = pos[i * 3 + 1], z = pos[i * 3 + 2], slope = 1 - nr[i * 3 + 1];
     const v = n.fbm(x / 180, z / 180, 3), v2 = n(x / 45, z / 45);
-    // lush infield -> drier meadows -> darker forest floor up the hills; rock on steep slopes; mud at the lake shore
-    let r = 0.78 + v * 0.18 + v2 * 0.05, gg = 0.92 + v * 0.14 + v2 * 0.05, b = 0.62 + v * 0.1;
-    const hill = smooth01(10, 160, h); r *= 1 - hill * 0.28; gg *= 1 - hill * 0.18; b *= 1 - hill * 0.2;
-    const rock = smooth01(0.16, 0.32, slope); r = r + (1.05 - r) * rock; gg = gg + (0.98 - gg) * rock; b = b + (0.92 - b) * rock;
-    if (h < 1.2 && lakeE(x, z) < 1.5) { const sh = smooth01(1.2, -1.5, h); r += (1.25 - r) * sh; gg += (1.05 - gg) * sh; b += (0.72 - b) * sh; }
+    let r = (0.78 + v * 0.18 + v2 * 0.05) * tint[0], gg = (0.92 + v * 0.14 + v2 * 0.05) * tint[1], b = (0.62 + v * 0.1) * tint[2];
+    if (style === 'canyon') {
+      // dry grass on the plains, banded red sandstone on the mesas and slopes
+      const rockH = smooth01(6, 30, h), band = 0.88 + 0.12 * Math.sin(h * 0.45 + v * 3);
+      const rk = Math.max(rockH, smooth01(0.1, 0.25, slope));
+      r += (1.32 * band - r) * rk; gg += (0.62 * band - gg) * rk; b += (0.42 * band - b) * rk;
+    } else {
+      // lush infield -> drier meadows -> darker forest floor up the hills; rock on steep slopes
+      const hillT = smooth01(10, 160, h); r *= 1 - hillT * 0.28; gg *= 1 - hillT * 0.18; b *= 1 - hillT * 0.2;
+      const rock = smooth01(0.16, 0.32, slope); r = r + (1.05 - r) * rock; gg = gg + (0.98 - gg) * rock; b = b + (0.92 - b) * rock;
+    }
+    // mud and shingle at the water's edge
+    if (h < 1.2 && (lakeE(x, z) < 1.5 || riverDist(x, z) < 200)) { const sh = smooth01(1.2, -1.5, h); r += (1.25 - r) * sh; gg += (1.05 - gg) * sh; b += (0.72 - b) * sh; }
     if (wet) { r *= 0.82; gg *= 0.86; b *= 0.9; }
     col[i * 3] = r; col[i * 3 + 1] = gg; col[i * 3 + 2] = b;
   }
@@ -4023,17 +4317,18 @@ function makeWaterMaterial(wet) {
 }
 
 function buildMountains(world, opts) {
-  const Q = opts.quality, wet = opts.wet; const n = makeNoise(5);
-  const cx = -50, cz = 400, segA = Q === 2 ? 420 : Q === 1 ? 300 : 180, segR = Q === 2 ? 44 : Q === 1 ? 32 : 22;
+  const Q = opts.quality, wet = opts.wet, env = R.env, canyon = env.style === 'canyon'; const n = makeNoise(canyon ? 6 : 5);
+  const cx = R.center.x, cz = R.center.z, segA = Q === 2 ? 420 : Q === 1 ? 300 : 180, segR = Q === 2 ? 44 : Q === 1 ? 32 : 22;
   const pos = [], idx = [];
-  const lakeDir = Math.atan2(-1300, 1400);
+  const lakeDir = LAKE ? Math.atan2(LAKE.z - cz, LAKE.x - cx) : Math.atan2(-1300, 1400);
+  const height = env.mountain ?? 1, snowBase = env.snowLine ?? 1150;
   const hfun = (x, z, a, r) => {
     const t = (r - 2500) / 5600; if (t <= 0) return -10;
-    const env = smooth01(0, 0.32, t) * (1 - smooth01(0.82, 1.0, t) * 0.55);
-    const big = 1 + 0.55 * Math.max(0, Math.cos(a - lakeDir)) ** 2; // the high alps rise beyond the lake
+    const envl = smooth01(0, 0.32, t) * (1 - smooth01(0.82, 1.0, t) * 0.55);
+    const big = 1 + 0.55 * Math.max(0, Math.cos(a - lakeDir)) ** 2; // the high peaks rise on one side
     const ridge = n.ridge(x / 1700, z / 1700, 7) * 0.8 + n.ridge(x / 4200 + 5, z / 4200, 3) * 0.35;
     const broad = n.fbm(x / 5200 + 7, z / 5200, 3) * 0.5 + 0.6;
-    return env * (ridge * 1350 * broad + 160) * big - 10;
+    return envl * (ridge * 1350 * broad + 160) * big * height - 10;
   };
   for (let j = 0; j <= segR; j++) {
     const r = 2350 + (j / segR) ** 1.35 * 6400;
@@ -4044,16 +4339,18 @@ function buildMountains(world, opts) {
   }
   for (let j = 0; j < segR; j++) for (let k = 0; k < segA; k++) { const a = j * (segA + 1) + k, b = a + segA + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  // colour by altitude and slope: forest, alpine meadow, rock, snow
+  // colour by altitude and slope: forest, alpine meadow, rock, snow (red sandstone and pine in the canyon)
   const nr = g.attributes.normal.array, col = new Float32Array(pos.length);
+  const forestC = canyon ? [0.2, 0.24, 0.14] : [0.13, 0.22, 0.12], meadowC = canyon ? [0.55, 0.42, 0.28] : [0.33, 0.38, 0.22], rockC = canyon ? [0.62, 0.33, 0.22] : [0.42, 0.4, 0.38];
   for (let i = 0; i < pos.length / 3; i++) {
     const x = pos[i * 3], h = pos[i * 3 + 1], z = pos[i * 3 + 2], up = nr[i * 3 + 1];
     const v = n(x / 300, z / 300) * 0.5 + n(x / 90, z / 90) * 0.25;
-    const snowLine = 1150 + v * 260 - (wet ? 120 : 0);
-    let c = [0.13, 0.22, 0.12];                                                     // conifer forest
-    const meadow = smooth01(520, 700, h + v * 120); c = c.map((q, m) => q + ([0.33, 0.38, 0.22][m] - q) * meadow);
-    const rockAmt = Math.max(smooth01(720, 940, h + v * 150), smooth01(0.8, 0.6, up) * smooth01(300, 520, h));
-    c = c.map((q, m) => q + ([0.42, 0.4, 0.38][m] * (0.85 + v * 0.3) - q) * rockAmt);
+    const snowLine = snowBase + v * 260 - (wet ? 120 : 0);
+    let c = forestC.slice();
+    const meadow = smooth01(520, 700, h + v * 120); c = c.map((q, m) => q + (meadowC[m] - q) * meadow);
+    const rockAmt = Math.max(smooth01(canyon ? 380 : 720, canyon ? 560 : 940, h + v * 150), smooth01(0.8, 0.6, up) * smooth01(300, 520, h));
+    const band = canyon ? 0.85 + 0.15 * Math.sin(h * 0.03 + v * 2) : 1;
+    c = c.map((q, m) => q + (rockC[m] * band * (0.85 + v * 0.3) - q) * rockAmt);
     const snow = smooth01(snowLine - 60, snowLine + 60, h) * smooth01(0.45, 0.7, up) + smooth01(snowLine + 250, snowLine + 420, h) * 0.6;
     c = c.map((q, m) => q + ([0.93, 0.95, 0.98][m] - q) * Math.min(1, snow));
     if (wet) c = c.map(q => q * 0.8);
@@ -4066,7 +4363,7 @@ function buildMountains(world, opts) {
 
 function buildWorld(scene, track, T, opts) {
   const world = new THREE.Group(); scene.add(world);
-  const wet = opts.wet; const Q = opts.quality; const P = wet ? SKY.wet : SKY.dry;
+  const wet = opts.wet; const Q = opts.quality; const P = wet ? SKY.wet : SKY.dry, env = R.env;
   const sunDir = new THREE.Vector3(...SUN_DIR).normalize();
   // lights: warm low sun + sky/ground bounce (image based lighting adds the rest)
   const hemi = new THREE.HemisphereLight(wet ? 0xb0bcc8 : 0xe6eef6, wet ? 0x343a2c : 0x6a6450, wet ? 0.78 : 0.82); scene.add(hemi);
@@ -4082,16 +4379,16 @@ function buildWorld(scene, track, T, opts) {
 
   // ---------- terrain ----------
   const terrain = buildTerrain(world, track, T, opts); R.heightAt = terrain.heightAt; R.distAt = terrain.distAt;
-  const inLake = (x, z) => lakeE(x, z) < 1.12;
+  const inLake = (x, z) => lakeE(x, z) < 1.12 || riverDist(x, z) < 60;
+  const wm = makeWaterMaterial(wet); R.waterMat = wm;
 
   // ---------- lake ----------
-  {
+  if (LAKE) {
     const c = Math.cos(LAKE.rot), s = Math.sin(LAKE.rot); const g = new THREE.RingGeometry(0.0001, 1, 96, 10);
     const p = g.attributes.position;
     for (let k = 0; k < p.count; k++) { const u = p.getX(k) * LAKE.a * 1.32, v = -p.getY(k) * LAKE.b * 1.32; /* v mirrored so the faces point up */ p.setXYZ(k, LAKE.x + u * c - v * s, -0.7, LAKE.z + u * s + v * c); }
     g.computeVertexNormals(); for (let k = 0; k < p.count; k++) g.attributes.normal.setXYZ(k, 0, 1, 0);
-    const wm = makeWaterMaterial(wet);
-    const lake = new THREE.Mesh(g, wm); world.add(lake); R.waterMat = wm;
+    const lake = new THREE.Mesh(g, wm); world.add(lake);
     // sailing boats and launches dotted over the lake
     const hull = xf(new THREE.CylinderGeometry(0.9, 0.5, 7, 6, 1), { p: [0, 0.2, 0], r: [0, 0, Math.PI / 2], s: [1, 1, 0.45] });
     const mast = xf(new THREE.CylinderGeometry(0.08, 0.08, 9, 4), { p: [0.6, 4.8, 0] });
@@ -4099,20 +4396,34 @@ function buildWorld(scene, track, T, opts) {
     sail.computeVertexNormals();
     const paintB = (geo, c) => { const n = geo.attributes.position.count, a = new Float32Array(n * 3); for (let k = 0; k < n; k++) a.set(c, k * 3); geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); return geo; };
     const boatGeo = mergeGeoms([paintB(hull, [0.95, 0.95, 0.97]), paintB(mast, [0.5, 0.45, 0.4]), paintB(sail, [1, 1, 0.98])]);
-    const nB = Q === 0 ? 8 : 18, boats = new THREE.InstancedMesh(boatGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .6, side: THREE.DoubleSide }), nB);
-    const rB = seededRand(71), mB = new THREE.Matrix4();
+    const nB = Math.round((Q === 0 ? 8 : 18) * Math.min(1, LAKE.a * LAKE.b / 600000)), boats = new THREE.InstancedMesh(boatGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .6, side: THREE.DoubleSide }), Math.max(1, nB));
+    const rB = seededRand(71), mB = new THREE.Matrix4(); boats.count = nB;
     for (let k = 0; k < nB; k++) {
       let x = 0, z = 0; for (let t = 0; t < 40; t++) { x = LAKE.x + (rB() - .5) * LAKE.a * 1.6; z = LAKE.z + (rB() - .5) * LAKE.b * 1.6; if (lakeE(x, z) < 0.75) break; }
       mB.compose(new THREE.Vector3(x, -0.7, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rB() * 6.28), new THREE.Vector3(1, 0.8 + rB() * 0.5, 1).multiplyScalar(0.8 + rB() * 0.5)); boats.setMatrixAt(k, mB);
     }
     world.add(boats);
   }
+  // ---------- river: a water ribbon along its winding bed ----------
+  if (RIVER) {
+    const pts = []; for (let k = 0; k + 1 < RIVER.length; k++) for (let t = 0; t < 1; t += 0.05) pts.push([RIVER[k][0] + (RIVER[k + 1][0] - RIVER[k][0]) * t, RIVER[k][1] + (RIVER[k + 1][1] - RIVER[k][1]) * t]);
+    pts.push(RIVER[RIVER.length - 1]);
+    const pos = [], idx = [];
+    pts.forEach(([x, z], k) => {
+      const a = pts[Math.max(0, k - 1)], b = pts[Math.min(pts.length - 1, k + 1)]; let tx = b[0] - a[0], tz = b[1] - a[1]; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
+      const w = 44 + 10 * Math.sin(k * 0.37); pos.push(x + tz * w, -0.9, z - tx * w, x - tz * w, -0.9, z + tx * w);
+      if (k) { const o = (k - 1) * 2; idx.push(o, o + 2, o + 1, o + 1, o + 2, o + 3); }
+    });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    for (let k = 0; k < g.attributes.normal.count; k++) g.attributes.normal.setXYZ(k, 0, 1, 0);
+    world.add(new THREE.Mesh(g, wm));
+  }
 
   // ---------- mountains ----------
   buildMountains(world, opts);
 
-  // ---------- castle on its hill by the lake ----------
-  {
+  // ---------- castle on its hill ----------
+  if (CASTLE) {
     const castle = new THREE.Group(); const stone = new THREE.MeshStandardMaterial({ color: 0xd2c9b6, roughness: .9 }); const roof = new THREE.MeshStandardMaterial({ color: 0x6b3a2a, roughness: .7 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: .9 });
     const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = Q === 2; castle.add(m); return m; };
@@ -4128,20 +4439,38 @@ function buildWorld(scene, track, T, opts) {
     // curtain wall around the hilltop
     for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2; const w = add(new THREE.BoxGeometry(14, 9, 2.4), stone, Math.cos(a) * 62, 2.5, Math.sin(a) * 46); w.rotation.y = -a + Math.PI / 2; }
     castle.position.set(CASTLE.x, by, CASTLE.z); world.add(castle);
-    // village around the castle hill and along the shore
-    const houses = Q === 0 ? 70 : 140; const hgeo = mergeGeoms([xf(new THREE.BoxGeometry(10, 7, 8), { p: [0, 3.5, 0] }), xf(new THREE.ConeGeometry(8, 5, 4), { p: [0, 9.5, 0], r: [0, Math.PI / 4, 0], s: [1, 1, 0.8] })]);
+  }
+  // ---------- village: chalets on the alpine slopes, cottages by the river ----------
+  if (env.village) {
+    const V = env.village, alpine = env.style === 'alpine';
+    const houses = Q === 0 ? 70 : 140; const hgeo = mergeGeoms([xf(new THREE.BoxGeometry(10, 7, 8), { p: [0, 3.5, 0] }), xf(new THREE.ConeGeometry(8, alpine ? 4 : 5, 4), { p: [0, alpine ? 9 : 9.5, 0], r: [0, Math.PI / 4, 0], s: [1, 1, 0.8] })]);
     // roofs darker than walls via vertex colours
     { const p = hgeo.attributes.position; const cc = new Float32Array(p.count * 3); for (let k = 0; k < p.count; k++) { const roofV = p.getY(k) > 7.05; cc[k * 3] = roofV ? 0.55 : 1; cc[k * 3 + 1] = roofV ? 0.3 : 1; cc[k * 3 + 2] = roofV ? 0.24 : 1; } hgeo.setAttribute('color', new THREE.BufferAttribute(cc, 3)); }
     const im = new THREE.InstancedMesh(hgeo, new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: .9 }), houses);
     const rng = seededRand(31); const mtx = new THREE.Matrix4(); const colr = new THREE.Color(); let nH = 0;
     for (let k = 0; k < houses * 6 && nH < houses; k++) {
-      const a = -1.6 + rng() * 2.4, r = 230 + rng() * 420; const x = CASTLE.x + Math.cos(a) * r * 1.3, z = CASTLE.z + Math.sin(a) * r * 0.75 - 60;
-      if (lakeE(x, z) < 1.08 || terrain.distAt(x, z) < 120) continue;
-      const y = terrain.heightAt(x, z); if (y > 60) continue;
+      const a = rng() * 6.283, r = (CASTLE ? 230 : 40) + rng() * 420; const x = V.x + Math.cos(a) * r * 1.3, z = V.z + Math.sin(a) * r * 0.75;
+      if (inLake(x, z) || terrain.distAt(x, z) < 120) continue;
+      const y = terrain.heightAt(x, z); if (y > 90) continue;
       mtx.compose(new THREE.Vector3(x, y - 0.5, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rng() * 3, 0)), new THREE.Vector3(1 + rng(), 1 + rng() * .8, 1 + rng()));
-      im.setMatrixAt(nH, mtx); im.setColorAt(nH, colr.setHSL(0.08 + rng() * 0.06, 0.3, 0.78 + rng() * .14)); nH++;
+      im.setMatrixAt(nH, mtx); im.setColorAt(nH, alpine ? colr.setHSL(0.07 + rng() * 0.04, 0.35, 0.55 + rng() * 0.2) : colr.setHSL(0.08 + rng() * 0.06, 0.3, 0.78 + rng() * .14)); nH++;
     }
     im.count = nH; world.add(im);
+  }
+  // ---------- canyon: buttes and rock spires out on the plain ----------
+  if (env.rock) {
+    const geo = new THREE.CylinderGeometry(0.78, 1, 1, 7, 3); geo.translate(0, 0.5, 0);
+    { const p = geo.attributes.position, r2 = seededRand(5); for (let k = 0; k < p.count; k++) { const f = 0.88 + r2() * 0.24; if (p.getY(k) > 0.01 && p.getY(k) < 0.99) p.setXYZ(k, p.getX(k) * f, p.getY(k), p.getZ(k) * f); } geo.computeVertexNormals(); }
+    const nR = Q === 0 ? 40 : 90, im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true }), nR);
+    const rng = seededRand(97), m4 = new THREE.Matrix4(), c = new THREE.Color(); let k2 = 0;
+    for (let t = 0; t < nR * 20 && k2 < nR; t++) {
+      const a = rng() * 6.283, r = 700 + rng() * 1700, x = R.center.x + Math.cos(a) * r, z = R.center.z + Math.sin(a) * r * 0.8;
+      if (terrain.distAt(x, z) < 260) continue;
+      const big = rng() < 0.3, w = big ? 60 + rng() * 120 : 12 + rng() * 26, h = big ? 50 + rng() * 70 : 25 + rng() * 45;
+      m4.compose(new THREE.Vector3(x, terrain.heightAt(x, z) - 2, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.28), new THREE.Vector3(w, h, w * (0.6 + rng() * 0.6)));
+      im.setMatrixAt(k2, m4); im.setColorAt(k2, c.setRGB(0.66 + rng() * 0.12, 0.33 + rng() * 0.08, 0.22 + rng() * 0.05)); k2++;
+    }
+    im.count = k2; im.castShadow = Q === 2; world.add(im);
   }
   // ---------- clouds ----------
   {
@@ -4149,7 +4478,7 @@ function buildWorld(scene, track, T, opts) {
     for (let k = 0; k < count; k++) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.clouds[k % 3], transparent: true, opacity: 0.92, depthWrite: false, fog: false }));
       const a = rng() * Math.PI * 2, r = 2600 + rng() * 4200; const s = 1100 + rng() * 1300;
-      sp.userData.cloud=true; sp.position.set(-50 + Math.cos(a) * r, 700 + rng() * 900 + r * 0.06, 400 + Math.sin(a) * r); sp.scale.set(s, s * 0.5, 1); sp.renderOrder = -5; world.add(sp);
+      sp.userData.cloud=true; sp.position.set(R.center.x + Math.cos(a) * r, 700 + rng() * 900 + r * 0.06, R.center.z + Math.sin(a) * r); sp.scale.set(s, s * 0.5, 1); sp.renderOrder = -5; world.add(sp);
     }
   }
   return { world, inLake, terrain };
@@ -4325,9 +4654,8 @@ function buildTrack(scene, track, T, opts) {
   const pitStartI = Math.floor(P.entry0 / SIM.DS), pitEndI = pitStartI + Math.ceil(P.len / SIM.DS);
   const inPitI = (i) => track.pitProg(i * SIM.DS) >= 0;
   // left/right walls (skip pit side within pit region)
-  wallStrip((i) => -track.wallL[i], 0, N, 1.05, true);
-  wallStrip((i) => (side > 0 && inPitI(i)) ? null : track.wallR[i] * 1, 0, N, 1.05, true);
-  if (side < 0) { /* not used for this layout */ }
+  wallStrip((i) => (side < 0 && inPitI(i)) ? null : -track.wallL[i], 0, N, 1.05, true);
+  wallStrip((i) => (side > 0 && inPitI(i)) ? null : track.wallR[i], 0, N, 1.05, true);
   // pit wall and outer pit barrier
   wallStrip((i) => track.inPitMain(i * SIM.DS) ? side * (P.trackWall) : null, pitStartI, pitEndI, 1.05, true);
   wallStrip((i) => inPitI(i) ? side * (P.outerWall + 0.5) : null, pitStartI - 4, pitEndI + 4, 1.2, false);
@@ -4481,7 +4809,8 @@ function buildGrandstands(G, track, T, opts, objs) {
     const back = new THREE.Mesh(new THREE.BoxGeometry(len, 0.55 * rows + 3, 0.4), standMat); back.position.set(0, (0.55 * rows + 3) / 2, sgn * (depth + 0.2)); g.add(back);
     if (roof) {
       const rf = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 0.3, depth + 3), roofMat); rf.position.set(0, 0.55 * rows + 5, sgn * (depth / 2 + 0.5)); rf.rotation.x = sgn * 0.08; rf.castShadow = true; g.add(rf);
-      for (let k = 0; k <= len; k += 18) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55 * rows + 5, 0.3), roofMat); c.position.set(-len / 2 + k, (0.55 * rows + 5) / 2, sgn * (depth + 0.3)); g.add(c); }
+      const cols = []; for (let k = 0; k <= len; k += 18) cols.push(xf(new THREE.BoxGeometry(0.3, 0.55 * rows + 5, 0.3), { p: [-len / 2 + k, (0.55 * rows + 5) / 2, sgn * (depth + 0.3)] }));
+      g.add(new THREE.Mesh(mergeGeoms(cols), roofMat));
       // sponsor fascia
       const fas = new THREE.Mesh(new THREE.PlaneGeometry(len, 1.6), new THREE.MeshStandardMaterial({ map: T.banner('PANORAMIC SYSTEMS', '#ffffff', '#2c3036', 2048, 160), roughness: .6 }));
       fas.position.set(0, 0.55 * rows + 4.2, sgn * -1.0); if (sgn > 0) fas.rotation.y = Math.PI; g.add(fas);
@@ -4570,7 +4899,8 @@ function buildGrandstands(G, track, T, opts, objs) {
 }
 
 function buildTrees(scene, track, inLake, opts) {
-  const Q = opts.quality; const count = Q === 2 ? 7000 : Q === 1 ? 4000 : 1500;
+  const Q = opts.quality, env = R.env, canyon = env.style === 'canyon';
+  const count = Math.round((Q === 2 ? 7000 : Q === 1 ? 4000 : 1500) * (env.forest ?? 1));
   const heightAt = R.heightAt || (() => 0), distAt = R.distAt;
   const paint = (g, c) => { const n = g.attributes.position.count; const a = new Float32Array(n * 3); const p = g.attributes.position; for (let k = 0; k < n; k++) { const shade = 0.82 + 0.25 * Math.min(1, Math.max(0, (p.getY(k) - 2) / 12)); a[k * 3] = c[0] * shade; a[k * 3 + 1] = c[1] * shade; a[k * 3 + 2] = c[2] * shade; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
   // spruce: four tiers of drooping cones
@@ -4580,7 +4910,7 @@ function buildTrees(scene, track, inLake, opts) {
   // broadleaf: lumpy icosahedron crown
   const bt = new THREE.CylinderGeometry(0.3, 0.42, 3.6, 6); bt.translate(0, 1.8, 0);
   const crown = new THREE.IcosahedronGeometry(3.6, 1); { const p = crown.attributes.position; const r2 = seededRand(8); for (let k = 0; k < p.count; k++) { const f = 0.85 + r2() * 0.3; p.setXYZ(k, p.getX(k) * f, p.getY(k) * f * 0.9, p.getZ(k) * f); } crown.translate(0, 6.3, 0); }
-  const broad = mergeGeoms([paint(bt, [0.34, 0.25, 0.17]), paint(crown.toNonIndexed(), [0.26, 0.42, 0.18])]);
+  const broad = mergeGeoms([paint(bt, [0.34, 0.25, 0.17]), paint(crown.toNonIndexed(), canyon ? [0.3, 0.36, 0.2] : [0.26, 0.42, 0.18])]);
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .92, flatShading: true });
   // forest density: clustered with noise so the hills get woods and clearings
   const nz = makeNoise(41); const rng = seededRand(23);
@@ -4593,12 +4923,12 @@ function buildTrees(scene, track, inLake, opts) {
   let n = 0, tries = 0;
   while (n < count && tries < count * 30) {
     tries++;
-    const x = -2500 + rng() * 5000, z = -1950 + rng() * 4600;
-    const forest = nz.fbm(x / 520, z / 520, 3) + 0.15;
+    const x = R.center.x - 2500 + rng() * 5000, z = R.center.z - 2300 + rng() * 4600;
+    const forest = nz.fbm(x / 520, z / 520, 3) + (canyon ? 0.05 : 0.15);
     if (rng() > forest * 1.8) continue;
     if (inLake(x, z)) continue;
     const dT = distAt ? distAt(x, z) : 1e9; if (dT < 75) continue;
-    if (Math.hypot(x - CASTLE.x, z - CASTLE.z) < 230) continue;
+    if (CASTLE && Math.hypot(x - CASTLE.x, z - CASTLE.z) < 230) continue;
     const y = heightAt(x, z); if (y > 420) continue;
     // exact clearance from the circuit for trees near it
     if (dT < 140) {
@@ -4607,7 +4937,7 @@ function buildTrees(scene, track, inLake, opts) {
       if (track.pitProg(proj.s) >= 0 && ad < 90) continue;
       if (Math.abs(track.dS(0, proj.s)) < 420 && ad < 90) continue;
     }
-    const s = 0.75 + rng() * 0.8; const isBroad = y < 120 && rng() < 0.32;
+    const s = (0.75 + rng() * 0.8) * (canyon ? 0.7 : 1); const isBroad = y < 120 && rng() < (env.broadleaf ?? 0.32);
     const tint = 0.8 + rng() * 0.35, hue = rng();
     put(isBroad ? 'b' : 's', x, y - 0.4, z, s, rng() * 6.28, [tint * (0.9 + hue * 0.25), tint, tint * (0.9 + (1 - hue) * 0.15)]);
     n++;
@@ -5108,10 +5438,10 @@ class Particles {
     g.setAttribute('position', dyn(this.pos, 3)); g.setAttribute('aSize', dyn(this.size, 1)); g.setAttribute('aAlpha', dyn(this.alpha, 1));
     g.setAttribute('aColor', dyn(this.col, 3)); g.setAttribute('aRot', dyn(this.rot, 1)); g.setAttribute('aFrame', dyn(this.frame, 1));
     const m = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex }, scale: { value: 600 }, atlas: { value: opts.atlas ? 1 : 0 }, lit: { value: opts.lit ? 1 : 0 }, sunCol: { value: new THREE.Color(1.05, 1, 0.92) }, ambCol: { value: new THREE.Color(0.6, 0.64, 0.72) } },
+      uniforms: { apexElev: ELEV_UNIFORM, map: { value: tex }, scale: { value: 600 }, atlas: { value: opts.atlas ? 1 : 0 }, lit: { value: opts.lit ? 1 : 0 }, sunCol: { value: new THREE.Color(1.05, 1, 0.92) }, ambCol: { value: new THREE.Color(0.6, 0.64, 0.72) } },
       transparent: true, depthWrite: false, blending: opts.blending || THREE.NormalBlending,
-      vertexShader: `attribute float aSize, aAlpha, aRot, aFrame; attribute vec3 aColor; varying float vA, vR, vF; varying vec3 vC; uniform float scale;
-        void main(){ vA = aAlpha; vC = aColor; vR = aRot; vF = aFrame; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vertexShader: ELEV_GLSL + `attribute float aSize, aAlpha, aRot, aFrame; attribute vec3 aColor; varying float vA, vR, vF; varying vec3 vC; uniform float scale;
+        void main(){ vA = aAlpha; vC = aColor; vR = aRot; vF = aFrame; vec4 wp = modelMatrix * vec4(position, 1.0); wp.y += apexWarp(wp.xz); vec4 mv = viewMatrix * wp;
           gl_PointSize = aAlpha > 0.0 ? aSize * scale / max(-mv.z, 0.1) : 0.0; gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `uniform sampler2D map; uniform float atlas, lit; uniform vec3 sunCol, ambCol; varying float vA, vR, vF; varying vec3 vC;
         void main(){
@@ -5166,8 +5496,8 @@ class Sparks {
     g.setAttribute('position', new THREE.BufferAttribute(this.lp, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aCol', new THREE.BufferAttribute(this.lc, 4).setUsage(THREE.DynamicDrawUsage));
     const m = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: 'attribute vec4 aCol; varying vec4 vC; void main(){ vC = aCol; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      uniforms: { apexElev: ELEV_UNIFORM }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: ELEV_GLSL + 'attribute vec4 aCol; varying vec4 vC; void main(){ vC = aCol; vec4 wp = modelMatrix * vec4(position, 1.0); wp.y += apexWarp(wp.xz); gl_Position = projectionMatrix * viewMatrix * wp; }',
       fragmentShader: 'varying vec4 vC; void main(){ gl_FragColor = vC;\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
     });
     this.lines = new THREE.LineSegments(g, m); this.lines.frustumCulled = false; scene.add(this.lines); this.geo = g;
@@ -5209,18 +5539,18 @@ class Glows {
     g.setAttribute('aCol', new THREE.InstancedBufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
     g.instanceCount = 0;
     const ground = mode === 'ground';
-    this.uniforms = { camPos: { value: new THREE.Vector3() }, time: { value: 0 } };
+    this.uniforms = { camPos: { value: new THREE.Vector3() }, time: { value: 0 }, apexElev: ELEV_UNIFORM };
     const m = new THREE.ShaderMaterial({
       uniforms: this.uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: ground ? `uniform vec3 camPos; uniform float time; attribute vec3 aPos; attribute vec4 aCol; varying vec3 vC; varying vec2 vU; varying float vW;
+      vertexShader: ground ? ELEV_GLSL + `uniform vec3 camPos; uniform float time; attribute vec3 aPos; attribute vec4 aCol; varying vec3 vC; varying vec2 vU; varying float vW;
         void main(){
           vec2 d = camPos.xz - aPos.xz; float L = max(length(d), 0.01); d /= L; vec2 pp = vec2(-d.y, d.x);
           float len = min(aCol.w, L * 0.75), along = position.y + 0.5;
           vec3 wp = vec3(aPos.x, 0.03, aPos.z) + vec3(pp * position.x * (0.25 + len * 0.05), 0.0).xzy + vec3(d * (along * len - 0.12 * len), 0.0).xzy;
-          vC = aCol.rgb; vU = vec2(position.x * 2.0, along); vW = wp.x + wp.z;
+          vC = aCol.rgb; vU = vec2(position.x * 2.0, along); vW = wp.x + wp.z; wp.y += apexWarp(wp.xz);
           gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0); }`
-        : `attribute vec3 aPos; attribute vec4 aCol; varying vec3 vC; varying vec2 vU;
-        void main(){ vec4 mv = modelViewMatrix * vec4(aPos, 1.0); mv.xyz += normalize(-mv.xyz) * min(0.5, aCol.w * 0.35);
+        : ELEV_GLSL + `attribute vec3 aPos; attribute vec4 aCol; varying vec3 vC; varying vec2 vU;
+        void main(){ vec4 wp = modelMatrix * vec4(aPos, 1.0); wp.y += apexWarp(wp.xz); vec4 mv = viewMatrix * wp; mv.xyz += normalize(-mv.xyz) * min(0.5, aCol.w * 0.35);
           mv.xy += position.xy * aCol.w; vC = aCol.rgb; vU = position.xy * 2.0; gl_Position = projectionMatrix * mv; }`,
       fragmentShader: ground ? `uniform float time; varying vec3 vC; varying vec2 vU; varying float vW;
         void main(){ float a = exp(-vU.x * vU.x * 5.0) * pow(1.0 - vU.y, 1.6) * smoothstep(0.0, 0.1, vU.y) * (0.7 + 0.3 * sin(vU.y * 38.0 - time * 9.0 + vW));
@@ -5600,7 +5930,7 @@ const clamp = SIM.clamp, lerp = SIM.lerp, fmt = SIM.fmtTime;
 /* ---------------- settings ---------------- */
 const SETTINGS_KEY = 'apexgp.settings.v1';
 const DEFAULTS = {
-  difficulty:75, quali:'on', startTyre:'M', team:0,
+  difficulty:75, quali:'on', startTyre:'M', team:0, circuit:SIM.CIRCUITS[0].id,
   camera:'chase', cockpitFov:'normal', quality:'high', volume:70, speedBlur:'on',
 };
 let S = Object.assign({}, DEFAULTS);
@@ -5610,6 +5940,7 @@ try { const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
 if (!SIM.COMPOUNDS[S.startTyre]) S.startTyre = 'M';
 S.team = clamp(+S.team || 0,0,19); S.difficulty = clamp(+S.difficulty || 0,0,100);
 if (!['on','off'].includes(S.quali)) S.quali = 'on';
+if (!SIM.CIRCUITS.some(c => c.id === S.circuit)) S.circuit = SIM.CIRCUITS[0].id;
 const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(S)); } catch(e) { /* ignore */ } };
 const SCHEMA = [
   { k:'quali', label:'Single-lap qualifying', type:'seg', opts:[['on','On'],['off','Off']], desc:()=> 'One untimed out-lap, then one flying lap. Disabled: a random grid position.' },
@@ -5814,6 +6145,7 @@ function clearPlayerAssists(car) {
 // Chase cameras ride on springs: they drop back under acceleration and surge in under braking, swing a little wide
 // in corners and sink lower with speed. Shake is smooth (layered sines, applied as rotation) and comes from kerbs,
 // rough ground, high-speed buffeting and damage; impacts give a directional jolt that settles like a damped spring.
+const _lookW = new THREE.Vector3();
 class CameraRig {
   constructor(camera) {
     this.camera = camera; this.mode = 'chase'; this.pos = new THREE.Vector3(); this.look = new THREE.Vector3(); this.yaw = 0; this.init = false; this.tvCam = null;
@@ -5897,8 +6229,8 @@ class CameraRig {
       targetFov = clamp(2 * Math.atan(9 / Math.max(d, 1)) * 180 / Math.PI, 7, 55);
     } else if (this.mode === 'orbit') {
       this.orbitT += dt * 0.05; const r = 1250;
-      this.pos.set(-50 + Math.cos(this.orbitT) * r, 260, 420 + Math.sin(this.orbitT) * r);
-      this.look.set(-50, 0, 400); targetFov = 45;
+      this.pos.set(R.center.x + Math.cos(this.orbitT) * r, 260, R.center.z + Math.sin(this.orbitT) * r);
+      this.look.set(R.center.x, 0, R.center.z); targetFov = 45;
     }
     // impact jolt: a damped spring on a position offset
     this.kickV.addScaledVector(this.kick, -90 * dt); this.kickV.multiplyScalar(Math.exp(-dt * 9)); this.kick.addScaledVector(this.kickV, dt);
@@ -5916,7 +6248,8 @@ class CameraRig {
     this.shake *= Math.exp(-dt * 6); this.rough *= Math.exp(-dt * 4);
     cam.position.copy(this.pos);
     if (inCockpit) cam.position.addScaledVector(this.kick, 0.12); else if (onboard) cam.position.add(this.kick);
-    if (inCockpit) cam.quaternion.copy(this.q); else cam.lookAt(this.look);
+    if (inCockpit) cam.quaternion.copy(this.q);
+    else { _lookW.copy(this.look); _lookW.y += elevWarp(_lookW.x, _lookW.z, cam.position.x, cam.position.z); cam.lookAt(_lookW); }
     if (amp > 0) {
       const t = this.t;
       cam.rotateX((Math.sin(t * 37.1) * 0.6 + Math.sin(t * 61.7 + 1.3) * 0.4) * amp);
@@ -5959,11 +6292,29 @@ function quickGridOrder(entries) {
 
 /* ---------------- scene management ---------------- */
 let renderer, scene, camera, textures;
+// Switch the playable circuit: simulation geometry, elevation, scenery, TV
+// cameras, the 3D world and the minimap all come from the same Track.
+function loadCircuit(id) {
+  const def = SIM.circuitById(id);
+  if (G.track && G.track.def === def) return false;
+  G.track = new SIM.Track(def); G.tvCams = tvCameras(G.track);
+  setElevationField(G.track); setScenery(G.track);
+  if (renderer) { ensureWorld(); if (G.mm) prepMinimap(); }
+  return true;
+}
 function ensureWorld() {
   const wet=0; const q=qualityLevel();
-  if(G.world && G.worldQ===q)return;
-  // rebuild the whole scene (weather or quality changed)
-  if (scene) { scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  if(G.world && G.worldQ===q && G.worldTrack===G.track)return;
+  // rebuild the whole scene (circuit or quality changed), releasing the old one's GPU resources
+  if (scene) {
+    const mats = new Set(), texs = new Set();
+    scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) for (const m of [].concat(o.material)) mats.add(m); });
+    for (const m of mats) { for (const v of Object.values(m)) if (v && v.isTexture) texs.add(v); if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u && u.value && u.value.isTexture) texs.add(u.value); m.dispose(); }
+    for (const t of texs) t.dispose();
+    if (scene.environment) scene.environment.dispose();
+    for (const k in MAT_CACHE) delete MAT_CACHE[k];
+  }
+  setElevationField(G.track); setScenery(G.track);
   scene = new THREE.Scene(); G.scene = scene;
   textures = makeTextures(q);
   const sky = buildSky(scene, wet);
@@ -5975,12 +6326,12 @@ function ensureWorld() {
   renderer.shadowMap.enabled = q > 0;
   {
     const cubeRT = new THREE.WebGLCubeRenderTarget(q === 2 ? 256 : 128, { type: THREE.HalfFloatType });
-    const cubeCam = new THREE.CubeCamera(1, 12000, cubeRT); cubeCam.position.set(-50, 14, 395); cubeCam.updateMatrixWorld();
+    const cubeCam = new THREE.CubeCamera(1, 12000, cubeRT); cubeCam.position.set(R.center.x, 14, R.center.z + 380); cubeCam.updateMatrixWorld(); setElevationCamera(cubeCam.position.x, cubeCam.position.z);
     cubeCam.update(renderer, scene);
     const pm = new THREE.PMREMGenerator(renderer);
     scene.environment = pm.fromCubemap(cubeRT.texture).texture; pm.dispose(); cubeRT.dispose();
   }
-  G.world = world; G.worldWet = wet; G.worldQ = q; G.trackObj = trackObj;
+  G.world = world; G.worldWet = wet; G.worldQ = q; G.trackObj = trackObj; G.worldTrack = G.track;
   G.contact = makeContactShadows(scene, textures, 24);
   if (G.post) { G.post.dispose(); G.post = null; }
   if (q > 0 && PostFX.supported(renderer)) G.post = new PostFX(renderer, q);
@@ -6079,7 +6430,7 @@ function startSession(cfg) {
 function startAttract() {
   G.attract = true;
   const entries = buildEntries(true);
-  startSession(sessionConfig('race', { entries, laps: 8, weather:'dynamic', difficulty:0.85, gridOrder: quickGridOrder(entries), tyreWear: 'normal', seed: 4242 }));
+  startSession(sessionConfig('race', { entries, laps: 8, weather:'dynamic', difficulty:0.85, gridOrder: quickGridOrder(entries), tyreWear: 'normal', seed: 4242, weatherSeed: (Math.random()*1e9)|0 }));
   // skip the start for the background race
   const sess = G.session; sess.startSeqT = 99; sess.lightsHoldAt = 1;
   G.camRig.setMode('tv');
@@ -6089,18 +6440,26 @@ function startQuali() {
   G.weekend = { entries };
   startSession(sessionConfig('quali', { entries }));
 }
-function launchRace(gridOrder, entries) {
+// The race continues the weather qualifying ended with, after the time it takes
+// to form the grid; without qualifying a fresh 50/50 dry/wet start is rolled.
+const GRID_FORMATION_GAP = 120;
+function raceWeatherState() {
+  const q=G.session && !G.attract && G.session.type==='quali' && G.session.weather;
+  if(q) return G.session.raceWeather || (G.session.raceWeather=new SIM.DynamicWeather((Math.random()*1e9)|0,q.snapshot(),GRID_FORMATION_GAP).snapshot());
+  return new SIM.DynamicWeather((Math.random()*1e9)|0).snapshot();
+}
+function launchRace(gridOrder, entries, weatherState) {
   G.attract = false; entries = entries || buildEntries(false);
   G.weekend = G.weekend || { entries };
-  const weatherState=G.session && G.session.type==='quali' && G.session.weather?G.session.weather.snapshot():null;
-  startSession(sessionConfig('race',{entries,gridOrder:gridOrder||quickGridOrder(entries),weatherState}));
+  startSession(sessionConfig('race',{entries,gridOrder:gridOrder||quickGridOrder(entries),weatherState:weatherState||raceWeatherState()}));
 }
 function startRace(gridOrder, entries) {
-  G.pendingRace = { gridOrder, entries };
+  G.pendingRace = { gridOrder, entries, weatherState: raceWeatherState() };
+  const startWeather = new SIM.DynamicWeather(1, G.pendingRace.weatherState);
   const selectedEntries = entries || buildEntries(false);
   const pitLoss = Math.max(15, G.track.pit.len/G.track.pit.limit - G.track.pit.len/85 + 11.5);
   G.briefCompound = S.startTyre;
-  $('briefSub').textContent = '8 laps · 6 km circuit · 48 km race · 20 teams · Dynamic weather';
+  $('briefSub').textContent = G.track.name + ' · 8 laps · 48 km · 20 teams · Now: '+startWeather.label+', '+Math.round(startWeather.ambient)+'°C air, track '+Math.round(startWeather.water*100)+'% wet';
   const draw = () => {
     $('briefChoices').replaceChildren();
     for(const c of ['S','M','H','I','W']) {
@@ -6117,7 +6476,7 @@ function startRace(gridOrder, entries) {
 $('briefStart').onclick = () => {
   const pending = G.pendingRace; if (!pending) return;
   S.startTyre = G.briefCompound; saveSettings(); G.pendingRace = null; $('raceBrief').classList.add('hidden'); G.paused = false;
-  launchRace(pending.gridOrder, pending.entries);
+  launchRace(pending.gridOrder, pending.entries, pending.weatherState);
 };
 $('briefCancel').onclick = () => { G.pendingRace = null; $('raceBrief').classList.add('hidden'); G.paused = false; if(G.session && G.session.over) showResults(); };
 function toggleStrategy() {
@@ -6253,14 +6612,101 @@ function prepMinimap() {
   // start line
   const [sx, sy] = G.mmT.tf(t.cx[0], t.cz[0]); sg.fillStyle = '#e10600'; sg.fillRect(sx - 3, sy - 9, 6, 18);
   G.mmStatic = st;
-  // circuit card map
-  const cc = $('ccMap'); const ct = draw(cc, 20, 6); const cg = cc.getContext('2d'); cg.clearRect(0, 0, cc.width, cc.height);
-  path(cg, ct.tf, 14, 'rgba(225,6,0,.35)'); path(cg, ct.tf, 6, '#f2f4f8');
-  t.corners.forEach(c => { const [x, y] = ct.tf(t.cx[c.apex] + t.rx[c.apex] * 40 * -c.dir, t.cz[c.apex] + t.rz[c.apex] * 40 * -c.dir); cg.fillStyle = '#9aa3b2'; cg.font = '600 20px Titillium Web, Arial'; cg.textAlign = 'center'; cg.fillText(c.num, x, y + 7); });
-  const [x0, y0] = ct.tf(t.cx[0], t.cz[0]); cg.fillStyle = '#e10600'; cg.fillRect(x0 - 3, y0 - 12, 6, 24);
-  $('ccLen').textContent = (t.length / 1000).toFixed(3) + ' km'; $('ccTurns').textContent = t.corners.length; $('ccDrs').textContent = t.drsZones.length;
-  $('ccName').textContent = t.name;
+  updateCircuitCard();
 }
+// Menu circuit maps are drawn from the circuit's centre line, the same
+// geometry the playable Track is built on (x east, z south, as the minimap).
+const CENTRE_LINES = new Map();
+function centreLineOf(def) { if (!CENTRE_LINES.has(def.id)) CENTRE_LINES.set(def.id, SIM.circuitCentreLine(def)); return CENTRE_LINES.get(def.id); }
+function drawCircuitMap(cvs, def) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1), cw = cvs.clientWidth || 380, ch = cvs.clientHeight || 170;
+  cvs.width = Math.round(cw * dpr); cvs.height = Math.round(ch * dpr);
+  const g = cvs.getContext('2d'), W = cvs.width, H = cvs.height, pts = centreLineOf(def), u = W / 380;
+  g.clearRect(0, 0, W, H);
+  // subtle grid on a dark ground
+  g.strokeStyle = 'rgba(255,255,255,.035)'; g.lineWidth = 1;
+  for (let x = 0; x < W; x += 24 * u) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 0; y < H; y += 24 * u) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+  for (const [x, z] of pts) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
+  const pad = 16 * u, sc = Math.min((W - 2 * pad) / (maxX - minX), (H - 2 * pad) / (maxZ - minZ));
+  const ox = (W - (maxX - minX) * sc) / 2, oy = (H - (maxZ - minZ) * sc) / 2, tf = ([x, z]) => [ox + (x - minX) * sc, oy + (z - minZ) * sc];
+  const route = () => { g.beginPath(); for (let i = 0; i <= pts.length; i += 3) { const [x, y] = tf(pts[i % pts.length]); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); } g.closePath(); };
+  g.lineJoin = g.lineCap = 'round';
+  route(); g.shadowColor = 'rgba(255,24,10,.95)'; g.shadowBlur = 16 * u; g.strokeStyle = 'rgba(225,6,0,.75)'; g.lineWidth = 7 * u; g.stroke();
+  route(); g.shadowBlur = 6 * u; g.strokeStyle = '#ff3b2a'; g.lineWidth = 4 * u; g.stroke();
+  route(); g.shadowBlur = 0; g.strokeStyle = '#fff4f2'; g.lineWidth = 1.8 * u; g.stroke();
+  // start/finish: a chequered bar across the track and an arrow in the direction of travel
+  const [sx, sy] = tf(pts[0]), [ax, ay] = tf(pts[8]), dx = ax - sx, dy = ay - sy, l = Math.hypot(dx, dy) || 1, tx = dx / l, ty = dy / l;
+  for (let k = -3; k < 3; k++) for (let c = 0; c < 2; c++) {
+    g.fillStyle = (k + c) % 2 ? '#111' : '#fff'; const ox2 = sx - ty * (k + 0.5) * 2.4 * u + tx * (c - 1) * 2.4 * u, oy2 = sy + tx * (k + 0.5) * 2.4 * u + ty * (c - 1) * 2.4 * u;
+    g.fillRect(ox2 - 1.2 * u, oy2 - 1.2 * u, 2.4 * u, 2.4 * u);
+  }
+  const [hx, hy] = tf(pts[Math.round(pts.length * 0.045)]), [bx, by] = tf(pts[Math.round(pts.length * 0.045) - 6]);
+  const ux = hx - bx, uy = hy - by, ul = Math.hypot(ux, uy) || 1, nx = ux / ul, ny = uy / ul, a = 7 * u;
+  g.fillStyle = '#fff'; g.beginPath(); g.moveTo(hx + nx * a, hy + ny * a); g.lineTo(hx - nx * a * 0.6 - ny * a * 0.7, hy - ny * a * 0.6 + nx * a * 0.7); g.lineTo(hx - nx * a * 0.6 + ny * a * 0.7, hy - ny * a * 0.6 - nx * a * 0.7); g.closePath(); g.fill();
+}
+function updateCircuitCard() {
+  const def = SIM.circuitById(S.circuit);
+  $('ccName').textContent = def.name; drawCircuitMap($('ccMap'), def);
+}
+// ---- circuit selection (opens from Start Grand Prix) ----
+const CS = { open: false, idx: 0, built: false };
+function buildCircuitCards() {
+  const box = $('csCards'); box.replaceChildren();
+  SIM.CIRCUITS.forEach((def, k) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'cs-card'; b.setAttribute('role', 'option'); b.dataset.k = k;
+    b.innerHTML = '<span>' + def.name + '</span><canvas class="cmap" aria-hidden="true"></canvas>';
+    b.onclick = () => selectCircuit(k); b.ondblclick = () => confirmCircuit();
+    box.appendChild(b);
+  });
+  CS.built = true;
+}
+function selectCircuit(k) {
+  const n = SIM.CIRCUITS.length; CS.idx = ((k % n) + n) % n;
+  [...$('csCards').children].forEach((b, i) => { b.setAttribute('aria-selected', i === CS.idx ? 'true' : 'false'); b.tabIndex = i === CS.idx ? 0 : -1; });
+  $('csName').textContent = SIM.CIRCUITS[CS.idx].name;
+}
+function openCircuitSelect() {
+  if (!CS.built) buildCircuitCards();
+  CS.open = true; $('menu').classList.add('selecting'); $('circuitSelect').setAttribute('aria-hidden', 'false');
+  // draw once laid out, so the maps are sharp at the card's real size
+  requestAnimationFrame(() => [...$('csCards').children].forEach((b, i) => drawCircuitMap(b.querySelector('canvas'), SIM.CIRCUITS[i])));
+  selectCircuit(SIM.CIRCUITS.findIndex(c => c.id === S.circuit));
+  $('csCards').children[CS.idx].focus({ preventScroll: true });
+}
+function closeCircuitSelect() {
+  CS.open = false; $('menu').classList.remove('selecting'); $('circuitSelect').setAttribute('aria-hidden', 'true');
+  const play = document.querySelector('#menu [data-act="play"]'); if (play) play.focus({ preventScroll: true });
+}
+async function confirmCircuit() {
+  if (!CS.open) return;
+  const def = SIM.CIRCUITS[CS.idx];
+  S.circuit = def.id; saveSettings(); closeCircuitSelect(); updateCircuitCard();
+  if (G.track.def !== def) {
+    // build the circuit's world behind a short loading screen, then race on it
+    $('loadSt').textContent = 'Building ' + def.name + '…'; $('loadBar').style.width = '60%'; $('loading').classList.remove('hidden');
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 30)));
+    try { loadCircuit(def.id); startAttract(); }
+    finally { $('loadBar').style.width = '100%'; $('loading').classList.add('hidden'); }
+  }
+  if (S.quali === 'on') startQuali(); else { G.weekend = null; startRace(); }
+}
+$('csPrev').onclick = () => selectCircuit(CS.idx - 1);
+$('csNext').onclick = () => selectCircuit(CS.idx + 1);
+$('csBack').onclick = () => closeCircuitSelect();
+$('csGo').onclick = () => confirmCircuit();
+window.addEventListener('keydown', (e) => {
+  if (!CS.open || G.mode !== 'menu' || document.querySelector('.overlay:not(.hidden)')) return;
+  const k = e.code;
+  if (k === 'ArrowLeft' || k === 'ArrowUp') { selectCircuit(CS.idx - 1); $('csCards').children[CS.idx].focus({ preventScroll: true }); }
+  else if (k === 'ArrowRight' || k === 'ArrowDown') { selectCircuit(CS.idx + 1); $('csCards').children[CS.idx].focus({ preventScroll: true }); }
+  else if (k === 'Enter' || k === 'NumpadEnter') { if (e.target === $('csBack')) return; confirmCircuit(); }
+  else if (k === 'Escape') closeCircuitSelect();
+  else return;
+  e.preventDefault(); e.stopPropagation();
+}, true);
+window.addEventListener('resize', () => { if (G.track) updateCircuitCard(); if (CS.open) [...$('csCards').children].forEach((b, i) => drawCircuitMap(b.querySelector('canvas'), SIM.CIRCUITS[i])); });
 function drawMinimap() {
   const { g, tf } = G.mmT; const t = G.track, sess = G.session; const W = G.mm.cvs.width, H = G.mm.cvs.height;
   g.clearRect(0, 0, W, H); g.drawImage(G.mmStatic, 0, 0);
@@ -6442,7 +6888,7 @@ function updateHud(dt) {
   // tyres
   const comp = SIM.COMPOUNDS[p.tyre.c];
   $('cmpIcon').textContent = p.tyre.c; $('cmpIcon').style.setProperty('--c', comp.color); $('cmpName').textContent = comp.name.toUpperCase();
-  $('tyreLabel').textContent = sess.wet >= 0.7 ? 'WET TRACK' : sess.wet ? 'DAMP TRACK' : 'TYRES';
+  $('tyreLabel').textContent = sess.wet >= 0.7 ? 'WET TRACK' : sess.wet > 0.05 ? 'DAMP TRACK' : 'TYRES';
   for (let i = 0; i < 4; i++) {
     const T = p.tyre.temp[i]; const dT = T - comp.topt;
     const col = dT < -25 ? '#2f7bff' : dT < -10 ? '#29b6f6' : dT < 12 ? '#21c55d' : dT < 25 ? '#f5c518' : '#e53935';
@@ -7296,7 +7742,7 @@ function showResults() {
 function onAction(act) {
   G.audio.init();
   switch (act) {
-    case 'play': if (S.quali === 'on') startQuali(); else { G.weekend = null; startRace(); } break;
+    case 'play': openCircuitSelect(); break;
     case 'settings': buildSettingsUI(); $('settings').classList.remove('hidden'); $('pause').classList.add('hidden'); break;
     case 'settingsClose':
       $('settings').classList.add('hidden');
@@ -7304,7 +7750,7 @@ function onAction(act) {
       if(G.paused)$('pause').classList.remove('hidden');
       if(G.worldQ!==qualityLevel()){ensureWorld();setupCars();G.camRig.init=false;G.nextRoadWeather=0;}
       break;
-    case 'settingsDefault': S=Object.assign({},DEFAULTS);saveSettings();buildSettingsUI();G.audio.setVolume(S.volume);break;
+    case 'settingsDefault': S=Object.assign({},DEFAULTS,{circuit:S.circuit});saveSettings();buildSettingsUI();G.audio.setVolume(S.volume);break;
     case 'controls': $('controls').classList.remove('hidden'); $('pause').classList.add('hidden'); break;
     case 'controlsClose': $('controls').classList.add('hidden'); if (G.paused) $('pause').classList.remove('hidden'); break;
     case 'resume': togglePause(); break;
@@ -7349,7 +7795,7 @@ function updateWeatherView(dt) {
   if(w && sess.time>=(G.nextForecastView||0)) {
     G.nextForecastView=sess.time+1;const f=w.forecast();
     $('weatherNow').textContent=w.label; $('weatherAir').textContent=Math.round(w.ambient)+'°C'; $('weatherTrack').textContent=Math.round(w.trackTemp)+'°C';
-    const icon=w.rain>0.025?'rain':w.cloud>0.55?'cloud':w.cloud>0.25?'partly':'sun';
+    const icon=w.raining?(w.storm&&w.rain>0.6?'storm':'rain'):w.cloud>0.55?'cloud':w.cloud>0.32?'partly':'sun';
     if(G.weatherIcon!==icon){G.weatherIcon=icon;$('wIcon').innerHTML=WEATHER_ICONS[icon];}
     $('weatherSurface').innerHTML='Surface '+Math.round(w.water*100)+'% wet<i class="vsep"></i>Racing line '+Math.round(w.lineWater*100)+'%';
     $('weatherForecast').textContent=Math.round(f.probability*100)+'% rain chance (next 2 min)';
@@ -7362,6 +7808,7 @@ const WEATHER_ICONS = {
   partly: '<circle cx="19" cy="15" r="7" fill="#ffc93c"/><g stroke="#ffc93c" stroke-width="2.4" stroke-linecap="round"><path d="M19 2v3M6 15h3M9.5 5.5l2 2M28.5 5.5l-2 2"/></g><path d="M16 36h26a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-5 13z" fill="#e8edf5"/>',
   cloud: '<path d="M12 35h28a9 9 0 0 0 0-18 12 12 0 0 0-23 3 7.5 7.5 0 0 0-5 15z" fill="#e8edf5"/>',
   rain: '<path d="M12 27h28a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-7 13z" fill="#cfd6e2"/><g stroke="#5fb0ff" stroke-width="2.4" stroke-linecap="round"><path d="M16 31l-2 5M25 31l-2 5M34 31l-2 5"/></g>',
+  storm: '<path d="M12 27h28a8 8 0 0 0 0-16 11 11 0 0 0-21 3 6.5 6.5 0 0 0-7 13z" fill="#aab3c2"/><path d="M27 26l-6 8h5l-3 7 8-10h-5l3-5z" fill="#ffd23c"/><g stroke="#5fb0ff" stroke-width="2.4" stroke-linecap="round"><path d="M14 31l-2 5M37 31l-2 5"/></g>',
 };
 function updateRain(dt) {
   const cv = G.camVel || _v.set(0, 0, 0), D = G.rainDrops, P = G.rain.geometry.attributes.position.array;
@@ -7423,6 +7870,7 @@ function frame(now) {
     if (R.waterMat && R.waterMat.userData.shader) R.waterMat.userData.shader.uniforms.uTime.value = now / 1000;
     R.anim.value = (now / 1000) % 3600;
     renderer.info.reset();
+    setElevationCamera(camera.position.x, camera.position.z);
     // screen effects decay; particle sizes follow the viewport height and field of view
     const fx = G.fx; fx.hit = Math.max(0, fx.hit - dt * 3.2); fx.dmg = Math.max(0, fx.dmg - dt * 1.3); fx.cut = Math.max(0, fx.cut - dt * 2.8);
     const pScale = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
@@ -7476,8 +7924,7 @@ function adaptResolution() {
 async function boot() {
   const setLoad = (p, txt) => { $('loadBar').style.width = (p * 100) + '%'; $('loadSt').textContent = txt; };
   setLoad(0.35, 'Building the circuit…'); await new Promise(r => setTimeout(r, 30));
-  G.track = new SIM.Track(SIM.TRACK_DEF);
-  G.tvCams = tvCameras(G.track);
+  loadCircuit(S.circuit);
   setLoad(0.5, 'Creating renderer…'); await new Promise(r => setTimeout(r, 30));
   try {
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
