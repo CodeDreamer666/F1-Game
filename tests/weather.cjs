@@ -9,7 +9,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const context = { module: { exports: {} } };
 vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
 const SIM = context.module.exports;
-const RACE_SECONDS = 720, QUALI_SECONDS = 450, GRID_GAP = 120;
+const RACE_SECONDS = 840, QUALI_SECONDS = 450, GRID_GAP = 120;
 const raining = w => w.rain > 0.025;
 const WET = new Set(['light', 'moderate', 'heavy', 'storm']), DRY = new Set(['sunny', 'cloudy']);
 
