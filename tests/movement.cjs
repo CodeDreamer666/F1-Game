@@ -564,3 +564,63 @@ test('damage persists through a respawn and is gone in the next session', () => 
   const fresh = crashLab('standard', 1).cars[0];
   assert.ok(fresh.damage.isClean());
 });
+
+// ---- race start: automatic launch control, identical for every car ----
+// A car on a flat surface; W (throttle) is pressed from `pressAt` seconds, lights go out at 3 s.
+function gridLaunch(pressAt, seconds = 10) {
+  const race = { type: 'race', lightsOut: false, time: 0, lightsOutTime: 0, wet: 0 };
+  const car = new SIM.Car({ driver: SIM.DRIVERS[0], isPlayer: true }, race); car.input.ers = 0;
+  const handling = new SIM.PlayerHandling(), out = { car, rpmAtLightsOut: 0, moved: 0, t100: null };
+  for (let k = 0; k < Math.round(seconds / dt); k++) {
+    race.time = k * dt;
+    if (!race.lightsOut && race.time >= 3) { race.lightsOut = true; race.lightsOutTime = race.time; out.rpmAtLightsOut = car.rpm; }
+    handling.step(car, dt, race, raw(0, race.time >= pressAt ? 1 : 0));
+    SIM.stepCarPhysics(car, dt, track, env);
+    if (!race.lightsOut) out.moved = Math.max(out.moved, Math.hypot(car.x, car.z), car.speed);
+    if (out.t100 == null && car.speed * 3.6 >= 100) out.t100 = race.time - Math.max(3, pressAt);
+  }
+  return out;
+}
+
+test('launch control: holding W early only revs to the regulated launch rpm and never moves the car', () => {
+  const early = gridLaunch(0.2), late = gridLaunch(2.5);
+  for (const r of [early, late]) {
+    assert.equal(r.moved, 0, 'no movement before lights out');
+    assert.equal(r.rpmAtLightsOut, SIM.SPEC.launchRpm);
+    assert.equal(r.car.launch.active, false, 'launch control hands over after the start');
+  }
+  // how early W was pressed makes no difference at all
+  assert.equal(early.t100, late.t100);
+  assert.equal(early.car.x, late.car.x);
+  assert.equal(early.car.fuel, late.car.fuel, 'no fuel is burnt on the grid');
+  assert.ok(early.t100 > 2.5 && early.t100 < 4.5, '0-100 km/h ' + early.t100);
+});
+
+test('launch control: W pressed at or after lights out launches the same way; no W keeps the car still', () => {
+  const held = gridLaunch(0), atOut = gridLaunch(3), after = gridLaunch(4.5), never = gridLaunch(1e9, 6);
+  assert.equal(never.car.speed, 0); assert.equal(never.car.x, 0);
+  assert.ok(atOut.t100 >= held.t100, 'no advantage over holding W through the lights');
+  // a later press launches the same way from the press; only the tyres have cooled a little while waiting
+  assert.ok(Math.abs(after.t100 - atOut.t100) < 0.03, 'a later press gives the same launch from the press');
+});
+
+test('race start: all 20 cars sit at the same launch rpm, stay on their grid slots and get no false starts', () => {
+  const realTrack = new SIM.Track(SIM.TRACK_DEF);
+  const entries = SIM.DRIVERS.slice(0, 20).map((driver, k) => ({ driver, isPlayer: k === 7 }));
+  const sess = new SIM.Session(realTrack, { type: 'race', laps: 1, difficulty: 0.8, entries, seed: 11 });
+  const player = sess.player, h = new SIM.PlayerHandling();
+  player.control = (cdt, s) => h.step(player, cdt, s, raw(0, 1, 0)); // W held from the very beginning
+  const grid = sess.cars.map(c => [c.x, c.z]);
+  let rpms = null;
+  while (!sess.lightsOut) {
+    rpms = sess.cars.map(c => c.rpm);
+    sess.update(1 / 60, 1, 1e9);
+    if (!sess.lightsOut) sess.cars.forEach((c, k) => { assert.equal(c.x, grid[k][0]); assert.equal(c.z, grid[k][1]); assert.equal(c.speed, 0); });
+  }
+  for (const r of rpms) assert.equal(r, SIM.SPEC.launchRpm);
+  for (let k = 0; k < 60 * 6; k++) sess.update(1 / 60, 1, 1e9);
+  for (const c of sess.cars) {
+    assert.equal(c.penaltyLog.length, 0, 'no false-start penalty');
+    assert.ok(c.speed > 20, 'every car launched');
+  }
+});
