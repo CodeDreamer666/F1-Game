@@ -5621,7 +5621,7 @@ function buildCockpit() {
 }
 /* ---------------------------------------------------------------
    PARTICLES & VFX — fixed-size pools (no allocation while racing), all driven by the simulation:
-   rotating sun-lit puffs (tyre smoke, dust, spray, exhaust smoke), additive flames with a colour ramp,
+   rotating sun-lit puffs (collision and damage smoke, dust, exhaust smoke), additive flames with a colour ramp,
    spark streaks, billboard glows (lights, impact flashes, hot brakes), wet-road light reflections
    and tyre marks laid down by sliding, locking or off-track wheels.
    --------------------------------------------------------------- */
@@ -6571,7 +6571,6 @@ function ensureWorld() {
   makeFxTextures(textures);
   G.smoke = new Particles(scene, textures.puffs, lim(350, 900, 1400), { atlas: true, rotate: true, lit: true, drag: 1.5, fadeIn: 0.1 });
   G.dust = new Particles(scene, textures.puffs, lim(220, 600, 900), { atlas: true, rotate: true, lit: true, drag: 1.2, fadeIn: 0.1 });
-  G.spray = new Particles(scene, textures.puffs, lim(500, 1500, 2400), { atlas: true, rotate: true, lit: true, drag: 0.9, fadeIn: 0.05, color: [0.8, 0.83, 0.88] });
   G.grit = new Particles(scene, textures.smoke, lim(200, 500, 800), { drag: 0.25, lit: true });
   G.sparks = new Sparks(scene, lim(300, 700, 1100));
   // flames: white-hot at the base, through orange and red, to dull embers
@@ -6582,7 +6581,7 @@ function ensureWorld() {
   };
   G.fire = new Particles(scene, textures.flame, lim(160, 360, 520), { blending: THREE.AdditiveBlending, rotate: true, drag: 0.8, ramp: fireRamp });
   const sunCol = wet ? new THREE.Color(0.86, 0.89, 0.94) : new THREE.Color(1.08, 1.0, 0.88), ambCol = wet ? new THREE.Color(0.58, 0.61, 0.66) : new THREE.Color(0.56, 0.62, 0.72);
-  for (const sys of [G.smoke, G.dust, G.spray, G.grit]) { sys.mat.uniforms.sunCol.value.copy(sunCol); sys.mat.uniforms.ambCol.value.copy(ambCol); }
+  for (const sys of [G.smoke, G.dust, G.grit]) { sys.mat.uniforms.sunCol.value.copy(sunCol); sys.mat.uniforms.ambCol.value.copy(ambCol); }
   G.glows = new Glows(scene, lim(120, 220, 320));
   G.reflect=q>0?new Glows(scene,80,'ground'):null;
   G.skids = new SkidMarks(scene, lim(700, 2000, 3600));
@@ -6649,7 +6648,7 @@ function startSession(cfg) {
   if (G.cockpit && camera && !G.cockpit.compiled) { G.cockpit.group.visible = true; scene.add(G.cockpit.group); renderer.compile(scene, camera); scene.remove(G.cockpit.group); G.cockpit.group.visible = false; G.cockpit.compiled = true; }
   if (G.player) { G.pc = new PlayerControl(G.player); G.player.boxCompound = null; }
   for (const k of ['psTyres', 'psBoxes', 'psCards']) $(k).replaceChildren(); G.psCards = {};
-  for (const sys of [G.smoke, G.dust, G.spray, G.grit, G.sparks, G.fire, G.debris, G.skids]) sys.clear();
+  for (const sys of [G.smoke, G.dust, G.grit, G.sparks, G.fire, G.debris, G.skids]) sys.clear();
   G.flashes.length = 0; G.hitT.clear(); G.fx.hit = G.fx.dmg = G.fx.cut = G.fx.sev = 0;
   $('hud').classList.toggle('hidden', !!G.attract);
   $('menu').classList.toggle('hidden', !G.attract);
@@ -7558,9 +7557,10 @@ const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vec
 const WHEEL_LX = [SIM.SPEC.a, SIM.SPEC.a, -SIM.SPEC.b, -SIM.SPEC.b], WHEEL_LY = [-0.68, 0.68, -0.66, 0.66];
 const RUBBER = [0.02, 0.02, 0.022], RUBBER_WET = [0.05, 0.055, 0.06], RUT_GRAVEL = [0.36, 0.3, 0.21], RUT_GRASS = [0.2, 0.22, 0.12];
 const teamRGB = (car) => car._rgb || (car._rgb = new THREE.Color(car.team.c1).toArray());
-// Effects of normal driving for one car, all read from the simulation: tyre smoke and rubber marks from lock-ups,
-// wheelspin and slides; dust, gravel, grass and ruts off track; floor sparks when the plank touches down (kerbs,
-// braking dive, high-speed bottoming, floor damage); rooster-tail spray and mist in the wet; hot brakes.
+// Effects of normal driving for one car, all read from the simulation: rubber marks from lock-ups, wheelspin and
+// slides; dust, gravel, grass and ruts off track; floor sparks when the plank touches down (kerbs, braking dive,
+// high-speed bottoming, floor damage). Normal driving makes no tyre smoke and no wet spray or mist (they hid the
+// car ahead); only a car shoved sideways by an impact still smokes from its scrubbing tyres.
 function drivingEffects(car,m,dt,dist,wet,near) {
   const R = Math.random, v = car.speed, c = Math.cos(car.psi), s = Math.sin(car.psi);
   const count = (rate) => { const f = rate * dt * near; return Math.floor(f) + (R() < f % 1 ? 1 : 0); };
@@ -7574,11 +7574,12 @@ function drivingEffects(car,m,dt,dist,wet,near) {
     // how hard this tyre is scrubbing: lock-up, wheelspin, sliding past the grip limit, or a drift (rears)
     let scrub = lock ? 1 : spin ? 0.8 : over > 0 ? Math.min(1, over * 2.2) : 0;
     if (i >= 2 && slide > 0.1 && v > 6) scrub = Math.max(scrub, Math.min(1, (slide - 0.1) * 5));
-    // shoved sideways by an impact, the tyres scrub across the surface
-    if (m.scrubT > 0 && v > 4) scrub = Math.max(scrub, Math.min(1, m.scrubT * 2.5));
-    if (scrub > 0 && !offT && v > 3) {
-      const n = count(48 * scrub * (wet ? 0.25 : 1));
-      for (let k = 0; k < n; k++) G.smoke.emit(wx + (R() - .5) * 0.3, 0.18, wz + (R() - .5) * 0.3, car.vx * 0.22 + (R() - .5) * 2, 0.4 + R() * 0.9, car.vz * 0.22 + (R() - .5) * 2, 1.6 + R(), 0.6, 2.6, (wet ? 0.16 : 0.36) * (0.5 + 0.5 * scrub), wet ? [0.8, 0.83, 0.88] : [0.9, 0.9, 0.92]);
+    // shoved sideways by an impact, the tyres scrub across the surface and smoke (a collision effect)
+    const hit = m.scrubT > 0 && v > 4 ? Math.min(1, m.scrubT * 2.5) : 0;
+    scrub = Math.max(scrub, hit);
+    if (hit > 0 && !offT && v > 3) {
+      const n = count(48 * hit * (wet ? 0.25 : 1));
+      for (let k = 0; k < n; k++) G.smoke.emit(wx + (R() - .5) * 0.3, 0.18, wz + (R() - .5) * 0.3, car.vx * 0.22 + (R() - .5) * 2, 0.4 + R() * 0.9, car.vz * 0.22 + (R() - .5) * 2, 1.6 + R(), 0.6, 2.6, (wet ? 0.16 : 0.36) * (0.5 + 0.5 * hit), wet ? [0.8, 0.83, 0.88] : [0.9, 0.9, 0.92]);
     }
     // tyre marks: black rubber on the surface, ruts through gravel and grass
     const st = m.skid[i];
@@ -7597,17 +7598,7 @@ function drivingEffects(car,m,dt,dist,wet,near) {
       const ng = count((gravel ? 70 : 26) * k2 * (i >= 2 ? 1.4 : 0.6));
       for (let k = 0; k < ng; k++) G.grit.emit(wx, 0.12, wz, car.vx * (0.35 + R() * 0.4) + (R() - .5) * 5, 1.5 + R() * 4.5, car.vz * (0.35 + R() * 0.4) + (R() - .5) * 5, 1.2, 0.05 + R() * 0.05, 0, 1, gravel ? [0.62 + R() * 0.2, 0.55 + R() * 0.15, 0.42] : [0.2, 0.28, 0.12]);
     }
-    // wet: rooster tail from the rears, side spray from the fronts
-    if(wet>0.025 && v>12 && !offT) {
-      const n = count((i>=2?6+v*0.8:v*0.3)*wet);
-      for (let k = 0; k < n; k++) {
-        const side = (i % 2 ? 1 : -1) * (i < 2 ? 2.5 : 0.8);
-        G.spray.emit(wx - c * 0.35, 0.3, wz - s * 0.35, car.vx * (i >= 2 ? 0.62 : 0.45) - s * side * R() + (R() - .5) * 4, 0.5 + R() * 2.6, car.vz * (i >= 2 ? 0.62 : 0.45) + c * side * R() + (R() - .5) * 4, 0.6 + R() * 0.6, 0.3, 2.5, 0.26);
-      }
-    }
   }
-  // the mist cloud that hangs behind a car in the rain
-  if(wet>0.025 && v>22){const n=count(9*wet); for (let k = 0; k < n; k++) { const [x, z] = carPoint(car, -2.6 - R() * 1.5, (R() - .5) * 1.4); G.spray.emit(x, 0.7, z, car.vx * 0.5, 0.4, car.vz * 0.5, 1.6 + R() * 0.8, 1.8, 4.5, 0.11, [0.84, 0.86, 0.9]); } }
   // floor sparks: the titanium skid blocks touch down over kerbs, in the braking dive, when bottoming at top speed,
   // or constantly with a damaged floor
   let fs = 0;
@@ -7737,7 +7728,7 @@ function updateCarVisuals(dt) {
     if (fireCar && fireD < 160) { const t = tNow; G.fireLight.position.set(fireCar.x, 1.6, fireCar.z); G.fireLight.intensity = 60 * (0.75 + 0.25 * Math.sin(t * 29) * Math.sin(t * 13.7 + 1)); }
     else G.fireLight.intensity = 0;
   }
-  G.smoke.update(dt, -0.25); G.dust.update(dt, -0.12); G.spray.update(dt, 1.2); G.grit.update(dt, 9.8); G.sparks.update(dt); G.fire.update(dt, -2.5);
+  G.smoke.update(dt, -0.25); G.dust.update(dt, -0.12); G.grit.update(dt, 9.8); G.sparks.update(dt); G.fire.update(dt, -2.5);
   if (G.cockpit && G.cockpit.owner && !(G.camRig.mode === 'cockpit' && G.models.get(G.focus) === G.cockpit.owner)) { G.cockpit.owner.group.remove(G.cockpit.group); G.cockpit.owner = null; G.cockpit.group.visible = false; }
   G.skids.update(); G.debris.update(dt, sess.cars, G.track); updatePitCrews();
   if (G.brakeDiscs) { G.brakeDiscs.count = nDisc; G.brakeDiscs.instanceMatrix.needsUpdate = true; if (G.brakeDiscs.instanceColor) G.brakeDiscs.instanceColor.needsUpdate = true; }
@@ -8197,7 +8188,7 @@ function frame(now) {
     // screen effects decay; particle sizes follow the viewport height and field of view
     const fx = G.fx; fx.hit = Math.max(0, fx.hit - dt * 3.2); fx.dmg = Math.max(0, fx.dmg - dt * 1.3); fx.cut = Math.max(0, fx.cut - dt * 2.8);
     const pScale = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
-    for (const sys of [G.smoke, G.dust, G.spray, G.grit, G.fire, G.splash]) if (sys) sys.mat.uniforms.scale.value = pScale;
+    for (const sys of [G.smoke, G.dust, G.grit, G.fire, G.splash]) if (sys) sys.mat.uniforms.scale.value = pScale;
     const f = G.focus, cm = G.camRig.mode, onboard = cm === 'chase' || cm === 'cockpit' || cm === 'far' || cm === 'tcam';
     if (G.hudCk !== (cm === 'cockpit')) { G.hudCk = cm === 'cockpit'; $('hud-bc').classList.toggle('ck', G.hudCk); }
     if (G.post) {
