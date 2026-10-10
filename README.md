@@ -36,13 +36,34 @@ Reference: [Super Star Car on Poki](https://poki.com/en/g/super-star-car) for bi
 
 ## What's inside
 
-- **Circuit**: Lakeside Alpine Circuit (4.67 km, 8 corners, 2 DRS zones) with kerbs, gravel, painted run-off, braking-zone skid marks, ad-board walls, catch fences, grandstands with crowds, a pit lane with team garages, a start gantry with working lights, marshal light panels, rolling forested terrain, an animated lake, a castle, a village and snow-capped mountains.
-- **Graphics**: HDR rendering with multisampling, bloom, ACES tone mapping and colour grading; reflections captured from the real scenery; team liveries; contact shadows; stable sun shadows; optional speed blur; dynamic resolution to hold the frame rate. Low quality turns post-processing off.
+- **Circuit**: Lakeside Alpine Circuit (4.67 km, 8 corners, 2 DRS zones) with ridged red/white kerbs, pebbled gravel traps, painted run-off, braking-zone skid marks, 300/200/100 m braking boards, ad-board walls, catch fences, grandstands with a cheering (animated) crowd, waving team flags, a pit lane with team garages and an illuminated event sign, a start gantry with working lights and APEX GRAND PRIX branding, a lattice sponsor bridge, TV camera towers, marshal light panels, rolling forested terrain, a lake with sailing boats, a castle, a village and snow-capped mountains.
+- **Graphics**: late-afternoon sun with long shadows, a sky with a warm sun halo and high cirrus (a dark, rolling cloud deck in the rain), HDR rendering with multisampling, bloom, ACES tone mapping and colour grading; reflections captured from the real scenery; team liveries on clear-coated bodywork; airfoil wing elements with DRS flap, rounded tyres with compound bands, see-through wheel faces and wheel blur at speed; contact shadows; stable sun shadows; a spring-damped chase camera; dynamic resolution to hold the frame rate.
+- **Visual effects** (see below): sparks, debris, tyre smoke, dust, gravel, spray, fire, brake glow, tyre marks, rain and screen effects, all driven by the simulation.
 - **Physics** (240 Hz; arcade pedal/yaw/slide response for every car, player and AI alike): four-wheel tyre model (Pacejka-style lateral force, friction circle, load sensitivity, lock-ups and wheelspin), downforce and drag (DRS, slipstream, dirty air, aero damage), longitudinal and lateral weight transfer, 8-speed gearbox, ERS deploy/harvest, fuel mass and consumption, tyre temperature and wear (soft, medium, hard, wet), surface grip, wall and car-to-car collisions with component damage (see below).
 - **AI drivers**: 19 opponents, each with pace, consistency, braking, racecraft, aggression, risk, tyre-management, strategy and start ratings. They drive the same arcade handling as the player, plan their own racing line, compute braking points and corner speeds from that handling's limits, learn each corner as they go, choose lanes around traffic, use slipstream, DRS and ERS to attack, defend the inside, give room, respect yellow and blue flags, make mistakes (late braking, over-braking, running wide, early throttle), recover after contact (respawning like the player when stuck), and plan and react to pit strategy (undercut, covering, damage stops). They predict where the car ahead is heading before committing to a gap, drive a damaged car with more margin, limp a punctured car back off the racing line, and stop safely when a failure ends their race.
 - **Race weekend**: qualifying with out-laps and a session clock, standing starts, sector timing (purple/green/yellow), time gaps, track-limit warnings, penalties (track limits, causing a collision, overtaking under yellow), yellow flags, pit stops with double-stacking, chequered flag and classified results with points.
 - **Modes**: race weekend (qualifying + race), quick race, and spectator mode with car switching, five cameras, an auto-director and up to 4× time.
 - **Settings**: race length, AI difficulty, qualifying length, field size, weather, tyre wear, two-compound rule, vehicle damage (Reduced / Standard / Realistic), starting tyre, driver name and team, default camera, graphics quality, volume and units.
+
+## Visual effects
+
+Every effect reacts to what the simulation is doing; nothing is a looping decoration. Effects use fixed-size pools (no allocation while racing), and the pool sizes scale with the Graphics quality setting.
+
+| Situation | What you see |
+|---|---|
+| Car-to-car or barrier contact | Spark streaks, a short hit flash, scrubbed-tyre smoke, carbon shards and bodywork fragments in the cars' colours, dust if off track. The driver involved gets a directional camera jolt, a brief flash and chromatic fringing; new damage pulses the screen edge red. Wings that break off tumble down the road and stay there until marshals clear them. |
+| Lock-ups, wheelspin, slides and drifts | Tyre smoke from the wheel that is scrubbing, and black rubber marks laid on the track. |
+| Leaving the circuit | Dust clouds, flying gravel or turf, and ruts left in the gravel and grass. |
+| Kerbs and rough ground | The car vibrates, the camera shakes, and over kerbs at speed the floor plank throws sparks. |
+| Floor contact | Sparks when the plank touches down over kerbs, in the braking dive, when bottoming at top speed, and constantly with a damaged floor. |
+| Heavy braking | Brake discs glow orange through the wheel spokes and cool down on the straights. |
+| Damage | Drooping or missing wings, wobbling bent suspension, sagging or shredded tyres (rubber bits, rim sparks), scuffed paint, a grey smoke trail from a damaged power unit, white steam from damaged cooling or overheating, dark smoke from a failed engine. |
+| Fire (rare) | A fireball when it starts, flames with a colour ramp, a column of black smoke, the fire lighting up its surroundings, the extinguisher, and soot on the bodywork afterwards. |
+| Rain | Darker light, reflective wet asphalt, red rain lights that reflect on the road, rooster-tail spray and a mist cloud behind each car, rain streaks that slant at you with speed, splashes on the ground and drops on the lens. |
+| Speed | Rising field of view, radial speed blur, faint speed lines at the screen edges above about 230 km/h, high-speed buffeting and wheel blur. The *Speed blur & speed lines* setting turns the blur and lines off. |
+| Pit stops | Crews at the wheels and wings, the car on its jacks and puffs from the wheel guns. |
+
+Graphics quality: **Low** turns off shadows and post-processing (screen flashes fall back to a lightweight overlay) and uses the smallest particle budgets; **Medium** adds shadows, bloom, grading and the lens effects; **High** adds sharper shadows and textures, more multisampling, denser scenery and the largest particle budgets.
 
 ## Damage, repairs and retirement
 
