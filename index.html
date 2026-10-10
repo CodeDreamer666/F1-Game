@@ -74,6 +74,8 @@
   #dash .spd b, #dash .rpm b { font-size: 40px; font-weight: 700; line-height: 1; display: block; }
   #dash .spd small, #dash .rpm small { font-size: 13px; color: var(--dim); letter-spacing: 1px; }
   #dash .gear { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: 96px; height: 92px; text-align: center; font-size: 66px; font-weight: 700; line-height: 92px; background: linear-gradient(180deg, rgba(30,60,110,.55), rgba(20,30,50,.25)); clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%); }
+  /* in the cockpit the steering-wheel display shows speed, gear, rpm and shift lights */
+  #hud-bc.ck #dash .leds, #hud-bc.ck #dash .body { display: none; }
   #dash .sub { position: absolute; left: 50%; transform: translateX(-50%); bottom: -16px; display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 700; letter-spacing: 1px; white-space: nowrap; }
   .chip { padding: 2px 8px; border-radius: 4px; background: rgba(12,14,19,.85); border: 1px solid #333; color: #8c95a5; }
   .chip.on { background: #19a34a; border-color: #19a34a; color: #fff; }
@@ -2502,7 +2504,7 @@ const SIM = (function () {
     }
     onCollision(A, B, j, x, z, nx, nz, vn, vt, jt, mEff) {
       if (j >= 300) {
-        this.events.push({ type: 'collision', a: A, b: B, j, x, z });
+        this.events.push({ type: 'collision', a: A, b: B, j, x, z, nx, nz, vt });
         if (this.time - (A.lastHitT || 0) > 1.2 && this.time - (B.lastHitT || 0) > 1.2) { this.stats.collisions++; this.log(A, 'contact ' + B.driver.short + ' j=' + j.toFixed(0)); }
         A.lastHitT = B.lastHitT = this.time;
       }
@@ -2518,7 +2520,7 @@ const SIM = (function () {
       }
     }
     onWallHit(car, j, x, z, nx, nz, vn, vt, jt, mEff) {
-      if (j > 800) this.events.push({ type: 'wall', car, j, x, z });
+      if (j > 800) this.events.push({ type: 'wall', car, j, x, z, nx, nz, vt });
       this.recordContact(-1 - car.id, car, null, x, z, nx, nz, vn, vt, jt, mEff);
     }
     // One impact = all contact steps between a pair (or a car and the wall) with no gap longer than 0.1 s.
@@ -2544,14 +2546,25 @@ const SIM = (function () {
       }
       h.E += E; h.sc += sc;
       if (E >= h.peak) { h.peak = E; h.la = la; if (B) h.lb = local(B); }
-      if (E >= ev.peak) { ev.peak = E; ev.vn = Math.abs(vn); ev.vt = Math.abs(vt); ev.x = x; ev.z = z; }
+      if (E >= ev.peak) { ev.peak = E; ev.vn = Math.abs(vn); ev.vt = Math.abs(vt); ev.x = x; ev.z = z; ev.nx = nx; ev.nz = nz; }
     }
     resolveContacts() {
       if (!this.contacts.size) return;
       for (const [k, ev] of this.contacts) {
         if (this.time - ev.last < 0.1) continue;
         this.contacts.delete(k);
+        this.reportImpact(ev);
         if (this.damageOn) this.evaluateImpact(ev);
+      }
+    }
+    // one resolved impact per car, for the visuals: energy, where it landed on the car and the direction of the push
+    reportImpact(ev) {
+      const share = ev.b ? 0.5 : 0.85;
+      let pk = null; for (const h of ev.hits) if (!pk || h.peak > pk.peak) pk = h;
+      if (!pk) return;
+      for (const car of ev.b ? [ev.a, ev.b] : [ev.a]) {
+        const l = car === ev.a ? pk.la : pk.lb, sg = car === ev.a && ev.b ? -1 : 1;
+        this.events.push({ type: 'impact', car, other: car === ev.a ? ev.b : ev.a, E: ev.E * share, scrape: ev.scrape * share, lx: l[0], ly: l[1], nx: (ev.nx || 0) * sg, nz: (ev.nz || 0) * sg, vn: ev.vn, vt: ev.vt, x: ev.x, z: ev.z });
       }
     }
     evaluateImpact(ev) {
@@ -2960,19 +2973,23 @@ function canvasTex(w, h, draw, opts = {}) {
   return t;
 }
 function seededRand(seed) { return SIM.makeRng(seed); }
-function mergeGeoms(list) {
+function mergeGeoms(list, plain = false) {
   // list of BufferGeometry (already transformed). Keeps position/normal/uv (+color if all have it).
-  let total = 0; const prepared = [];
+  // A geometry tagged with userData.part writes that id into an aPart attribute (see partMask); plain ignores tags.
+  let total = 0; const prepared = [], parts = [];
   for (let g of list) {
+    const id = plain ? 0 : (g.userData.part || 0);
     if (g.index) g = g.toNonIndexed();
     if (!g.attributes.normal) g.computeVertexNormals();
-    prepared.push(g); total += g.attributes.position.count;
+    prepared.push(g); parts.push(id); total += g.attributes.position.count;
   }
+  const part = new Float32Array(total);
   const hasColor = prepared.every(g => g.attributes.color);
   const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), uv = new Float32Array(total * 2), col = hasColor ? new Float32Array(total * 3) : null;
   let o = 0;
-  for (const g of prepared) {
+  for (const [k, g] of prepared.entries()) {
     const n = g.attributes.position.count;
+    if (parts[k]) part.fill(parts[k], o, o + n);
     pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3);
     if (g.attributes.uv) uv.set(g.attributes.uv.array, o * 2);
     if (col) col.set(g.attributes.color.array, o * 3);
@@ -2983,6 +3000,7 @@ function mergeGeoms(list) {
   out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   if (col) out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  out.setAttribute('aPart', new THREE.BufferAttribute(part, 1));
   out.computeBoundingSphere();
   return out;
 }
@@ -4111,14 +4129,27 @@ function rod(a, b, r = 0.018) {
 }
 const CAR_GEO = {};
 const FW_PIVOT = [2.62, 0.12, 0.06], RW_PIVOT = [-2.3, 0.6, 0];
+// Breakable pieces. Each is tagged in the merged car meshes by an id (bit id-1 of the car's part mask hides it, see
+// partMask) and also kept as a separate fragment that can fly off: CAR_GEO.frag[id] = { space, parts: [[geometry, material]] }.
+// space: the frame its geometry is in ('car', 'fwL' / 'fwR' front-wing halves, 'rw' rear-wing assembly).
+const PT = { FWL_EP: 1, FWR_EP: 2, FWL_FLAP: 3, FWR_FLAP: 4, NOSE: 5, RWL_EP: 6, RWR_EP: 7, MIRL: 8, MIRR: 9, FENCEL: 10, FENCER: 11, HALO: 12 };
+const bit = (id) => 2 ** (id - 1);
+const tag = (g, id) => { g.userData.part = id; return g; };
 function carGeometries() {
   if (CAR_GEO.body) return CAR_GEO;
   const S = SIM.SPEC; const a = S.a, b = S.b;
-  const body = [], carbon = [], accent = [], dark = [], mirror = [];
-  // monocoque + nose
-  body.push(loft([
+  const body = [], carbon = [], accent = [], dark = [], mirror = [], frag = CAR_GEO.frag = {};
+  const fragOf = (id, space, list) => { frag[id] = { space, parts: list.map(([g, mat]) => [mergeGeoms(Array.isArray(g) ? g : [g], true), mat]) }; };
+  // nose cone: a separate piece in front of the bulkhead, so a heavy frontal hit can tear it off with the wing
+  const nose = tag(loft([
     { x: 2.98, y: 0.27, w: 0.06, hT: 0.04, hB: 0.04, p: 2.4 },
     { x: 2.7, y: 0.30, w: 0.11, hT: 0.07, hB: 0.07, p: 2.6 },
+    { x: 2.42, y: 0.333, w: 0.143, hT: 0.093, hB: 0.089, p: 2.7 },
+  ], 20), PT.NOSE);
+  body.push(nose); fragOf(PT.NOSE, 'car', [[nose, 'body']]);
+  // monocoque
+  body.push(loft([
+    { x: 2.42, y: 0.333, w: 0.143, hT: 0.093, hB: 0.089, p: 2.7 },
     { x: 2.1, y: 0.37, w: 0.18, hT: 0.12, hB: 0.11, p: 2.8 },
     { x: 1.45, y: 0.44, w: 0.25, hT: 0.16, hB: 0.15, p: 3 },
     { x: 0.85, y: 0.49, w: 0.32, hT: 0.2, hB: 0.19, p: 3.2 },
@@ -4157,23 +4188,28 @@ function carGeometries() {
   // nose so damage can droop, twist or detach them (see FW_PIVOT / updateDamageVisuals)
   for (const sg of [-1, 1]) {
     const P = [FW_PIVOT[0], FW_PIVOT[1], sg * FW_PIVOT[2]], at = (x, y, z) => [x - P[0], y - P[1], z - P[2]];
-    const wc = [], wa = [];
-    wc.push(xf(airfoil(0.42, 0.07, 0.96, 0.04), { p: at(2.75, 0.09, sg * 0.48), r: [0, 0, 0.05] }));
-    wa.push(xf(airfoil(0.28, 0.08, 0.95, 0.06), { p: at(2.6, 0.145, sg * 0.475), r: [0, 0, -0.2] }));
-    wa.push(xf(airfoil(0.22, 0.09, 0.93, 0.07), { p: at(2.47, 0.205, sg * 0.465), r: [0, 0, -0.42] }));
+    const L = sg < 0, EP = L ? PT.FWL_EP : PT.FWR_EP, FL = L ? PT.FWL_FLAP : PT.FWR_FLAP, space = L ? 'fwL' : 'fwR';
+    const main = xf(airfoil(0.42, 0.07, 0.96, 0.04), { p: at(2.75, 0.09, sg * 0.48), r: [0, 0, 0.05] });
+    const flap1 = xf(airfoil(0.28, 0.08, 0.95, 0.06), { p: at(2.6, 0.145, sg * 0.475), r: [0, 0, -0.2] });
+    const flap2 = tag(xf(airfoil(0.22, 0.09, 0.93, 0.07), { p: at(2.47, 0.205, sg * 0.465), r: [0, 0, -0.42] }), FL);
     // endplate: low at the front, rising to the flap trailing edges, with a footplate
-    wc.push(xf(plate([[2.92, 0.05], [2.34, 0.05], [2.34, 0.25], [2.42, 0.285], [2.56, 0.27], [2.78, 0.16], [2.92, 0.1]].map(([x, y]) => [x - P[0], y - P[1]]), 0.02), { p: [0, 0, sg * 0.97 - P[2]] }));
-    wc.push(xf(new THREE.BoxGeometry(0.58, 0.012, 0.09), { p: at(2.63, 0.056, sg * 0.935) }));
-    CAR_GEO[sg < 0 ? 'fwLc' : 'fwRc'] = mergeGeoms(wc); CAR_GEO[sg < 0 ? 'fwLa' : 'fwRa'] = mergeGeoms(wa);
-    carbon.push(rod([2.4, 0.3, sg * 0.05], [2.55, 0.12, sg * 0.12], 0.02));
+    const ep = tag(xf(plate([[2.92, 0.05], [2.34, 0.05], [2.34, 0.25], [2.42, 0.285], [2.56, 0.27], [2.78, 0.16], [2.92, 0.1]].map(([x, y]) => [x - P[0], y - P[1]]), 0.02), { p: [0, 0, sg * 0.97 - P[2]] }), EP);
+    const foot = tag(xf(new THREE.BoxGeometry(0.58, 0.012, 0.09), { p: at(2.63, 0.056, sg * 0.935) }), EP);
+    CAR_GEO[L ? 'fwLc' : 'fwRc'] = mergeGeoms([main, ep, foot]); CAR_GEO[L ? 'fwLa' : 'fwRa'] = mergeGeoms([flap1, flap2]);
+    fragOf(EP, space, [[[ep, foot], 'carbon']]); fragOf(FL, space, [[flap2, 'accent']]);
+    // the wing pillars hang from the nose cone and go with it
+    carbon.push(tag(rod([2.4, 0.3, sg * 0.05], [2.55, 0.12, sg * 0.12], 0.02), PT.NOSE));
   }
   // rear wing (main plane + endplates; the DRS flap is added to the same group), around the pylon top
   {
     const at = (x, y, z) => [x - RW_PIVOT[0], y - RW_PIVOT[1], z - RW_PIVOT[2]];
     const ra = [];
     const ep = [[-2.1, 0.58], [-2.1, 0.78], [-2.16, 0.92], [-2.3, 1.0], [-2.52, 1.04], [-2.72, 1.02], [-2.74, 0.66], [-2.6, 0.56]];
-    for (const sg of [-1, 1]) ra.push(xf(plate(ep.map(([x, y]) => [x - RW_PIVOT[0], y - RW_PIVOT[1]]), 0.025), { p: [0, 0, sg * 0.52] }));
-    CAR_GEO.rwc = xf(airfoil(0.36, 0.1, 1.03, 0.06), { p: at(-2.32, 0.75, 0), r: [0, 0, -0.1] });
+    for (const sg of [-1, 1]) {
+      const id = sg < 0 ? PT.RWL_EP : PT.RWR_EP, g = tag(xf(plate(ep.map(([x, y]) => [x - RW_PIVOT[0], y - RW_PIVOT[1]]), 0.025), { p: [0, 0, sg * 0.52] }), id);
+      ra.push(g); fragOf(id, 'rw', [[g, 'carbon']]);
+    }
+    CAR_GEO.rwc = mergeGeoms([xf(airfoil(0.36, 0.1, 1.03, 0.06), { p: at(-2.32, 0.75, 0), r: [0, 0, -0.1] })]);
     CAR_GEO.rwa = mergeGeoms(ra);
   }
   carbon.push(xf(airfoil(0.3, 0.1, 1.0, 0.05), { p: [-2.3, 0.4, 0], r: [0, 0, -0.2] })); // beam wing
@@ -4184,7 +4220,10 @@ function carGeometries() {
   accent.push(xf(new THREE.BoxGeometry(1.0, 0.16, 0.012), { p: [-1.1, 0.78, 0], r: [0, 0, 0.12] }));
   accent.push(xf(new THREE.BoxGeometry(0.16, 0.035, 0.12), { p: [-0.33, 0.985, 0] }));
   // floor edge fences ahead of the sidepods
-  for (const sg of [-1, 1]) carbon.push(xf(plate([[1.45, 0.07], [0.7, 0.07], [0.75, 0.3], [1.3, 0.22]], 0.012), { p: [0, 0, sg * 0.66] }));
+  for (const sg of [-1, 1]) {
+    const id = sg < 0 ? PT.FENCEL : PT.FENCER, g = tag(xf(plate([[1.45, 0.07], [0.7, 0.07], [0.75, 0.3], [1.3, 0.22]], 0.012), { p: [0, 0, sg * 0.66] }), id);
+    carbon.push(g); fragOf(id, 'car', [[g, 'carbon']]);
+  }
   // suspension
   const susp = [];
   for (const sg of [-1, 1]) {
@@ -4193,16 +4232,17 @@ function carGeometries() {
     susp.push(rod([-b + 0.3, 0.42, sg * 0.2], [-b, 0.43, sg * 0.64]), rod([-b - 0.3, 0.42, sg * 0.18], [-b, 0.43, sg * 0.64]));
     susp.push(rod([-b + 0.3, 0.25, sg * 0.24], [-b, 0.27, sg * 0.64]), rod([-b - 0.25, 0.25, sg * 0.2], [-b, 0.27, sg * 0.64]));
     // mirrors
-    carbon.push(rod([0.55, 0.62, sg * 0.32], [0.55, 0.72, sg * 0.5], 0.015));
-    accent.push(xf(new THREE.BoxGeometry(0.06, 0.075, 0.17), { p: [0.56, 0.745, sg * 0.53] }));
-    mirror.push(xf(new THREE.PlaneGeometry(0.15, 0.058), { p: [0.528, 0.745, sg * 0.53], r: [0, -Math.PI / 2, 0] }));
+    const id = sg < 0 ? PT.MIRL : PT.MIRR;
+    const st = tag(rod([0.55, 0.62, sg * 0.32], [0.55, 0.72, sg * 0.5], 0.015), id);
+    const hs = tag(xf(new THREE.BoxGeometry(0.06, 0.075, 0.17), { p: [0.56, 0.745, sg * 0.53] }), id);
+    const gl = tag(xf(new THREE.PlaneGeometry(0.15, 0.058), { p: [0.528, 0.745, sg * 0.53], r: [0, -Math.PI / 2, 0] }), id);
+    carbon.push(st); accent.push(hs); mirror.push(gl);
+    fragOf(id, 'car', [[st, 'carbon'], [hs, 'accent'], [gl, 'mirror']]);
   }
   carbon.push(...susp);
-  // halo
-  const halo = [];
-  halo.push(tube([[-0.42, 0.66, -0.3], [-0.4, 0.83, -0.29], [-0.1, 0.89, -0.27], [0.18, 0.88, -0.1], [0.24, 0.88, 0], [0.18, 0.88, 0.1], [-0.1, 0.89, 0.27], [-0.4, 0.83, 0.29], [-0.42, 0.66, 0.3]], 0.032, 32));
-  halo.push(rod([0.24, 0.88, 0], [0.45, 0.66, 0], 0.03));
-  carbon.push(...halo);
+  // halo (hidden in the cockpit view, which has its own; see buildCockpit)
+  carbon.push(tag(tube([[-0.42, 0.66, -0.3], [-0.4, 0.83, -0.29], [-0.1, 0.89, -0.27], [0.18, 0.88, -0.1], [0.24, 0.88, 0], [0.18, 0.88, 0.1], [-0.1, 0.89, 0.27], [-0.4, 0.83, 0.29], [-0.42, 0.66, 0.3]], 0.032, 32), PT.HALO));
+  carbon.push(tag(rod([0.24, 0.88, 0], [0.45, 0.66, 0], 0.03), PT.HALO));
   // cockpit opening & seat (dark)
   dark.push(xf(new THREE.BoxGeometry(0.75, 0.04, 0.5), { p: [0.05, 0.705, 0] }));
   CAR_GEO.body = mergeGeoms(body);
@@ -4220,9 +4260,23 @@ function carGeometries() {
   CAR_GEO.visor = xf(new THREE.SphereGeometry(0.133, 14, 6, -0.9, 1.8, 1.15, 0.5), { r: [0, Math.PI / 2, 0] });
   CAR_GEO.flap = airfoil(0.26, 0.1, 1.0, 0.07); CAR_GEO.flap.translate(-0.13, 0, 0); // pivots about its leading edge
   CAR_GEO.light = new THREE.BoxGeometry(0.04, 0.09, 0.14);
+  // a curved piece of bodywork (painted with the livery) and jagged carbon panels, thrown out by heavy impacts
+  CAR_GEO.panel = mergeGeoms([new THREE.CylinderGeometry(0.42, 0.42, 0.34, 6, 1, true, 0, 1.1)]);
+  CAR_GEO.shard = mergeGeoms([plate([[0, 0], [0.32, 0.04], [0.42, 0.16], [0.18, 0.22], [0.05, 0.13]], 0.012)]);
   return CAR_GEO;
 }
 const MAT_CACHE = {};
+// Hides tagged pieces of a merged car mesh: vertices whose aPart bit is set in the car's mask collapse to a point,
+// so a broken-off endplate or mirror disappears without splitting the car into more draw calls.
+function partMask(mat, uni) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uMask = uni;
+    sh.vertexShader = 'attribute float aPart;\nuniform float uMask;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n\tif (aPart > 0.5 && mod(floor(uMask / exp2(aPart - 1.0) + 0.01), 2.0) > 0.5) transformed = vec3(0.0);');
+  };
+  mat.customProgramCacheKey = () => 'partmask';
+  return mat;
+}
 function sidewallTex(comp) {
   if (MAT_CACHE['sw' + comp]) return MAT_CACHE['sw' + comp];
   const col = SIM.COMPOUNDS[comp].color;
@@ -4247,13 +4301,16 @@ function textTex(txt, color, bg, w = 512, h = 96, font = '900 70px Titillium Web
 function makeCarMesh(car, opts = {}) {
   const geo = carGeometries(); const team = car.team;
   const grp = new THREE.Group();
-  const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: liveryTex(team), roughness: 0.36, metalness: team.id === 'voltex' ? 0.25 : 0.12, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.0 });
-  const accentMat = new THREE.MeshPhysicalMaterial({ color: team.c2, roughness: 0.35, metalness: team.id === 'voltex' ? 0.85 : 0.3, clearcoat: 0.8 });
-  const carbonMat = MAT_CACHE.carbon || (MAT_CACHE.carbon = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.45, metalness: 0.3 }));
+  // per-car materials share the car's part mask (broken-off pieces, and the halo / mirrors hidden in the cockpit view)
+  const mask = { value: 0 }, depthMat = partMask(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), mask);
+  const bodyMat = partMask(new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: liveryTex(team), roughness: 0.36, metalness: team.id === 'voltex' ? 0.25 : 0.12, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.0 }), mask);
+  const accentMat = partMask(new THREE.MeshPhysicalMaterial({ color: team.c2, roughness: 0.35, metalness: team.id === 'voltex' ? 0.85 : 0.3, clearcoat: 0.8 }), mask);
+  const carbonMat = partMask(new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.45, metalness: 0.3 }), mask);
+  const mirrorMat = partMask(new THREE.MeshStandardMaterial({ color: 0xc8ced6, metalness: 1, roughness: 0.06 }), mask);
   const darkMat = MAT_CACHE.dark || (MAT_CACHE.dark = new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6 }));
-  const add = (g, m, shadow = true) => { const mesh = new THREE.Mesh(g, m); mesh.castShadow = shadow; mesh.receiveShadow = true; grp.add(mesh); return mesh; };
+  const add = (g, m, shadow = true) => { const mesh = new THREE.Mesh(g, m); mesh.castShadow = shadow; mesh.receiveShadow = true; if (m !== darkMat) mesh.customDepthMaterial = depthMat; grp.add(mesh); return mesh; };
   add(geo.body, bodyMat); add(geo.carbon, carbonMat); add(geo.accent, accentMat); add(geo.dark, darkMat, false);
-  add(geo.mirror, MAT_CACHE.mirror || (MAT_CACHE.mirror = new THREE.MeshStandardMaterial({ color: 0xc8ced6, metalness: 1, roughness: 0.06 })), false);
+  add(geo.mirror, mirrorMat, false);
   // helmet
   const helmet = new THREE.Group(); helmet.position.set(0.0, 0.79, 0);
   helmet.add(new THREE.Mesh(geo.helmet, new THREE.MeshPhysicalMaterial({ color: team.c2, roughness: .25, clearcoat: 1 })));
@@ -4262,11 +4319,11 @@ function makeCarMesh(car, opts = {}) {
   // front wing halves and rear wing as separate groups so damage can bend or remove them
   const fw = [-1, 1].map(sg => {
     const g = new THREE.Group(); g.position.set(FW_PIVOT[0], FW_PIVOT[1], sg * FW_PIVOT[2]);
-    for (const [gg, mm] of [[geo[sg < 0 ? 'fwLc' : 'fwRc'], carbonMat], [geo[sg < 0 ? 'fwLa' : 'fwRa'], accentMat]]) { const me = new THREE.Mesh(gg, mm); me.castShadow = true; me.receiveShadow = true; g.add(me); }
+    for (const [gg, mm] of [[geo[sg < 0 ? 'fwLc' : 'fwRc'], carbonMat], [geo[sg < 0 ? 'fwLa' : 'fwRa'], accentMat]]) { const me = new THREE.Mesh(gg, mm); me.castShadow = true; me.receiveShadow = true; me.customDepthMaterial = depthMat; g.add(me); }
     grp.add(g); return g;
   });
   const rw = new THREE.Group(); rw.position.set(...RW_PIVOT); grp.add(rw);
-  for (const [gg, mm] of [[geo.rwc, accentMat], [geo.rwa, carbonMat]]) { const me = new THREE.Mesh(gg, mm); me.castShadow = true; me.receiveShadow = true; rw.add(me); }
+  for (const [gg, mm] of [[geo.rwc, accentMat], [geo.rwa, carbonMat]]) { const me = new THREE.Mesh(gg, mm); me.castShadow = true; me.receiveShadow = true; me.customDepthMaterial = depthMat; rw.add(me); }
   // DRS flap (pivots about its leading edge, just above the main plane's trailing edge; trailing edge up when closed)
   const flap = new THREE.Mesh(geo.flap, MAT_CACHE['fl' + team.id] || (MAT_CACHE['fl' + team.id] = new THREE.MeshPhysicalMaterial({ color: team.c1, roughness: 0.35, metalness: 0.2, clearcoat: 0.8 })));
   flap.position.set(-2.47 - RW_PIVOT[0], 0.8 - RW_PIVOT[1], 0); flap.rotation.z = -0.75; flap.castShadow = true; rw.add(flap);
@@ -4303,27 +4360,83 @@ function makeCarMesh(car, opts = {}) {
     const cover = new THREE.Mesh(geo.cover, coverMat); cover.position.z = out * face; if (out < 0) cover.rotation.y = Math.PI; spin.add(cover);
     grp.add(steer); wheels.push({ steer, spin, tyre, cover, comp: car.tyre.c, base: steer.position.clone(), out, disc: out * (face - 0.07), blur: false });
   }
-  // steering wheel (visible in cockpit view)
-  const sw = new THREE.Group(); sw.position.set(0.42, 0.67, 0); sw.rotation.z = 0.35;
-  const swBody = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.3), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: .5 }));
-  sw.add(swBody);
-  for (const sg of [-1, 1]) { const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: .9 })); grip.position.set(0, -0.01, sg * 0.15); sw.add(grip); }
-  sw.visible = false; grp.add(sw);
   // level of detail: decals and small parts are hidden for distant cars, shadows only near the camera
   const detail = [wingTxt, num, ...grp.children.filter(c => c.isMesh && c.geometry.type === 'PlaneGeometry')];
   const shadowCasters = []; grp.traverse(o => { if (o.isMesh && o.castShadow) shadowCasters.push(o); });
-  return { group: grp, wheels, flap, light, lightMat, helmet, steeringWheel: sw, bodyMat, accentMat, carbonMat, coverMat, coverBlur, fw, rw, detail: [...new Set(detail)], shadowCasters, lod: -1, dmgKey: '',
-    bh: new Float32Array(4), skid: null, lastX: null, lastZ: 0 };
+  return { group: grp, wheels, flap, light, lightMat, helmet, bodyMat, accentMat, carbonMat, mirrorMat, rimMat, coverMat, coverBlur, fw, rw, detail: [...new Set(detail)], shadowCasters, lod: -1, dmgKey: '',
+    bh: new Float32Array(4), skid: null, lastX: null, lastZ: 0, mask, brk: 0,
+    // body reaction to impacts (springs on roll / pitch / squash, a hop) and per-wheel flail of broken corners
+    rx: { roll: 0, pitch: 0, vr: 0, vp: 0, hop: 0, vh: 0, sq: 0, vs: 0, sqx: 1, yaw: 0, vy: 0 }, flail: new Float32Array(8), torn: [false, false, false, false],
+    scrubT: 0, lastImpact: null };
 }
-function addSteeringDisplay(model) {
-  const cvs = document.createElement('canvas'); cvs.width = 320; cvs.height = 168;
+// The cockpit as the driver sees it, attached to whichever car the cockpit camera is in: a slim halo whose top bar
+// sits at the upper edge of the view and whose centre pillar stays narrow, a steering wheel with a live display,
+// buttons, dials and gloved hands that turn with the steering, and mirrors at the sides. The car's own halo, mirrors
+// and helmet are hidden meanwhile (part mask), so the nose, front tyres and front wing stay in clear view.
+// a little above the real eye line, so the front wing shows over the bodywork (the halo above is the cockpit's own)
+const COCKPIT_EYE = [-0.02, 0.97, 0];
+const TCAM_EYE = [-0.36, 1.13, 0]; // T-camera on top of the airbox
+const COCKPIT_FOV = { narrow: 51, normal: 58, wide: 66 }; // vertical, degrees
+function buildCockpit() {
+  const grp = new THREE.Group(); grp.visible = false;
+  const carbon = new THREE.MeshStandardMaterial({ color: 0x17191c, roughness: 0.38, metalness: 0.35 });
+  const halo = new THREE.Mesh(mergeGeoms([
+    tube([[-0.42, 0.74, -0.31], [-0.36, 0.98, -0.3], [-0.06, 1.085, -0.285], [0.22, 1.095, -0.13], [0.29, 1.095, 0], [0.22, 1.095, 0.13], [-0.06, 1.085, 0.285], [-0.36, 0.98, 0.3], [-0.42, 0.74, 0.31]], 0.019, 40),
+    rod([0.29, 1.095, 0], [0.55, 0.7, 0], 0.0115),
+  ]), carbon);
+  grp.add(halo);
+  // steering wheel: its face looks up at the driver's eyes; the inner group turns about the column
+  const col = new THREE.Group(); col.position.set(0.44, 0.728, 0); col.rotation.z = -0.5; col.scale.setScalar(0.92); grp.add(col);
+  const spin = new THREE.Group(); col.add(spin);
+  const dark = new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.55, metalness: 0.2 });
+  const grip = new THREE.MeshStandardMaterial({ color: 0x1a1b1e, roughness: 0.92 });
+  const rr = (w, h, r) => { const sh = new THREE.Shape(), x = w / 2, y = h / 2; sh.moveTo(-x + r, -y); sh.lineTo(x - r, -y); sh.quadraticCurveTo(x, -y, x, -y + r); sh.lineTo(x, y - r); sh.quadraticCurveTo(x, y, x - r, y); sh.lineTo(-x + r, y); sh.quadraticCurveTo(-x, y, -x, y - r); sh.lineTo(-x, -y + r); sh.quadraticCurveTo(-x, -y, -x + r, -y); return sh; };
+  // face plate (built in the z–y plane, extruded towards the driver along -x)
+  const face = new THREE.ExtrudeGeometry(rr(0.2, 0.125, 0.03), { depth: 0.028, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 2, curveSegments: 6 });
+  face.rotateY(-Math.PI / 2); face.translate(0.014, 0, 0);
+  spin.add(new THREE.Mesh(face, dark));
+  for (const sg of [-1, 1]) {
+    const g = new THREE.Mesh(new THREE.CapsuleGeometry(0.021, 0.085, 4, 10), grip); g.position.set(0.004, -0.012, sg * 0.118); g.rotation.x = sg * 0.18; spin.add(g);
+    // shift paddles behind the grips
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.07, 0.05), carbon); pad.position.set(0.03, 0.03, sg * 0.085); spin.add(pad);
+  }
+  // display, buttons and rotaries
+  const cvs = document.createElement('canvas'); cvs.width = 320; cvs.height = 176;
   const tex = new THREE.CanvasTexture(cvs); tex.colorSpace = THREE.SRGBColorSpace;
-  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.08), new THREE.MeshBasicMaterial({ map: tex }));
-  scr.position.set(-0.026, 0.02, 0); scr.rotation.y = -Math.PI / 2; model.steeringWheel.add(scr);
-  // rev LEDs
-  model.swCanvas = cvs; model.swTex = tex;
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.098, 0.054), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  scr.position.set(-0.021, 0.018, 0); scr.rotation.y = -Math.PI / 2; spin.add(scr);
+  const btnGeo = new THREE.CylinderGeometry(0.0075, 0.0075, 0.008, 12); btnGeo.rotateZ(Math.PI / 2);
+  const btn = (z, y, hex, r = 1) => { const b = new THREE.Mesh(btnGeo, new THREE.MeshStandardMaterial({ color: hex, emissive: hex, emissiveIntensity: 0.25, roughness: 0.4 })); b.position.set(-0.022, y, z); b.scale.setScalar(r); spin.add(b); };
+  btn(-0.07, 0.035, 0x1fbf4a); btn(0.07, 0.035, 0xe23a2a); btn(-0.072, 0.005, 0xf2c21b); btn(0.072, 0.005, 0xf28a1b); btn(-0.066, -0.026, 0x2f6fe0); btn(0.066, -0.026, 0x2f6fe0);
+  for (const [z, hex] of [[-0.034, 0xd23c8c], [0, 0xdfe3ea], [0.034, 0x27b56a]]) btn(z, -0.043, hex, 1.25);
+  // gloved hands on the grips, with the cuff in the team colour
+  const glove = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.85 }), cuff = new THREE.MeshStandardMaterial({ color: 0xf2c21b, roughness: 0.6 });
+  for (const sg of [-1, 1]) {
+    const h = new THREE.Group(); h.position.set(-0.006, -0.006, sg * 0.124); h.rotation.x = sg * 0.2; spin.add(h);
+    const palm = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 10), glove); palm.scale.set(0.95, 1.25, 0.8); h.add(palm);
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.011, 0.03, 3, 6), glove); thumb.position.set(-0.022, 0.03, -sg * 0.022); thumb.rotation.x = sg * 0.9; h.add(thumb);
+    const c1 = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.036, 0.05, 12), cuff); c1.position.set(0.0, -0.05, sg * 0.03); c1.rotation.x = -sg * 0.5; h.add(c1);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.042, 0.2, 12), glove); arm.position.set(-0.03, -0.14, sg * 0.075); arm.rotation.x = -sg * 0.5; arm.rotation.z = 0.35; h.add(arm);
+  }
+  // mirrors: housings in the team colour, the glass reflects the surroundings
+  const mirGlass = new THREE.MeshStandardMaterial({ color: 0xbfc7d2, metalness: 1, roughness: 0.04 }), mirHouse = new THREE.MeshStandardMaterial({ color: 0xf2c21b, roughness: 0.4, metalness: 0.2 });
+  const mirrors = [-1, 1].map(sg => {
+    const m = new THREE.Group(); m.position.set(0.58, 0.9, sg * 0.56); grp.add(m);
+    const hs = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.052, 0.125), mirHouse); m.add(hs);
+    const gl = new THREE.Mesh(new THREE.PlaneGeometry(0.112, 0.04), mirGlass); gl.position.x = -0.023; gl.rotation.y = -Math.PI / 2 + sg * 0.12; m.add(gl);
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.3, 6), carbon); st.position.set(0, -0.13, -sg * 0.07); st.rotation.x = sg * 0.5; m.add(st);
+    return m;
+  });
+  // drawn like a first-person viewmodel: its depth is squeezed into the front of the depth range, so the wheel and
+  // hands sit in front of the (closed) bodywork they are modelled inside, while still sorting among themselves
+  grp.traverse(o => {
+    if (!o.isMesh) return; const mt = o.material; if (mt.userData.vm) return; mt.userData.vm = true;
+    mt.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n\tgl_Position.z = gl_Position.z * 0.04 - gl_Position.w * 0.96;'); };
+    mt.customProgramCacheKey = () => 'viewmodel';
+    o.renderOrder = 5; o.frustumCulled = false;
+  });
+  return { group: grp, col, spin, tex, cvs, cuff, mirHouse, mirrors, owner: null, steerVis: 0 };
 }
-
 /* ---------------------------------------------------------------
    PARTICLES & VFX — fixed-size pools (no allocation while racing), all driven by the simulation:
    rotating sun-lit puffs (tyre smoke, dust, spray, exhaust smoke), additive flames with a colour ramp,
@@ -4547,72 +4660,150 @@ class SkidMarks {
 }
 
 /* ---------------------------------------------------------------
-   DAMAGE EFFECTS — debris shards (instanced), detached wing pieces (pooled), pit crews (instanced)
+   DAMAGE EFFECTS — carbon splinters (instanced) and broken-off car parts (pooled meshes), pit crews (instanced)
    --------------------------------------------------------------- */
-const _e3 = new THREE.Euler(), _q2 = new THREE.Quaternion(), _p3 = new THREE.Vector3(), _s3 = new THREE.Vector3(), _col = new THREE.Color();
+const _e3 = new THREE.Euler(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _p3 = new THREE.Vector3(), _s3 = new THREE.Vector3(), _col = new THREE.Color();
+const _v4 = new THREE.Vector3(), _v5 = new THREE.Vector3(), _m5 = new THREE.Matrix4(), _box = new THREE.Box3(), _proj = { i: 0, d: 0, s: 0 }, _wl = { l: 0, r: 0, innerPit: 0 };
 class DebrisField {
-  constructor(scene, max) {
-    this.max = max; this.p = []; this.wings = []; this.scene = scene;
-    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.022, 0.09), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.25 }), max);
-    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.mesh.frustumCulled = false; this.mesh.count = 0;
+  // max: splinters; maxParts: whole pieces (wing halves, endplates, flaps, nose cones, mirrors, wheels, panels)
+  constructor(scene, max, maxParts = 12) {
+    this.max = max; this.p = []; this.parts = []; this.maxParts = maxParts; this.scene = scene;
+    // an irregular, thin splinter rather than a box: reads as broken carbon fibre when it tumbles
+    const g = plate([[-0.08, -0.03], [0.06, -0.05], [0.09, 0.0], [0.02, 0.05], [-0.07, 0.03]], 0.014); g.rotateX(Math.PI / 2);
+    this.mesh = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.42, metalness: 0.35, side: THREE.DoubleSide }), max);
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.mesh.frustumCulled = false; this.mesh.count = 0; this.mesh.castShadow = false;
     for (let k = 0; k < max; k++) this.mesh.setColorAt(k, _col.setRGB(1, 1, 1));
     scene.add(this.mesh);
   }
-  // carbon / rubber shards thrown from a contact point
-  spawn(x, z, vx, vz, n, rgb) {
+  // Splinters thrown from a contact point. o: { y, up (vertical speed), push: [x, z] world push (m/s), spread (m/s), size }
+  spawn(x, z, vx, vz, n, rgb, o = {}) {
+    const r = Math.random, px = o.push ? o.push[0] : 0, pz = o.push ? o.push[1] : 0, spread = o.spread != null ? o.spread : 9, up = o.up != null ? o.up : 4.5, sz = o.size || 1;
     for (let k = 0; k < n; k++) {
       if (this.p.length >= this.max) this.p.shift();
-      const r = Math.random;
-      this.p.push({ x: x + (r() - .5) * 0.8, y: 0.25 + r() * 0.35, z: z + (r() - .5) * 0.8, vx: vx * (0.25 + r() * 0.5) + (r() - .5) * 9, vy: 1.5 + r() * 4.5, vz: vz * (0.25 + r() * 0.5) + (r() - .5) * 9,
-        rx: r() * 6, ry: r() * 6, rz: r() * 6, wx: (r() - .5) * 24, wy: (r() - .5) * 24, wz: (r() - .5) * 24, life: 22 + r() * 12, s: 0.5 + r() * 1.3, c: rgb || [0.09, 0.09, 0.1] });
+      const s = (0.3 + r() * r() * 1.3) * sz; // mostly small bits, a few bigger pieces
+      this.p.push({ x: x + (r() - .5) * 0.8, y: (o.y || 0.25) + r() * 0.35, z: z + (r() - .5) * 0.8, vx: vx * (0.25 + r() * 0.5) + px * (0.5 + r()) + (r() - .5) * spread, vy: 1.2 + r() * up, vz: vz * (0.25 + r() * 0.5) + pz * (0.5 + r()) + (r() - .5) * spread,
+        rx: r() * 6, ry: r() * 6, rz: r() * 6, wx: (r() - .5) * 30, wy: (r() - .5) * 30, wz: (r() - .5) * 30, life: 18 + r() * 12, s, sx: 0.6 + r() * 1.1, c: rgb || [0.07, 0.07, 0.08] });
     }
   }
-  // a whole wing element that came off a car: tumbles, slides and stays on track until marshals clear it
-  spawnWing(m, part, x, z, vx, vz, psi) {
-    const geo = carGeometries();
-    let w = this.wings.find(o => !o.alive);
+  // A piece breaking off a car. defs: [[geometry, material, localMatrix?], ...] in the frame of `parent` (an Object3D on
+  // the car model). The piece keeps the car's velocity at that point, takes the push of the impact and an upward pop,
+  // and spins according to the energy. o: { push: [x, z], up, spin, life, heavy (metal parts: sparks while sliding) }
+  spawnPart(defs, parent, car, o = {}) {
+    let w = this.parts.find(q => !q.alive);
     if (!w) {
-      if (this.wings.length >= 8) w = this.wings.reduce((a, b) => a.life < b.life ? a : b);
-      else { w = { obj: new THREE.Group(), c: new THREE.Mesh(geo.fwLc), a: new THREE.Mesh(geo.fwLa) }; w.obj.add(w.c, w.a); this.scene.add(w.obj); this.wings.push(w); }
+      if (this.parts.length >= this.maxParts) w = this.parts.reduce((a, b) => a.life < b.life ? a : b);
+      else { w = { obj: new THREE.Group(), meshes: [] }; this.scene.add(w.obj); this.parts.push(w); }
     }
-    const key = part === 0 ? 'fwL' : part === 1 ? 'fwR' : 'rw';
-    w.c.geometry = geo[key + 'c']; w.a.geometry = geo[key + 'a']; w.c.material = part < 2 ? m.carbonMat : m.accentMat; w.a.material = part < 2 ? m.accentMat : m.carbonMat;
-    w.c.castShadow = w.a.castShadow = true;
-    const r = Math.random;
-    Object.assign(w, { alive: true, x, y: part < 2 ? 0.15 : 0.7, z, vx: vx * 0.75 + (r() - .5) * 4, vy: 2 + r() * 3, vz: vz * 0.75 + (r() - .5) * 4, rx: 0, ry: -psi, rz: 0, wx: (r() - .5) * 10, wy: (r() - .5) * 8, wz: (r() - .5) * 10, life: 35 });
-    w.obj.visible = true; w.obj.scale.setScalar(1);
+    while (w.meshes.length < defs.length) { const me = new THREE.Mesh(); me.matrixAutoUpdate = false; me.castShadow = true; w.obj.add(me); w.meshes.push(me); }
+    // centre of the piece in the parent frame
+    _box.makeEmpty();
+    for (const [g, , M] of defs) { if (!g.boundingBox) g.computeBoundingBox(); _box.union(M ? _box.clone().copy(g.boundingBox).applyMatrix4(M) : g.boundingBox); }
+    _box.getCenter(_v4); _box.getSize(_v5);
+    w.meshes.forEach((me, k) => {
+      const d = defs[k]; me.visible = !!d; if (!d) return;
+      me.geometry = d[0]; me.material = d[1]; me.matrix.makeTranslation(-_v4.x, -_v4.y, -_v4.z); if (d[2]) me.matrix.multiply(d[2]);
+    });
+    w.hx = Math.max(0.01, _v5.x / 2); w.hy = Math.max(0.01, _v5.y / 2); w.hz = Math.max(0.01, _v5.z / 2);
+    // the thinnest axis is the one it ends up lying on
+    w.thin = w.hx <= w.hy && w.hx <= w.hz ? 0 : w.hy <= w.hz ? 1 : 2;
+    parent.updateWorldMatrix(true, false);
+    const pos = _v4.applyMatrix4(parent.matrixWorld); parent.matrixWorld.decompose(_p3, w.obj.quaternion, _s3);
+    const r = Math.random, px = o.push ? o.push[0] : 0, pz = o.push ? o.push[1] : 0, spin = o.spin != null ? o.spin : 6;
+    // velocity of that point of the car (translation plus yaw rate) and the push of the impact
+    const rx = pos.x - car.x, rz = pos.z - car.z;
+    Object.assign(w, { alive: true, x: pos.x, y: pos.y, z: pos.z,
+      vx: (car.vx - car.r * rz) * (0.7 + r() * 0.25) + px + (r() - .5) * 2.5, vy: (o.up != null ? o.up : 2.5) * (0.7 + r() * 0.6), vz: (car.vz + car.r * rx) * (0.7 + r() * 0.25) + pz + (r() - .5) * 2.5,
+      wx: (r() - .5) * spin * 2, wy: car.r + (r() - .5) * spin, wz: (r() - .5) * spin * 2, life: o.life || 25, life0: o.life || 25, heavy: !!o.heavy, hint: car.idx, rest: 0 });
+    w.obj.visible = true; w.obj.scale.setScalar(1); w.obj.position.set(w.x, w.y, w.z);
+    return w;
   }
-  update(dt, cars) {
-    const g = 9.8;
-    const step = (o, h) => {
-      o.vy -= g * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.z += o.vz * dt;
-      o.rx += o.wx * dt; o.ry += o.wy * dt; o.rz += o.wz * dt;
-      if (o.y < h) { o.y = h; o.vy = Math.abs(o.vy) > 1.5 ? -o.vy * 0.3 : 0; const f = Math.max(0, 1 - dt * 3.5); o.vx *= f; o.vz *= f; o.wx *= f; o.wy *= f; o.wz *= f; if (Math.abs(o.vy) < 0.1) { o.rx *= 0.9; o.rz *= 0.9; } }
+  update(dt, cars, track) {
+    const g = 9.8, R = Math.random;
+    const kick = (o, h) => {
       // cars running over a piece kick it along
-      if (o.y <= h + 0.05) for (const c of cars) {
+      if (o.y > h + 0.08) return false;
+      for (const c of cars) {
         if (c.speed < 8 || c.inGarage) continue;
         const dx = o.x - c.x, dz = o.z - c.z; if (dx * dx + dz * dz > 4) continue;
-        o.vx = c.vx * (0.5 + Math.random() * 0.4) + (Math.random() - .5) * 4; o.vz = c.vz * (0.5 + Math.random() * 0.4) + (Math.random() - .5) * 4; o.vy = 1 + Math.random() * 2.5;
-        o.wx = (Math.random() - .5) * 20; o.wz = (Math.random() - .5) * 20; break;
+        o.vx = c.vx * (0.5 + R() * 0.4) + (R() - .5) * 4; o.vz = c.vz * (0.5 + R() * 0.4) + (R() - .5) * 4; o.vy = 1 + R() * 2.5;
+        o.wx = (R() - .5) * 20; o.wz = (R() - .5) * 20; return true;
       }
+      return false;
     };
+    // splinters
     let n = 0;
     for (let k = this.p.length - 1; k >= 0; k--) { const o = this.p[k]; o.life -= dt; if (o.life <= 0) this.p.splice(k, 1); }
     for (const o of this.p) {
-      step(o, 0.02);
+      o.vy -= g * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.z += o.vz * dt;
+      o.rx += o.wx * dt; o.ry += o.wy * dt; o.rz += o.wz * dt;
+      if (o.y < 0.02) {
+        o.y = 0.02; o.vy = Math.abs(o.vy) > 1.5 ? -o.vy * 0.3 : 0;
+        const f = Math.max(0, 1 - dt * 3.5); o.vx *= f; o.vz *= f; o.wx *= f; o.wy *= f; o.wz *= f;
+        // settles flat once it stops bouncing
+        if (o.vy === 0) { o.rx *= 0.85; o.rz *= 0.85; }
+      }
+      kick(o, 0.02);
       const sc = o.s * Math.min(1, o.life / 2);
-      _m4.compose(_p3.set(o.x, o.y, o.z), _q2.setFromEuler(_e3.set(o.rx, o.ry, o.rz)), _s3.set(sc, sc, sc));
+      _m4.compose(_p3.set(o.x, o.y, o.z), _q2.setFromEuler(_e3.set(o.rx, o.ry, o.rz)), _s3.set(sc * o.sx, sc, sc));
       this.mesh.setMatrixAt(n, _m4); this.mesh.setColorAt(n, _col.setRGB(o.c[0], o.c[1], o.c[2])); n++;
     }
     this.mesh.count = n; this.mesh.instanceMatrix.needsUpdate = true; if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
-    for (const w of this.wings) {
+    // whole pieces: rigid tumbling with bounces, sliding friction, settling flat, and the barriers in the way
+    const camPos = camera.position;
+    for (const w of this.parts) {
       if (!w.alive) continue;
-      w.life -= dt; if (w.life <= 0) { w.alive = false; w.obj.visible = false; continue; }
-      step(w, 0.08);
-      w.obj.position.set(w.x, w.y, w.z); w.obj.rotation.set(w.rx, w.ry, w.rz); w.obj.scale.setScalar(Math.min(1, w.life / 1.5));
+      w.life -= dt;
+      if (w.life <= 0 || (w.life < w.life0 - 6 && Math.hypot(w.x - camPos.x, w.z - camPos.z) > 600)) { w.alive = false; w.obj.visible = false; continue; }
+      const q = w.obj.quaternion;
+      w.vy -= g * dt; w.x += w.vx * dt; w.y += w.vy * dt; w.z += w.vz * dt;
+      // integrate the spin (world angular velocity)
+      const wl = Math.hypot(w.wx, w.wy, w.wz);
+      if (wl > 1e-4) { _q2.setFromAxisAngle(_v4.set(w.wx / wl, w.wy / wl, w.wz / wl), wl * dt); q.premultiply(_q2).normalize(); }
+      // lowest point of the piece's box under the current orientation
+      _m5.makeRotationFromQuaternion(q); const e = _m5.elements;
+      const low = Math.abs(e[1]) * w.hx + Math.abs(e[5]) * w.hy + Math.abs(e[9]) * w.hz;
+      let ground = false;
+      if (w.y - low < 0.01) {
+        ground = true; w.y = low + 0.01;
+        const vh = Math.hypot(w.vx, w.vz);
+        if (w.vy < -1.2) {
+          // a bounce: loses most of its vertical speed and picks up tumble from the corner that struck
+          const imp = -w.vy; w.vy = imp * 0.32;
+          w.wx += (R() - .5) * imp * 3; w.wz += (R() - .5) * imp * 3; w.wy += (R() - .5) * imp;
+          const f = Math.max(0, 1 - 0.25 * imp / Math.max(vh, 1)); w.vx *= f; w.vz *= f;
+        } else if (w.vy < 0) w.vy = 0;
+        track.project(w.x, w.z, w.hint, _proj); w.hint = _proj.i;
+        const surf = track.surfaceAt(_proj.i, _proj.d, false), mu = surf >= 3 ? 1.6 : 0.6;
+        if (vh > 0.01) { const dv = Math.min(vh, mu * g * dt); w.vx -= w.vx / vh * dv; w.vz -= w.vz / vh * dv; }
+        const damp = Math.exp(-dt * (surf >= 3 ? 7 : 4)); w.wx *= damp; w.wy *= damp; w.wz *= damp;
+        // tip over onto its flat side
+        if (w.vy < 0.5) {
+          _v4.set(w.thin === 0 ? 1 : 0, w.thin === 1 ? 1 : 0, w.thin === 2 ? 1 : 0).applyQuaternion(q);
+          _v5.set(0, _v4.y >= 0 ? 1 : -1, 0); _q2.setFromUnitVectors(_v4, _v5); _q3.identity().slerp(_q2, Math.min(1, dt * 5)); q.premultiply(_q3);
+        }
+        // grinding: sparks from metal on asphalt, a dust trail off track
+        if (vh > 7 && Math.hypot(w.x - camPos.x, w.z - camPos.z) < 140) {
+          if (surf >= 3) { if (R() < dt * 30) G.dust.emit(w.x, 0.2, w.z, w.vx * 0.2, 0.6 + R(), w.vz * 0.2, 1.4, 0.5, 1.8, 0.3, surf === 4 ? [0.78, 0.69, 0.52] : [0.5, 0.46, 0.34]); }
+          else if (w.heavy && R() < dt * 40) G.sparks.emit(w.x, 0.03, w.z, w.vx * 0.9 + (R() - .5) * 3, 0.4 + R() * 1.5, w.vz * 0.9 + (R() - .5) * 3, 0.2 + R() * 0.2, 0.7);
+        }
+      } else if (R() < dt * 2) { track.project(w.x, w.z, w.hint, _proj); w.hint = _proj.i; }
+      // barriers: a piece bounces off the wall instead of passing through it
+      if (!ground) track.project(w.x, w.z, w.hint, _proj);
+      track.walls(_proj.i, _proj.s, false, _wl);
+      const rx = track.rx[_proj.i], rz = track.rz[_proj.i], lim = Math.max(w.hx, w.hz) * 0.6;
+      let nx = 0, nz = 0, pen = 0;
+      if (_proj.d > _wl.r - lim) { pen = _proj.d - (_wl.r - lim); nx = -rx; nz = -rz; } else if (_proj.d < -_wl.l + lim) { pen = -_wl.l + lim - _proj.d; nx = rx; nz = rz; }
+      if (pen > 0) {
+        w.x += nx * pen; w.z += nz * pen;
+        const vn = w.vx * nx + w.vz * nz;
+        if (vn < 0) { w.vx -= 1.4 * vn * nx; w.vz -= 1.4 * vn * nz; w.vx *= 0.7; w.vz *= 0.7; w.wy += (R() - .5) * Math.abs(vn) * 2; }
+      }
+      if (kick(w, low)) { w.wy = (R() - .5) * 10; }
+      w.obj.position.set(w.x, w.y, w.z);
+      w.obj.scale.setScalar(Math.min(1, w.life / 1.5));
     }
   }
-  clear() { this.p.length = 0; this.mesh.count = 0; for (const w of this.wings) { w.alive = false; w.obj.visible = false; } }
+  clear() { this.p.length = 0; this.mesh.count = 0; for (const w of this.parts) { w.alive = false; w.obj.visible = false; } }
 }
 // Pit crews: one instanced body and helmet per crew member, posed around cars in the pit box.
 class PitCrew {
@@ -4789,7 +4980,7 @@ const SETTINGS_KEY = 'apexgp.settings.v1';
 const DEFAULTS = {
   laps: 8, difficulty: 75, quali: 'on', qualiMin: 8, field: 20, weather: 'dry', tyreWear: 'normal', mandatory: 'auto', damage: 'standard',
   startTyre: 'auto', name: 'J. Dalton', team: 0,
-  camera: 'chase', quality: 'high', volume: 70, units: 'kmh', showFps: 'off', quickGrid: 'random', speedBlur: 'on',
+  camera: 'chase', cockpitFov: 'normal', quality: 'high', volume: 70, units: 'kmh', showFps: 'off', quickGrid: 'random', speedBlur: 'on',
 };
 let S = Object.assign({}, DEFAULTS);
 try { const raw = localStorage.getItem(SETTINGS_KEY); if (raw) Object.assign(S, JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
@@ -4811,7 +5002,8 @@ const SCHEMA = [
   { k: 'name', label: 'Driver name', type: 'text' },
   { k: 'team', label: 'Team', type: 'select', opts: () => SIM.TEAMS.map((t, i) => [i, t.full]) },
   { k: 'quickGrid', label: 'Quick race grid slot', type: 'seg', opts: [['random', 'Random'], ['back', 'Back'], ['middle', 'Middle'], ['pole', 'Pole']] },
-  { k: 'camera', label: 'Default camera', type: 'seg', opts: [['chase', 'Chase'], ['far', 'Far chase'], ['cockpit', 'Cockpit']] },
+  { k: 'camera', label: 'Default camera', type: 'seg', opts: [['chase', 'Chase'], ['far', 'Far chase'], ['cockpit', 'Cockpit'], ['tcam', 'T-cam']] },
+  { k: 'cockpitFov', label: 'Cockpit field of view', type: 'seg', opts: [['narrow', 'Narrow'], ['normal', 'Normal'], ['wide', 'Wide']] },
   { k: 'quality', label: 'Graphics quality', type: 'seg', opts: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], desc: () => QUALITY_DESC[S.quality] },
   { k: 'speedBlur', label: 'Speed blur & speed lines (Medium/High)', type: 'seg', opts: [['on', 'On'], ['off', 'Off']] },
   { k: 'volume', label: 'Master volume', type: 'range', min: 0, max: 100, fmt: (v) => v + '%' },
@@ -4901,7 +5093,7 @@ class AudioEngine {
     const sess = G.session; const focus = G.focus; const t = this.ctx.currentTime;
     if (!sess || !focus || G.mode === 'menu' && !G.attract) { for (const e of this.engines) e.out.gain.setTargetAtTime(0, t, 0.1); this.wind.g.gain.setTargetAtTime(0, t, .1); this.squeal.g.gain.setTargetAtTime(0, t, .1); this.rumble.g.gain.setTargetAtTime(0, t, .1); this.crowd.g.gain.setTargetAtTime(0, t, .2); this.rain.g.gain.setTargetAtTime(0, t, .2); return; }
     const menuFactor = G.mode === 'menu' ? 0.25 : 1;
-    const cam = G.camera.position; const cockpit = G.camRig.mode === 'cockpit';
+    const cam = G.camera.position; const cockpit = G.camRig.mode === 'cockpit' || G.camRig.mode === 'tcam';
     const camFar = G.camRig.mode === 'tv' || G.camRig.mode === 'heli';
     // focused car engine
     const dFocus = Math.hypot(focus.x - cam.x, focus.z - cam.z);
@@ -5027,10 +5219,20 @@ class CameraRig {
     this.camera = camera; this.mode = 'chase'; this.pos = new THREE.Vector3(); this.look = new THREE.Vector3(); this.yaw = 0; this.init = false; this.tvCam = null;
     this.shake = 0; this.fov = 62; this.orbitT = 0; this.dOff = 0; this.lat = 0; this.fovKick = 0; this.t = 0;
     this.kick = new THREE.Vector3(); this.kickV = new THREE.Vector3(); this.rough = 0;
+    // cockpit: the driver's head on springs (car frame: x forward, y up, z right), where it looks, and a rotational jolt
+    this.head = new THREE.Vector3(); this.headV = new THREE.Vector3(); this.look2 = 0; this.rk = new THREE.Vector3(); this.rkV = new THREE.Vector3(); this.q = new THREE.Quaternion(); this.eul = new THREE.Euler(0, 0, 0, 'YXZ');
   }
   setMode(m) { this.mode = m; this.init = false; }
-  // a jolt pushing the camera along (dx, dz) (world, normalised), strength 0…1
-  impulse(strength, dx, dz) { const k = clamp(strength, 0, 1); this.kickV.x += dx * 4.5 * k; this.kickV.z += dz * 4.5 * k; this.kickV.y += 1.6 * k; this.rough = Math.max(this.rough, 0.6 * k); }
+  // a jolt pushing the camera along (dx, dz) (world, normalised), strength 0…1; with the car's heading, the driver's
+  // head also snaps towards the impact (nods forward in a frontal hit, is thrown sideways in a side hit)
+  impulse(strength, dx, dz, psi) {
+    const k = clamp(strength, 0, 1); this.kickV.x += dx * 4.5 * k; this.kickV.z += dz * 4.5 * k; this.kickV.y += 1.6 * k; this.rough = Math.max(this.rough, 0.6 * k);
+    if (psi != null) {
+      const f = dx * Math.cos(psi) + dz * Math.sin(psi), r = -dx * Math.sin(psi) + dz * Math.cos(psi);
+      this.rkV.x += f * 2.4 * k; this.rkV.z += r * 2.2 * k; this.rkV.y -= r * 1.1 * k;
+      this.headV.x -= f * 0.9 * k; this.headV.z -= r * 0.8 * k; this.headV.y += 0.35 * k;
+    }
+  }
   update(dt, car, track, extra = {}) {
     const cam = this.camera;
     if (!car) return;
@@ -5039,7 +5241,7 @@ class CameraRig {
     let targetFov = 62;
     // heading smoothing (in chase cams the view swings a little behind the car)
     let dy = car.psi - this.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-    this.yaw += dy * Math.min(1, dt * (this.mode === 'cockpit' ? 30 : 6.5));
+    this.yaw += dy * Math.min(1, dt * (this.mode === 'cockpit' || this.mode === 'tcam' ? 30 : 6.5));
     if (!this.init) { this.yaw = car.psi; this.dOff = 0; this.lat = 0; this.kick.set(0, 0, 0); this.kickV.set(0, 0, 0); }
     const yx = Math.cos(this.yaw), yz = Math.sin(this.yaw);
     const back = extra.lookBack ? -1 : 1;
@@ -5055,12 +5257,29 @@ class CameraRig {
       if (!this.init || this.pos.distanceTo(tp) > 40) this.pos.copy(tp); else this.pos.lerp(tp, 1 - Math.exp(-dt * 14));
       this.look.set(car.x + fx * 4 * back, 0.9 - spd * 0.08, car.z + fz * 4 * back);
       targetFov = 60 + spd * 13;
-    } else if (this.mode === 'cockpit') {
-      // the driver's head moves with the g-forces
-      const ex = -0.06 + clamp(-car.gLong * 0.012, -0.05, 0.04), ey = 0.79, ez = clamp(-car.gLat * 0.01, -0.04, 0.04);
-      this.pos.set(car.x + fx * ex - fz * ez, ey, car.z + fz * ex + fx * ez);
-      this.look.set(car.x + fx * 20 * back, 0.62, car.z + fz * 20 * back);
-      targetFov = 72 + spd * 5;
+    } else if ((this.mode === 'cockpit' || this.mode === 'tcam') && G.models.get(car)) {
+      // The eye rides in the car body (so it pitches, rolls and bounces with it), the head on springs inside it:
+      // thrown forward under braking, back under power, outward in corners and jolted by impacts. The neck keeps
+      // the horizon steadier than the chassis, and the driver looks a little into corners and towards a slide.
+      const m = G.models.get(car), H = this.head, HV = this.headV, k = Math.min(dt, 0.05);
+      if (!this.init) { H.set(0, 0, 0); HV.set(0, 0, 0); this.look2 = 0; this.rk.set(0, 0, 0); this.rkV.set(0, 0, 0); }
+      const tx = clamp(car.gLong * -0.011, -0.03, 0.05), tz = clamp(-car.gLat * 0.009, -0.035, 0.035);
+      HV.x += ((tx - H.x) * 140 - HV.x * 16) * k; HV.y += (-H.y * 170 - HV.y * 13) * k; HV.z += ((tz - H.z) * 120 - HV.z * 15) * k;
+      H.addScaledVector(HV, k); H.clampScalar(-0.09, 0.09);
+      m.group.updateMatrixWorld(true);
+      // the T-cam sits on the airbox: no head movement, a little higher and looking further down the road
+      const tc = this.mode === 'tcam', E = tc ? TCAM_EYE : COCKPIT_EYE, hm = tc ? 0.25 : 1;
+      this.pos.set(E[0] + H.x * hm, E[1] + H.y * hm, E[2] + H.z * hm).applyMatrix4(m.group.matrixWorld);
+      let look = clamp(car.r * 0.08, -0.07, 0.07);
+      if (car.speed > 5) { let b = Math.atan2(car.vz, car.vx) - car.psi; b = Math.atan2(Math.sin(b), Math.cos(b)); look += clamp(b * 0.28, -0.16, 0.16); }
+      this.look2 += (look - this.look2) * Math.min(1, dt * 4);
+      // rotational jolt of the head (pitch, yaw, roll) settling on a damped spring
+      this.rkV.addScaledVector(this.rk, -260 * k); this.rkV.multiplyScalar(Math.exp(-k * 13)); this.rk.addScaledVector(this.rkV, k); this.rk.clampScalar(-0.09, 0.09);
+      const rot = m.group.rotation;
+      this.eul.set(rot.z * (tc ? 1 : 0.8) - (tc ? 0.1 : 0.05) + this.rk.x * hm, -car.psi - Math.PI / 2 - this.look2 * hm + this.rk.y * hm + (back < 0 ? Math.PI : 0), -rot.x * (tc ? 1 : 0.65) + this.rk.z * hm - (tc ? 0 : clamp(car.gLat * 0.004, -0.02, 0.02)), 'YXZ');
+      this.q.setFromEuler(this.eul);
+      const brake = clamp(-car.gLong / 4, 0, 1);
+      targetFov = (COCKPIT_FOV[S.cockpitFov] || 58) - (tc ? 4 : 0); targetFov += spd * 3 - brake * 1.5;
     } else if (this.mode === 'heli') {
       const tp = new THREE.Vector3(car.x - yx * 26, 38, car.z - yz * 26);
       if (!this.init) this.pos.copy(tp); else this.pos.lerp(tp, 1 - Math.exp(-dt * 3));
@@ -5086,18 +5305,18 @@ class CameraRig {
     if (this.kick.lengthSq() > 4) this.kick.setLength(2);
     // shake amplitude (radians): kerbs, rough ground, buffeting at speed, damage vibration, impacts
     let amp = 0;
-    const onboard = this.mode === 'chase' || this.mode === 'cockpit' || this.mode === 'far';
+    const onboard = this.mode === 'chase' || this.mode === 'cockpit' || this.mode === 'far' || this.mode === 'tcam', inCockpit = (this.mode === 'cockpit' || this.mode === 'tcam') && G.models.get(car);
     if (onboard) {
       for (let i = 0; i < 4; i++) if (car.surf[i] === 1) amp += 0.0022; else if (car.surf[i] >= 3) amp += 0.0035;
       amp *= clamp(car.speed / 25, 0, 1);
       amp += clamp((car.speed - 55) / 40, 0, 1) * 0.0011 + car.damage.perf.vib * 0.002 * clamp(car.speed / 20, 0, 1);
       amp += this.shake * 0.06 + this.rough * 0.02;
-      if (this.mode === 'cockpit') amp *= 1.4;
+      if (inCockpit) amp *= 0.75;
     } else if (this.mode === 'tv') amp = 0.0006;
     this.shake *= Math.exp(-dt * 6); this.rough *= Math.exp(-dt * 4);
     cam.position.copy(this.pos);
-    if (onboard) cam.position.add(this.kick);
-    cam.lookAt(this.look);
+    if (inCockpit) cam.position.addScaledVector(this.kick, 0.12); else if (onboard) cam.position.add(this.kick);
+    if (inCockpit) cam.quaternion.copy(this.q); else cam.lookAt(this.look);
     if (amp > 0) {
       const t = this.t;
       cam.rotateX((Math.sin(t * 37.1) * 0.6 + Math.sin(t * 61.7 + 1.3) * 0.4) * amp);
@@ -5215,7 +5434,8 @@ function ensureWorld() {
   G.glows = new Glows(scene, lim(120, 220, 320));
   G.reflect = wet && q > 0 ? new Glows(scene, 80, 'ground') : null;
   G.skids = new SkidMarks(scene, lim(700, 2000, 3600));
-  G.debris = new DebrisField(scene, lim(90, 180, 260));
+  G.debris = new DebrisField(scene, lim(90, 180, 260), lim(8, 14, 20));
+  G.cockpit = buildCockpit();
   G.crew = new PitCrew(scene, 64);
   // brake discs behind the wheel faces (one instanced draw for the whole field); HDR colour when hot so they bloom
   G.brakeDiscs = new THREE.InstancedMesh(new THREE.CircleGeometry(0.19, 20), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), 24 * 4);
@@ -5246,7 +5466,6 @@ function setupCars() {
   G.models.clear();
   for (const car of G.session.cars) {
     const m = makeCarMesh(car);
-    if (car.isPlayer) addSteeringDisplay(m);
     scene.add(m.group); G.models.set(car, m);
   }
 }
@@ -5272,7 +5491,9 @@ function startSession(cfg) {
   G.player = G.session.player; G.timeScale = 1; G.paused = false; G.msgSeen = 0;
   G.focus = G.player || G.session.cars[0];
   G.focusIdx = G.session.cars.indexOf(G.focus);
-  G.camRig.setMode(G.attract ? 'tv' : cfg.spectate ? 'tv' : (S.camera === 'cockpit' ? 'cockpit' : S.camera === 'far' ? 'far' : 'chase'));
+  G.camRig.setMode(G.attract ? 'tv' : cfg.spectate ? 'tv' : (S.camera === 'cockpit' || S.camera === 'tcam' || S.camera === 'far' ? S.camera : 'chase'));
+  // compile the cockpit's shaders now, so switching to the cockpit view later does not stall a frame
+  if (G.cockpit && camera && !G.cockpit.compiled) { G.cockpit.group.visible = true; scene.add(G.cockpit.group); renderer.compile(scene, camera); scene.remove(G.cockpit.group); G.cockpit.group.visible = false; G.cockpit.compiled = true; }
   if (G.player) { G.pc = new PlayerControl(G.player); G.player.boxCompound = null; }
   for (const sys of [G.smoke, G.dust, G.spray, G.grit, G.sparks, G.fire, G.debris, G.skids]) sys.clear();
   G.flashes.length = 0; G.hitT.clear(); G.fx.hit = G.fx.dmg = G.fx.cut = G.fx.sev = 0;
@@ -5615,58 +5836,158 @@ function drawTelemetry(car, dt) {
   gg.beginPath(); gg.arc(w / 2 + gx, h / 2 + gy, 9, 0, Math.PI * 2); gg.fillStyle = '#21c55d'; gg.fill();
   gg.fillStyle = '#fff'; gg.font = '700 22px Titillium Web, Arial'; gg.fillText('LAT ' + Math.abs(car.gLat).toFixed(1) + 'G', 8, 24); gg.fillText('LONG ' + Math.abs(car.gLong).toFixed(1) + 'G', 8, h - 10);
 }
-function drawSteeringDisplay(model, car, sess) {
-  const c = model.swCanvas; if (!c) return; const g = c.getContext('2d'); const W = c.width, H = c.height;
+// Steering-wheel display: shift lights, gear, speed, rpm, ERS and delta; a damage or puncture warning replaces the
+// lower row while there is something to report.
+function drawSteeringDisplay(rig, car) {
+  const c = rig.cvs, g = c.getContext('2d'), W = c.width, H = c.height, D = car.damage;
   g.fillStyle = '#05070a'; g.fillRect(0, 0, W, H);
-  const frac = clamp((car.rpm - 9000) / 3100, 0, 1);
-  for (let k = 0; k < 15; k++) { g.fillStyle = k < frac * 15 ? (k < 5 ? '#19e35e' : k < 10 ? '#ff2a2a' : '#2f7bff') : '#202329'; g.fillRect(10 + k * 20, 6, 16, 10); }
-  g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = '700 84px Titillium Web, Arial'; g.fillText(car.gear === -1 ? 'R' : car.gear, W / 2, 106);
-  g.font = '700 34px Titillium Web, Arial'; g.fillText(Math.round(speedUnit(car.speed)), 62, 70); g.fillText(Math.round(car.rpm), W - 64, 70);
-  g.font = '600 15px Titillium Web, Arial'; g.fillStyle = '#9aa3b2'; g.fillText(S.units === 'mph' ? 'MPH' : 'KM/H', 62, 90); g.fillText('RPM', W - 64, 90);
-  const ers = car.ers / SIM.SPEC.ersMax; g.fillStyle = '#202329'; g.fillRect(14, 126, 140, 14); g.fillStyle = '#19e35e'; g.fillRect(14, 126, 140 * ers, 14);
-  g.fillStyle = '#fff'; g.font = '700 18px Titillium Web, Arial'; g.fillText('ERS ' + Math.round(ers * 100) + '%', 84, 160);
-  const d = car.delta; g.fillStyle = d > 0 ? '#ff4d4d' : '#2bd46c'; g.fillText(car.bestTrace ? (d >= 0 ? '+' : '') + d.toFixed(3) : '', W - 70, 140);
-  model.swTex.needsUpdate = true;
+  const frac = clamp((car.rpm - 9000) / 3100, 0, 1), flash = frac > 0.97 && performance.now() % 160 < 80;
+  for (let k = 0; k < 15; k++) { g.fillStyle = flash ? '#2f7bff' : k < frac * 15 ? (k < 5 ? '#19e35e' : k < 10 ? '#ff2a2a' : '#2f7bff') : '#202329'; g.fillRect(10 + k * 20, 6, 16, 12); }
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = '700 86px Titillium Web, Arial'; g.fillText(car.gear === -1 ? 'R' : car.gear === 0 ? 'N' : car.gear, W / 2, 110);
+  g.font = '700 36px Titillium Web, Arial'; g.fillText(Math.round(speedUnit(car.speed)), 62, 72); g.fillText(Math.round(car.rpm), W - 64, 72);
+  g.font = '600 15px Titillium Web, Arial'; g.fillStyle = '#9aa3b2'; g.fillText(S.units === 'mph' ? 'MPH' : 'KM/H', 62, 92); g.fillText('RPM', W - 64, 92);
+  let warn = null;
+  if (D.fire > 0) warn = ['FIRE', '#ff3b2f'];
+  else if (D.failed) warn = ['STOP CAR', '#ff3b2f'];
+  else if (D.anyPuncture()) warn = ['PUNCTURE', '#ff3b2f'];
+  else if (D.detached[0] || D.detached[1]) warn = ['FW LOST', '#ff3b2f'];
+  else if (D.detached[2]) warn = ['RW LOST', '#ff3b2f'];
+  else if (D.severity() > 0.08) warn = ['DAMAGE', '#ffb020'];
+  if (warn && performance.now() % 700 < 520) {
+    g.fillStyle = warn[1]; g.fillRect(8, 128, W - 16, 40); g.fillStyle = '#05070a'; g.font = '700 28px Titillium Web, Arial'; g.fillText(warn[0], W / 2, 159);
+  } else if (!warn) {
+    const ers = car.ers / SIM.SPEC.ersMax; g.fillStyle = '#202329'; g.fillRect(14, 132, 140, 14); g.fillStyle = '#19e35e'; g.fillRect(14, 132, 140 * ers, 14);
+    g.fillStyle = '#fff'; g.font = '700 18px Titillium Web, Arial'; g.fillText('ERS ' + Math.round(ers * 100) + '%', 84, 166);
+    const d = car.delta; g.fillStyle = d > 0 ? '#ff4d4d' : '#2bd46c'; g.fillText(car.bestTrace ? (d >= 0 ? '+' : '') + d.toFixed(3) : '', W - 70, 146);
+  }
+  rig.tex.needsUpdate = true;
+}
+// Put the cockpit into the car the camera is riding in, turn the wheel, and keep its display current.
+function updateCockpit(car, m, dt) {
+  const ck = G.cockpit; if (!ck) return;
+  if (ck.owner !== m) {
+    if (ck.owner) ck.owner.group.remove(ck.group);
+    m.group.add(ck.group); ck.owner = m; ck.cuff.color.set(car.team.c2); ck.mirHouse.color.set(car.team.c2); ck.steerVis = car.steer;
+  }
+  ck.group.visible = true;
+  // the wheel follows the steering (≈ 60° at full lock); a bent corner holds it off-centre on the straights
+  ck.steerVis += (car.steer - ck.steerVis) * Math.min(1, dt * 25);
+  ck.spin.rotation.x = clamp(ck.steerVis * 3.2 + clamp(car.damage.perf.pull, -0.3, 0.3) * 0.5, -1.15, 1.15);
+  // mirrors torn off the car are gone from the cockpit too
+  ck.mirrors[0].visible = !(m.brk & bit(PT.MIRL)); ck.mirrors[1].visible = !(m.brk & bit(PT.MIRR));
+  if ((ck.dispT = (ck.dispT || 0) + dt) > 0.07) { ck.dispT = 0; drawSteeringDisplay(ck, car); }
 }
 
 /* ---------------- per-frame visual updates ---------------- */
-// Show each car's damage on its model: drooping / missing wing elements, bent suspension, flat or shredded
-// tyres and scuffed, cracked bodywork. A wing being replaced in the pits is carried off and refitted.
-function updateDamageVisuals(car, m, sess) {
+const FRONT_BITS = bit(PT.FWL_EP) | bit(PT.FWR_EP) | bit(PT.FWL_FLAP) | bit(PT.FWR_FLAP) | bit(PT.NOSE);
+const REAR_BITS = bit(PT.RWL_EP) | bit(PT.RWR_EP);
+const COCKPIT_HIDE = bit(PT.HALO) | bit(PT.MIRL) | bit(PT.MIRR);
+const partParent = (m, space) => space === 'fwL' ? m.fw[0] : space === 'fwR' ? m.fw[1] : space === 'rw' ? m.rw : m.group;
+const partMat = (m, k) => k === 'body' ? m.bodyMat : k === 'accent' ? m.accentMat : k === 'mirror' ? m.mirrorMat : m.carbonMat;
+// Events arrive before this frame's pose is applied: bring the model to the car's position before a piece leaves it.
+function poseNow(car, m) { m.group.position.x = car.x; m.group.position.z = car.z; m.group.rotation.y = -car.psi; m.group.updateWorldMatrix(false, true); }
+// How a piece leaves the car: the push of the latest impact (if it just happened) and an energy-dependent pop and spin.
+function partLaunch(m, extra = {}) {
+  const li = m.lastImpact, fresh = li && performance.now() / 1000 - li.t < 0.6, rE = fresh ? Math.sqrt(li.E) : 30;
+  const k = fresh ? clamp(rE / 45, 0.6, 7) : 0.5;
+  return Object.assign({ push: fresh ? [li.nx * k, li.nz * k] : [0, 0], up: 1.2 + Math.min(4.5, rE / 70), spin: 4 + Math.min(18, rE / 18), life: 24 }, extra);
+}
+// Break piece `id` off a car: it disappears from the model and, if the camera is near enough to see it, flies off.
+function breakPiece(car, m, id, extra) {
+  const b = bit(id); if (m.brk & b) return false; m.brk |= b;
+  if (!m.group.visible || Math.hypot(car.x - camera.position.x, car.z - camera.position.z) > 320) return true;
+  const f = CAR_GEO.frag[id]; poseNow(car, m);
+  G.debris.spawnPart(f.parts.map(([g, k]) => [g, partMat(m, k)]), partParent(m, f.space), car, partLaunch(m, extra));
+  const [x, z] = carPoint(car, id === PT.NOSE || id <= PT.FWR_FLAP ? 2.7 : id <= PT.RWR_EP ? -2.4 : 0.6, 0);
+  G.debris.spawn(x, z, car.vx, car.vz, 4, null, { y: 0.3, up: 2.5 });
+  return true;
+}
+// The DRS flap (its own mesh) snapping off a broken rear wing
+function breakFlap(car, m) {
+  if (m.flapGone) return; m.flapGone = true; m.flap.visible = false;
+  if (!m.group.visible || Math.hypot(car.x - camera.position.x, car.z - camera.position.z) > 320) return;
+  poseNow(car, m); m.flap.updateMatrix(); const txt = m.flap.children[0]; txt.updateMatrix();
+  G.debris.spawnPart([[m.flap.geometry, m.flap.material, m.flap.matrix.clone()], [txt.geometry, txt.material, m.flap.matrix.clone().multiply(txt.matrix)]], m.rw, car, partLaunch(m, { up: 3.5 }));
+}
+// A wheel torn off its tethers in a huge crash: it bounces away on its own (the car is out by then)
+function tearWheel(car, m, i, push) {
+  if (m.torn[i]) return; m.torn[i] = true;
+  const w = m.wheels[i]; if (!m.group.visible) { w.steer.visible = false; return; }
+  poseNow(car, m); w.spin.updateWorldMatrix(true, true);
+  const kids = [w.tyre, w.spin.children[1], w.cover]; for (const k of kids) k.updateMatrix();
+  const p = G.debris.spawnPart(kids.map(k => [k.geometry, k.material, k.matrix.clone()]), w.spin, car, { push, up: 3 + Math.random() * 2.5, spin: 16, life: 30, heavy: true });
+  if (p) p.meshes.forEach(me => me.castShadow = true);
+  w.steer.visible = false;
+}
+// Show each car's damage on its model: drooping, fluttering and missing wing elements (endplates and flaps break off
+// first, then the whole wing; a wing lost in a frontal crash takes the nose with it), torn-off mirrors and floor
+// fences, bent or dangling suspension, wobbling punctured and shredded tyres, scuffed, cracked bodywork.
+// A wing being replaced in the pits is carried off and refitted.
+function updateDamageVisuals(car, m, sess, dt) {
   const D = car.damage, c = D.c, P = car.pit && car.pit.phase === 'stopped' ? car.pit : null;
   const el = P ? P.total - P.timer : 0, now = performance.now() / 1000;
   const shake = clamp(car.speed / 40, 0, 1);
+  // pieces breaking off as components pass their limits (not while the car sits in its pit box)
+  if (!P && !car.inGarage) {
+    for (let k = 0; k < 2; k++) if (!D.detached[k]) {
+      if (c[k] >= 0.42) breakPiece(car, m, k ? PT.FWR_EP : PT.FWL_EP);
+      if (c[k] >= 0.68) breakPiece(car, m, k ? PT.FWR_FLAP : PT.FWL_FLAP);
+    }
+    if (!D.detached[2]) {
+      const right = m.lastImpact ? m.lastImpact.ly > 0 : car.id % 2 === 1;
+      if (c[2] >= 0.5) breakPiece(car, m, right ? PT.RWR_EP : PT.RWL_EP);
+      if (c[2] >= 0.7) breakPiece(car, m, right ? PT.RWL_EP : PT.RWR_EP);
+      if (c[2] >= 0.8) breakFlap(car, m);
+    }
+    if (c[3] >= 0.4) { const right = m.lastImpact ? m.lastImpact.ly > 0 : true; breakPiece(car, m, right ? PT.FENCER : PT.FENCEL); if (c[3] >= 0.7) breakPiece(car, m, right ? PT.FENCEL : PT.FENCER); }
+  }
+  // a new front wing comes with a new nose; a new rear wing with its endplates and flap
+  if (m.brk & FRONT_BITS && c[0] < 0.01 && c[1] < 0.01 && !D.detached[0] && !D.detached[1]) m.brk &= ~FRONT_BITS;
+  if (c[2] < 0.01 && !D.detached[2]) { m.brk &= ~REAR_BITS; if (m.flapGone) { m.flapGone = false; m.flap.visible = true; } }
+  let show = m.brk;
   for (let k = 0; k < 2; k++) {
     const g = m.fw[k], sg = k ? 1 : -1; let d = c[k], gone = D.detached[k], off = 0;
     if (P && P.fwT > 0) {
-      if (el > P.fwT - 1.6) { d = 0; gone = false; off = clamp((P.fwT - 0.4 - el) / 1.2, 0, 1) * 0.9; }
+      if (el > P.fwT - 1.6) { d = 0; gone = false; off = clamp((P.fwT - 0.4 - el) / 1.2, 0, 1) * 0.9; show &= ~FRONT_BITS; }
       else if (el > 1.8) gone = true; else if (el > 0.6) off = (el - 0.6) / 1.2 * 0.9;
     }
     g.visible = !gone; if (gone) continue;
-    const droop = d > 0.2 ? (d - 0.2) * 0.45 : 0;
-    const flutter = d > 0.45 ? Math.sin(now * 31 + k * 2) * 0.035 * shake * d : 0;
-    g.rotation.set(sg * (droop + flutter), sg * d * 0.12, -d * 0.1);
-    g.position.set(FW_PIVOT[0] + off, FW_PIVOT[1] - droop * 0.08, sg * FW_PIVOT[2]);
+    // a damaged half sags until its tip scrapes the ground (it sits only 5 cm up), then is bent back and twisted
+    const droop = d > 0.2 ? Math.min(0.06, (d - 0.2) * 0.2) : 0;
+    const flutter = d > 0.3 ? Math.sin(now * 31 + k * 2) * 0.03 * shake * d + Math.sin(now * 13.7 + k) * 0.012 * shake * d : 0;
+    g.rotation.set(sg * (droop + flutter), sg * d * 0.28, -d * 0.16 + flutter * 0.5);
+    g.position.set(FW_PIVOT[0] + off - d * 0.04, FW_PIVOT[1] - droop * 0.05, sg * FW_PIVOT[2]);
   }
   {
     let d = c[2], gone = D.detached[2], up = 0;
     if (P && P.rwT > 0) {
-      if (el > P.rwT - 2.5) { d = 0; gone = false; up = clamp((P.rwT - 0.6 - el) / 1.9, 0, 1) * 0.6; }
+      if (el > P.rwT - 2.5) { d = 0; gone = false; up = clamp((P.rwT - 0.6 - el) / 1.9, 0, 1) * 0.6; show &= ~REAR_BITS; m.flap.visible = true; }
       else if (el > 3) gone = true; else if (el > 0.8) up = (el - 0.8) / 2.2 * 0.6;
     }
     m.rw.visible = !gone;
-    if (!gone) { m.rw.rotation.set(d > 0.4 ? Math.sin(now * 23) * 0.04 * shake * d : 0, d * 0.08, -d * 0.4); m.rw.position.set(RW_PIVOT[0], RW_PIVOT[1] - d * 0.06 + up, 0); }
+    if (!gone) { m.rw.rotation.set(d > 0.4 ? Math.sin(now * 23) * 0.05 * shake * d : 0, d * 0.08, -d * 0.4); m.rw.position.set(RW_PIVOT[0], RW_PIVOT[1] - d * 0.06 + up, 0); }
   }
-  const fatal = sess.damageLevel.fatal;
+  m.mask.value = show | (m.cockpitHide ? COCKPIT_HIDE : 0);
+  const fatal = sess.damageLevel.fatal, k = Math.min(dt, 0.05);
   for (let i = 0; i < 4; i++) {
     const w = m.wheels[i], sg = i % 2 ? 1 : -1, s = c[4 + i], p = D.punct[i], shred = D.shred[i];
     const broken = s >= fatal;
-    let y = w.base.y - s * 0.05 - (broken ? 0.12 : 0) - p * 0.045 - (shred ? 0.1 : 0), z = w.base.z + (broken ? sg * 0.12 : 0);
+    // a broken corner hangs on its tethers and flails about, kicked by bumps and impacts
+    let flop = 0;
+    if (broken && !m.torn[i]) {
+      const F = m.flail, j = i * 2;
+      F[j + 1] += (-90 * F[j] - 3.5 * F[j + 1] + Math.sin(now * (7 + car.speed * 0.35) + i) * 40 * Math.min(1, car.speed / 15)) * k; F[j] += F[j + 1] * k;
+      F[j] = clamp(F[j], -0.5, 0.5); flop = F[j];
+    }
+    // a deflating tyre thumps once per turn as the loose carcass slaps the ground
+    const thump = p > 0.2 ? Math.pow(0.5 + 0.5 * Math.cos(car.wheelRot[i]), 6) * p : 0;
+    let y = w.base.y - s * 0.05 - (broken ? 0.12 + Math.abs(flop) * 0.06 : 0) - p * 0.045 - (shred ? 0.1 : 0) + thump * 0.012, z = w.base.z + (broken ? sg * (0.12 + flop * 0.08) : 0);
     if (P && el > 0.45 && el < P.tyreT - 0.45) { const out = Math.min(1, (el - 0.45) / 0.25, (P.tyreT - 0.45 - el) / 0.25); z += sg * 0.65 * out; }
     w.steer.position.set(w.base.x, y, z);
-    // a bent corner wobbles visibly at speed; a broken one hangs at an angle
-    const wob = !broken && (s > 0.08 || p > 0.3) ? Math.sin(now * (9 + car.speed * 0.8) + i * 1.7) * (0.06 * s + 0.03 * p) * shake : 0;
-    w.steer.rotation.x = sg * (broken ? 0.55 : s * 0.3) + wob;
+    // a bent corner wobbles at speed; a punctured tyre wobbles with every turn of the wheel
+    const wob = !broken && s > 0.08 ? Math.sin(now * (9 + car.speed * 0.8) + i * 1.7) * 0.06 * s * shake : 0;
+    const pw = !broken && p > 0.1 ? Math.sin(car.wheelRot[i]) * (0.05 * p + (shred ? 0.06 : 0)) : 0;
+    w.steer.rotation.x = sg * (broken ? 0.55 + flop : s * 0.3) + wob + pw;
     w.steer.scale.y = shred ? 1 : 1 - 0.14 * p;
     w.tyre.visible = !shred;
   }
@@ -5677,6 +5998,7 @@ function updateDamageVisuals(car, m, sess) {
     m.dmgKey = key;
     m.bodyMat.clearcoat = burnt ? 0.1 : 1 - 0.75 * D.scuff; m.bodyMat.roughness = burnt ? 0.85 : 0.3 + 0.38 * D.scuff;
     m.bodyMat.color.setScalar((1 - 0.12 * D.scuff - 0.3 * c[P_CHAS_IDX]) * (burnt ? 0.35 : 1));
+    m.accentMat.roughness = 0.35 + 0.4 * D.scuff; m.accentMat.clearcoat = burnt ? 0.1 : 0.8 * (1 - 0.7 * D.scuff);
   }
 }
 const P_CHAS_IDX = 10;
@@ -5684,7 +6006,7 @@ const P_CHAS_IDX = 10;
 function carPoint(car, lx, ly) { const c = Math.cos(car.psi), s = Math.sin(car.psi); return [car.x + c * lx - s * ly, car.z + s * lx + c * ly]; }
 // Damage effects for one car: smoke trails from a hurt or overheating power unit, coolant steam, rare fire
 // (flames, heat glow, a column of black smoke), the extinguisher, and sparks or rubber from parts dragging on the track.
-function damageParticles(car, dt, near, fatal) {
+function damageParticles(car, m, dt, near, fatal) {
   const D = car.damage, c = D.c, R = Math.random, v = car.speed;
   const emitAt = (sys, lx, ly, y, n, vy, life, size, grow, alpha, col, spread = 0.4) => {
     for (let k = 0; k < n; k++) { const [x, z] = carPoint(car, lx + (R() - .5) * spread, ly + (R() - .5) * spread); sys.emit(x, y, z, car.vx * 0.35 + (R() - .5) * 1.2, vy * (0.6 + R() * 0.8), car.vz * 0.35 + (R() - .5) * 1.2, life, size, grow, alpha, col); }
@@ -5701,6 +6023,11 @@ function damageParticles(car, dt, near, fatal) {
     car._burnT = performance.now();
   } else if (car._burnT && performance.now() - car._burnT < 7000) {
     emitAt(G.smoke, -0.6, (R() < .5 ? -1.6 : 1.6), 0.9, count(28), 0.8, 1.6, 0.8, 2.2, 0.5, [0.96, 0.96, 0.98], 0.6); // extinguisher
+  }
+  // after a heavy impact the damaged area smokes for a while (crushed radiators, hot brakes, burnt rubber)
+  if (m.smokeT > 0) {
+    m.smokeT -= dt; const k = Math.min(1, m.smokeT / 1.5), [lx, ly] = m.smokeAt || [0, 0];
+    emitAt(G.smoke, lx, ly, 0.5, count(26 * k), 1.2, 2.2, 0.7, 2.6, 0.32 * k + 0.08, [0.72, 0.72, 0.74], 0.7);
   }
   // power unit: a thin grey trail when hurt, thick dark smoke once it has failed
   const e = c[8];
@@ -5777,6 +6104,8 @@ function drivingEffects(car, m, dt, dist, wet, near) {
     // how hard this tyre is scrubbing: lock-up, wheelspin, sliding past the grip limit, or a drift (rears)
     let scrub = lock ? 1 : spin ? 0.8 : over > 0 ? Math.min(1, over * 2.2) : 0;
     if (i >= 2 && slide > 0.1 && v > 6) scrub = Math.max(scrub, Math.min(1, (slide - 0.1) * 5));
+    // shoved sideways by an impact, the tyres scrub across the surface
+    if (m.scrubT > 0 && v > 4) scrub = Math.max(scrub, Math.min(1, m.scrubT * 2.5));
     if (scrub > 0 && !offT && v > 3) {
       const n = count(48 * scrub * (wet ? 0.25 : 1));
       for (let k = 0; k < n; k++) G.smoke.emit(wx + (R() - .5) * 0.3, 0.18, wz + (R() - .5) * 0.3, car.vx * 0.22 + (R() - .5) * 2, 0.4 + R() * 0.9, car.vz * 0.22 + (R() - .5) * 2, 1.6 + R(), 0.6, 2.6, (wet ? 0.16 : 0.36) * (0.5 + 0.5 * scrub), wet ? [0.8, 0.83, 0.88] : [0.9, 0.9, 0.92]);
@@ -5837,18 +6166,45 @@ function updateCarVisuals(dt) {
     const dist = Math.hypot(car.x - camPos.x, car.z - camPos.z);
     // the body sits lower on a damaged or broken corner; it is lifted on the jacks during a stop
     const dc = car.damage.c, low = (i) => dc[4 + i] * 0.5 + (dc[4 + i] >= fatal ? 0.5 : 0) + car.damage.punct[i] * 0.3;
-    let pitch = clamp(-car.gLong * 0.006, -0.03, 0.03) - 0.05 * (low(0) + low(1) - low(2) - low(3)) / 2;
+    // the nose dives under braking and lifts under power; the body leans in corners and sits low on a broken corner
+    let pitch = clamp(car.gLong * 0.006, -0.03, 0.03) - 0.05 * (low(0) + low(1) - low(2) - low(3)) / 2;
     let roll = clamp(car.gLat * 0.006, -0.03, 0.03) + 0.06 * (low(1) + low(3) - low(0) - low(2)) / 2;
     const PS = car.pit && car.pit.phase === 'stopped' ? car.pit : null, jel = PS ? PS.total - PS.timer : 0;
     let y = PS && jel > 0.25 && jel < PS.total - 0.2 ? 0.06 : 0.0;
-    // vibration over kerbs and rough ground, and from damaged suspension or tyres
+    // vibration over kerbs and rough ground, and from damaged suspension or tyres (smooth, so the cockpit view
+    // shakes rather than jitters); a punctured tyre bumps the corner once per wheel turn
     const kerbs = (car.surf[0] === 1) + (car.surf[1] === 1) + (car.surf[2] === 1) + (car.surf[3] === 1);
     const rough = (car.surf[0] >= 3) + (car.surf[1] >= 3) + (car.surf[2] >= 3) + (car.surf[3] >= 3);
     const vib = (kerbs * 0.006 + rough * 0.009) * Math.min(1, car.speed / 30) + car.damage.perf.vib * 0.004 * Math.min(1, car.speed / 20);
-    if (vib > 0 && dist < 150) { y += (Math.random() - 0.5) * vib; pitch += (Math.random() - 0.5) * vib * 0.5; roll += (Math.random() - 0.5) * vib * 0.7; }
+    if (vib > 0 && dist < 150) {
+      const t = tNow + car.id * 1.37, f = 1 + car.speed * 0.012;
+      y += (Math.sin(t * 41 * f) * 0.6 + Math.sin(t * 67 * f + 1.1) * 0.4) * vib * 0.5;
+      pitch += (Math.sin(t * 29 * f + 0.4) * 0.6 + Math.sin(t * 53 * f) * 0.4) * vib * 0.25;
+      roll += (Math.sin(t * 37 * f + 2.2) * 0.6 + Math.sin(t * 59 * f + 0.7) * 0.4) * vib * 0.35;
+    }
+    for (let i = 0; i < 4; i++) {
+      const p = car.damage.punct[i]; if (p < 0.2 || car.speed < 2) continue;
+      const th = Math.pow(0.5 + 0.5 * Math.cos(car.wheelRot[i]), 6) * p * (car.damage.shred[i] ? 0.6 : 1);
+      y += th * 0.01; pitch += th * (i < 2 ? 0.008 : -0.008); roll += th * (i % 2 ? 0.01 : -0.01);
+    }
+    // the body's reaction to impacts: it leans and pitches with the shove, squashes for an instant, and can be
+    // bounced off the ground by a big hit or by riding over another car's wheel
+    const rx = m.rx, k = Math.min(dt, 0.05);
+    if (k > 0) {
+      rx.vr += (-220 * rx.roll - 9 * rx.vr) * k; rx.roll = clamp(rx.roll + rx.vr * k, -0.16, 0.16);
+      rx.vp += (-260 * rx.pitch - 10 * rx.vp) * k; rx.pitch = clamp(rx.pitch + rx.vp * k, -0.12, 0.12);
+      rx.vs += (-600 * rx.sq - 22 * rx.vs) * k; rx.sq = clamp(rx.sq + rx.vs * k, -0.06, 0.06);
+      rx.vh -= 9.8 * k; rx.hop += rx.vh * k;
+      if (rx.hop <= 0) { rx.hop = 0; if (rx.vh < -0.8) { const im = -rx.vh; rx.vh = im * 0.28; rx.vp += (Math.random() - .5) * im * 0.5; rx.vr += (Math.random() - .5) * im * 0.5; } else rx.vh = 0; }
+      m.scrubT = Math.max(0, m.scrubT - dt);
+    }
+    y += rx.hop; pitch += rx.pitch; roll += rx.roll;
     m.group.position.set(car.x, y, car.z);
     m.group.rotation.set(roll, -car.psi, pitch, 'YXZ');
-    updateDamageVisuals(car, m, sess);
+    if (Math.abs(rx.sq) > 1e-4) m.group.scale.set(1 - rx.sq * rx.sqx, 1 + rx.sq * 0.35, 1 - rx.sq * (1 - rx.sqx)); else m.group.scale.setScalar(1);
+    const cockpit = car === G.focus && G.camRig.mode === 'cockpit';
+    m.cockpitHide = cockpit;
+    updateDamageVisuals(car, m, sess, dt);
     for (let i = 0; i < 4; i++) {
       const w = m.wheels[i];
       if (i < 2) w.steer.rotation.y = -car.steer;
@@ -5866,9 +6222,8 @@ function updateCarVisuals(dt) {
       G.glows.add(lx, 0.42 + y, lz, (0.2 + Math.min(0.45, dist / 300)) * k, 2.6 * k, 0.16 * k, 0.1 * k);
       if (G.reflect && dist < 160) G.reflect.add(lx, 0, lz, 7, 0.75 * k, 0.05 * k, 0.03 * k);
     }
-    const cockpit = car === G.focus && G.camRig.mode === 'cockpit';
-    m.helmet.visible = !cockpit; m.steeringWheel.visible = cockpit;
-    if (cockpit) { m.steeringWheel.rotation.x = car.steer * 2.6; if (m.swCanvas && (G.swT = (G.swT || 0) + dt) > 0.07) { G.swT = 0; drawSteeringDisplay(m, car, sess); } }
+    m.helmet.visible = !cockpit;
+    if (cockpit) updateCockpit(car, m, dt);
     const lod = dist < 90 ? 0 : dist < 220 ? 1 : 2;
     if (lod !== m.lod) {
       m.lod = lod;
@@ -5898,7 +6253,7 @@ function updateCarVisuals(dt) {
     if (dist > 260 || car.inGarage) continue;
     const near = dist < 70 ? 1 : dist < 150 ? 0.55 : 0.25;
     drivingEffects(car, m, dt, dist, wet, near);
-    damageParticles(car, dt, near, fatal);
+    damageParticles(car, m, dt, near, fatal);
   }
   // the focus driver feels new damage: a short red pulse at the screen edge
   if (G.focus) { const sev = G.focus.damage.severity(); if (sev > G.fx.sev + 0.04) G.fx.dmg = Math.min(1, 0.45 + (sev - G.fx.sev) * 2); G.fx.sev = sev; }
@@ -5913,37 +6268,134 @@ function updateCarVisuals(dt) {
     else G.fireLight.intensity = 0;
   }
   G.smoke.update(dt, -0.25); G.dust.update(dt, -0.12); G.spray.update(dt, 1.2); G.grit.update(dt, 9.8); G.sparks.update(dt); G.fire.update(dt, -2.5);
-  G.skids.update(); G.debris.update(dt, sess.cars); updatePitCrews();
+  if (G.cockpit && G.cockpit.owner && !(G.camRig.mode === 'cockpit' && G.models.get(G.focus) === G.cockpit.owner)) { G.cockpit.owner.group.remove(G.cockpit.group); G.cockpit.owner = null; G.cockpit.group.visible = false; }
+  G.skids.update(); G.debris.update(dt, sess.cars, G.track); updatePitCrews();
   if (G.brakeDiscs) { G.brakeDiscs.count = nDisc; G.brakeDiscs.instanceMatrix.needsUpdate = true; if (G.brakeDiscs.instanceColor) G.brakeDiscs.instanceColor.needsUpdate = true; }
   G.glows.end(camPos, tNow); if (G.reflect) G.reflect.end(camPos, tNow);
   if (G.contact) { G.contact.count = nShadow; G.contact.instanceMatrix.needsUpdate = true; }
 }
-// Contact between cars or with a barrier: sparks, a hit flash, scrubbed-tyre smoke, carbon and bodywork fragments in
-// the cars' colours, dust when it happens off track, and a jolt for the driver involved. Contact is reported every
-// physics step, so processEvents keeps the hardest report per pair and frame, and the big effects fire once per hit.
+// Impulse on a car's body (J, world N·s): it leans and pitches with the shove, squashes for an instant, hops on a big
+// hit, and any dangling wheel is flung about. The physics already turns the car; this is the chassis' reaction to it.
+function bodyKick(car, m, Jx, Jz, hop = 0) {
+  const c = Math.cos(car.psi), s = Math.sin(car.psi), dvf = (Jx * c + Jz * s) / car.mass, dvr = (-Jx * s + Jz * c) / car.mass, dv = Math.hypot(dvf, dvr), rx = m.rx;
+  if (dv < 0.05 && hop <= 0) return;
+  rx.vr += clamp(dvr * 0.1, -1.4, 1.4); rx.vp += clamp(dvf * 0.06, -1.0, 1.0);
+  rx.vs += Math.min(0.9, dv * 0.035); rx.sqx = Math.abs(dvf) >= Math.abs(dvr) ? 1 : 0;
+  const h = Math.max(hop, dv > 3.5 ? Math.min(2.2, (dv - 3.5) * 0.15) : 0); if (h > rx.vh) rx.vh = h;
+  for (let i = 0; i < 4; i++) m.flail[i * 2 + 1] += (Math.random() - .5) * dv * 1.5;
+}
+// a point in a car's frame: [forward, right]
+function carLocal(car, x, z) { const c = Math.cos(car.psi), s = Math.sin(car.psi), dx = x - car.x, dz = z - car.z; return [dx * c + dz * s, -dx * s + dz * c]; }
+const nearWheel = (l) => Math.abs(l[1]) > 0.38 && (Math.abs(l[0] - SIM.SPEC.a) < 0.5 || Math.abs(l[0] + SIM.SPEC.b) < 0.5);
+// Contact between cars or with a barrier, as it happens. Contact is reported every physics step; processEvents keeps
+// the hardest report per pair and frame. Sparks spray along the direction the parts slide and off the contact
+// surface, rubbing wheels smoke, the hit flashes, the bodies jolt and the driver feels it. Splinters, broken parts
+// and clouds follow once the whole impact is resolved (impactResolved).
 function impactFx(e, key) {
-  const cars = e.type === 'wall' ? [e.car] : [e.a, e.b], R = Math.random, now = performance.now() / 1000;
+  const wall = e.type === 'wall', cars = wall ? [e.car] : [e.a, e.b], R = Math.random, now = performance.now() / 1000;
   const fresh = now - (G.hitT.get(key) || -9) > 0.3; G.hitT.set(key, now);
   const s = clamp(e.j / 9000, 0, 1), d = Math.hypot(e.x - camera.position.x, e.z - camera.position.z);
   let vx = 0, vz = 0; for (const c of cars) { vx += c.vx / cars.length; vz += c.vz / cars.length; }
+  const nx = e.nx || 0, nz = e.nz || 0;
+  // wheel against wheel: rubber smoke, and a car whose front wheel rides up the other's rear wheel is thrown up
+  let rub = false;
+  if (!wall) {
+    const la = carLocal(e.a, e.x, e.z), lb = carLocal(e.b, e.x, e.z);
+    rub = nearWheel(la) && nearWheel(lb);
+    for (const [c, l, sg] of [[e.a, la, -1], [e.b, lb, 1]]) {
+      const m = G.models.get(c); if (!m) continue;
+      const launch = rub && l[0] > 1.2 && Math.abs(e.vt || 0) > 4 ? Math.min(2.6, Math.abs(e.vt) * 0.09) : 0;
+      bodyKick(c, m, nx * e.j * sg, nz * e.j * sg, launch);
+    }
+  } else { const m = G.models.get(e.car); if (m) bodyKick(e.car, m, nx * e.j, nz * e.j); }
   if (d < 170) {
     if (fresh) G.audio.oneShot('impact', s * clamp(30 / (d + 10), 0.2, 1));
-    const nS = Math.round((fresh ? 12 + 55 * s : 2 + 8 * s) * (d < 70 ? 1 : 0.5));
-    for (let k = 0; k < nS; k++) G.sparks.emit(e.x + (R() - .5) * 0.4, 0.12 + R() * 0.45, e.z + (R() - .5) * 0.4, vx * 0.6 + (R() - .5) * (6 + 12 * s), 0.5 + R() * (3 + 5 * s), vz * 0.6 + (R() - .5) * (6 + 12 * s), 0.3 + R() * 0.45, 0.9 + R() * 0.5);
+    const nS = Math.round((fresh ? 12 + 60 * s : 3 + 10 * s) * (d < 70 ? 1 : 0.5));
+    for (let k = 0; k < nS; k++) {
+      const f = 0.45 + R() * 0.5, out = (0.8 + R() * (2.5 + 5 * s)) * (wall ? 1 : R() < 0.5 ? 1 : -1), sp = 1.5 + 5 * s;
+      G.sparks.emit(e.x + (R() - .5) * 0.4, 0.1 + R() * 0.45, e.z + (R() - .5) * 0.4, vx * f + nx * out + (R() - .5) * sp, 0.4 + R() * (2.5 + 4 * s), vz * f + nz * out + (R() - .5) * sp, 0.25 + R() * 0.45, 0.85 + R() * 0.5);
+    }
+    if (rub) { const n = Math.round(2 + 6 * s); for (let k = 0; k < n; k++) G.smoke.emit(e.x + (R() - .5) * 0.5, 0.3, e.z + (R() - .5) * 0.5, vx * 0.5 + (R() - .5) * 2, 0.4 + R() * 0.8, vz * 0.5 + (R() - .5) * 2, 1.2 + R(), 0.5, 2.2, 0.3 + 0.2 * s, [0.9, 0.9, 0.92]); }
     if (fresh) {
       G.flashes.push({ x: e.x, y: 0.45, z: e.z, t: 0, T: 0.08 + 0.12 * s, size: 0.8 + 2.4 * s, k: 0.5 + 1.6 * s });
       if (G.flashes.length > 12) G.flashes.shift();
-      const np = Math.round(2 + 7 * s);
-      for (let k = 0; k < np; k++) G.smoke.emit(e.x + (R() - .5), 0.3, e.z + (R() - .5), vx * 0.3 + (R() - .5) * 2, 0.5 + R(), vz * 0.3 + (R() - .5) * 2, 1.3 + R(), 0.7, 2.4, 0.22 + 0.22 * s, [0.84, 0.84, 0.86]);
-      if (s > 0.15) { for (const c of cars) G.debris.spawn(e.x, e.z, c.vx, c.vz, Math.round(1 + 5 * s), teamRGB(c)); G.debris.spawn(e.x, e.z, vx, vz, Math.round(1 + 4 * s)); }
-      if (cars.some(c => c.surf[0] >= 3 || c.surf[2] >= 3)) for (let k = 0; k < 8; k++) G.dust.emit(e.x + (R() - .5) * 2, 0.3, e.z + (R() - .5) * 2, vx * 0.3 + (R() - .5) * 3, 0.5 + R() * 1.5, vz * 0.3 + (R() - .5) * 3, 2 + R(), 1, 2.6, 0.35, [0.74, 0.66, 0.5]);
+      const np = Math.round(2 + 6 * s);
+      for (let k = 0; k < np; k++) G.smoke.emit(e.x + (R() - .5), 0.3, e.z + (R() - .5), vx * 0.3 + nx * R() * 2 + (R() - .5) * 2, 0.5 + R(), vz * 0.3 + nz * R() * 2 + (R() - .5) * 2, 1.3 + R(), 0.7, 2.4, 0.2 + 0.2 * s, [0.84, 0.84, 0.86]);
     }
   }
   if (cars.includes(G.focus)) {
     const f = G.focus, dx = f.x - e.x, dz = f.z - e.z, l = Math.hypot(dx, dz) || 1;
     G.camRig.shake = Math.max(G.camRig.shake, Math.min(0.25, e.j / 30000));
-    if (fresh) { G.camRig.impulse(Math.min(1, e.j / 12000), dx / l, dz / l); G.fx.hit = Math.max(G.fx.hit, clamp((e.j - 1200) / 9000, 0.15, 1)); }
+    if (fresh) { G.camRig.impulse(Math.min(1, e.j / 12000), dx / l, dz / l, f.psi); G.fx.hit = Math.max(G.fx.hit, clamp((e.j - 1200) / 9000, 0.15, 1)); }
+    else if (e.j > 300) G.camRig.rough = Math.max(G.camRig.rough, Math.min(0.5, e.j / 6000)); // scraping along
   }
+}
+const _tmpObj = new THREE.Object3D();
+// One impact on one car, resolved: how hard (energy), where on the car and which way it was pushed. Light contact
+// leaves it at sparks; a moderate hit throws carbon splinters and makes the tyres scrub; a heavy one adds pieces of
+// bodywork, a cloud of smoke and dust and a smoking car for a while. Mirrors and dangling wheels can be torn away.
+function impactResolved(e) {
+  const car = e.car, m = G.models.get(car); if (!m || !m.group.visible) return;
+  const E = e.E + 0.3 * e.scrape, now = performance.now() / 1000, R = Math.random;
+  m.lastImpact = { t: now, E, lx: e.lx, ly: e.ly, nx: e.nx, nz: e.nz };
+  const d = Math.hypot(e.x - camera.position.x, e.z - camera.position.z), D = car.damage;
+  // mirrors stand out at the sides of the cockpit: a side hit or a big crash knocks them off
+  if (E > 5000 && e.lx > -0.7 && e.lx < 1.8 && Math.abs(e.ly) > 0.3) breakPiece(car, m, e.ly > 0 ? PT.MIRR : PT.MIRL);
+  if (E > 80000 && R() < 0.4) breakPiece(car, m, R() < 0.5 ? PT.MIRL : PT.MIRR);
+  // a corner smashed beyond its limit in a huge crash can tear the wheel off its tethers
+  const fatal = G.session.damageLevel.fatal;
+  if (E > 70000) for (let i = 0; i < 4; i++) {
+    if (m.torn[i] || D.c[4 + i] < fatal) continue;
+    const wx = i < 2 ? SIM.SPEC.a : -SIM.SPEC.b, wy = i % 2 ? 0.66 : -0.66;
+    if (Math.hypot(e.lx - wx, e.ly - wy) > 1.3 || R() > clamp((E - 70000) / 150000, 0.25, 0.8)) continue;
+    const [ox, oz] = carPoint(car, 0, wy * 6), out = [ox - car.x, oz - car.z], k = clamp(Math.sqrt(E) / 60, 3, 9) / 3.96;
+    tearWheel(car, m, i, [out[0] * k + e.nx * 3, out[1] * k + e.nz * 3]);
+  }
+  if (E < 2500 || d > 260) return;
+  const sv = clamp(Math.log10(E / 2500) / 2, 0, 1), near = d < 90 ? 1 : 0.5, sk = 2 + 6 * sv, push = [e.nx * sk, e.nz * sk];
+  // carbon fibre and painted bodywork splinters, thrown along the push and the car's travel
+  G.debris.spawn(e.x, e.z, car.vx, car.vz, Math.round((3 + 12 * sv) * near), teamRGB(car), { push, up: 3 + 4 * sv, size: 0.8 + 0.5 * sv });
+  G.debris.spawn(e.x, e.z, car.vx, car.vz, Math.round((3 + 12 * sv) * near), null, { push, up: 2 + 4 * sv });
+  // the tyres scrub and leave marks as the car is shoved off its line
+  m.scrubT = Math.max(m.scrubT, 0.15 + 0.6 * sv);
+  // a cloud: tyre and brake smoke on the asphalt, dust and turf when it happens off the track
+  const off = car.surf[0] >= 3 || car.surf[1] >= 3 || car.surf[2] >= 3 || car.surf[3] >= 3;
+  const nc = Math.round((3 + 18 * sv) * near);
+  for (let k = 0; k < nc; k++) {
+    const sys = off ? G.dust : G.smoke, col = off ? (car.surf.includes(4) ? [0.78, 0.69, 0.52] : [0.52, 0.48, 0.36]) : [0.82, 0.82, 0.84];
+    sys.emit(e.x + (R() - .5) * 1.5, 0.3 + R() * 0.4, e.z + (R() - .5) * 1.5, car.vx * 0.3 + e.nx * R() * 3 + (R() - .5) * 3, 0.6 + R() * 1.6 * (0.5 + sv), car.vz * 0.3 + e.nz * R() * 3 + (R() - .5) * 3, 1.8 + R() * 2 * sv, 0.8 + 0.6 * sv, 2.6 + 1.5 * sv, (off ? 0.4 : 0.26) + 0.2 * sv, col);
+  }
+  if (off) for (let k = 0; k < Math.round(20 * sv * near); k++) G.grit.emit(e.x, 0.15, e.z, car.vx * 0.4 + (R() - .5) * 7, 1.5 + R() * 5, car.vz * 0.4 + (R() - .5) * 7, 1.2, 0.06 + R() * 0.05, 0, 1, car.surf.includes(4) ? [0.62, 0.55, 0.42] : [0.2, 0.28, 0.12]);
+  if (sv > 0.45) {
+    // pieces of bodywork and carbon panels torn off in a heavy crash; the car smokes from the damaged area
+    const np = sv > 0.8 ? 3 : sv > 0.6 ? 2 : 1;
+    for (let k = 0; k < np; k++) {
+      _tmpObj.position.set(e.x + (R() - .5) * 0.6, 0.45 + R() * 0.2, e.z + (R() - .5) * 0.6); _tmpObj.rotation.set(R() * 6, R() * 6, R() * 6); _tmpObj.updateMatrixWorld(true);
+      const panel = k === 0 && R() < 0.7;
+      G.debris.spawnPart([[panel ? CAR_GEO.panel : CAR_GEO.shard, panel ? m.bodyMat : m.carbonMat]], _tmpObj, car, partLaunch(m, { life: 20 }));
+    }
+    m.smokeT = Math.max(m.smokeT || 0, 0.8 + 2.2 * sv); m.smokeAt = [e.lx * 0.7, e.ly * 0.7];
+    G.flashes.push({ x: e.x, y: 0.5, z: e.z, t: 0, T: 0.18 + 0.15 * sv, size: 2 + 2.5 * sv, k: 0.8 + sv }); if (G.flashes.length > 12) G.flashes.shift();
+  }
+  if (car === G.focus && sv > 0.3) { G.camRig.fovKick = Math.min(G.camRig.fovKick, -4 * sv); G.fx.hit = Math.max(G.fx.hit, 0.4 + 0.6 * sv); }
+}
+// A whole wing half or rear wing coming off (simulation event): the actual assembly, with whatever pieces it had
+// already lost, tumbles away; losing both front-wing halves in a frontal hit takes the nose cone with them.
+function detachFx(e) {
+  const car = e.car, m = G.models.get(car); if (!m) return;
+  const D = car.damage, li = m.lastImpact, frontal = li && performance.now() / 1000 - li.t < 0.6 && li.lx > 1.8;
+  if (e.part < 2 && D.detached[0] && D.detached[1] && frontal) breakPiece(car, m, PT.NOSE, { up: 2.5 });
+  if (!m.group.visible || Math.hypot(e.x - camera.position.x, e.z - camera.position.z) > 320) return;
+  poseNow(car, m);
+  let defs, parent;
+  if (e.part < 2) { parent = m.fw[e.part]; defs = parent.children.map(me => [me.geometry, me.material]); }
+  else {
+    parent = m.rw; m.flap.updateMatrix(); const txt = m.flap.children[0]; txt.updateMatrix();
+    defs = parent.children.filter(me => me !== m.flap).map(me => [me.geometry, me.material]);
+    if (!m.flapGone) defs.push([m.flap.geometry, m.flap.material, m.flap.matrix.clone()], [txt.geometry, txt.material, m.flap.matrix.clone().multiply(txt.matrix)]);
+  }
+  G.debris.spawnPart(defs, parent, car, partLaunch(m, { heavy: true, life: 30 }));
+  G.debris.spawn(e.x, e.z, car.vx, car.vz, 8, teamRGB(car), { up: 3 });
 }
 function processEvents() {
   const sess = G.session, hits = G.hitsNow; hits.clear();
@@ -5952,10 +6404,12 @@ function processEvents() {
     if (e.type === 'collision' || e.type === 'wall') {
       const key = e.type === 'wall' ? 'w' + e.car.id : Math.min(e.a.id, e.b.id) + ':' + Math.max(e.a.id, e.b.id);
       const h = hits.get(key); if (!h || e.j > h.j) hits.set(key, e);
-    } else if (e.type === 'detach') { const m = G.models.get(e.car); if (m) G.debris.spawnWing(m, e.part, e.x, e.z, e.vx, e.vz, e.car.psi); }
+    } else if (e.type === 'impact') impactResolved(e);
+    else if (e.type === 'detach') detachFx(e);
     else if (e.type === 'debris') {
-      const n = e.kind === 'tyre' ? 6 : e.n || 3, d = Math.hypot(e.x - camera.position.x, e.z - camera.position.z);
-      if (d < 300) G.debris.spawn(e.x, e.z, e.vx, e.vz, e.kind === 'tyre' ? n : Math.min(14, n * 2), e.kind === 'tyre' ? [0.05, 0.05, 0.05] : null);
+      // carbon from impacts and lost wings is thrown by impactResolved / detachFx; this is a shredded tyre's rubber
+      const d = Math.hypot(e.x - camera.position.x, e.z - camera.position.z);
+      if (e.kind === 'tyre' && d < 300) G.debris.spawn(e.x, e.z, e.vx, e.vz, 8, [0.05, 0.05, 0.05], { size: 1.4 });
     } else if (e.type === 'puncture') {
       const d = Math.hypot(e.car.x - camera.position.x, e.car.z - camera.position.z);
       if (d < 120) {
@@ -5991,7 +6445,7 @@ function handleKeys(dt) {
   if (takePress('Escape') || (G.pad && G.pad.start)) { if (G.mode !== 'menu' && !$('results').classList.contains('hidden') === false) togglePause(); }
   if (G.paused || !sess || G.attract) return;
   if (takePress('KeyC') || (G.pad && G.pad.cam)) {
-    const modes = G.mode === 'spectate' ? ['chase', 'far', 'cockpit', 'tv', 'heli'] : ['chase', 'far', 'cockpit'];
+    const modes = G.mode === 'spectate' ? ['chase', 'far', 'cockpit', 'tcam', 'tv', 'heli'] : ['chase', 'far', 'cockpit', 'tcam'];
     G.camRig.setMode(modes[(modes.indexOf(G.camRig.mode) + 1) % modes.length]);
   }
   if (takePress('Tab')) G.showFullBoard = !G.showFullBoard;
@@ -6245,10 +6699,11 @@ function frame(now) {
     const fx = G.fx; fx.hit = Math.max(0, fx.hit - dt * 3.2); fx.dmg = Math.max(0, fx.dmg - dt * 1.3); fx.cut = Math.max(0, fx.cut - dt * 2.8);
     const pScale = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
     for (const sys of [G.smoke, G.dust, G.spray, G.grit, G.fire, G.splash]) if (sys) sys.mat.uniforms.scale.value = pScale;
-    const f = G.focus, cm = G.camRig.mode, onboard = cm === 'chase' || cm === 'cockpit' || cm === 'far';
+    const f = G.focus, cm = G.camRig.mode, onboard = cm === 'chase' || cm === 'cockpit' || cm === 'far' || cm === 'tcam';
+    if (G.hudCk !== (cm === 'cockpit')) { G.hudCk = cm === 'cockpit'; $('hud-bc').classList.toggle('ck', G.hudCk); }
     if (G.post) {
       const fast = S.speedBlur === 'on' && f && !G.paused && onboard && !G.attract;
-      const blur = fast ? clamp((f.speed - 55) / 40, 0, 1) * (cm === 'cockpit' ? 0.016 : 0.012) : 0;
+      const blur = fast ? clamp((f.speed - 55) / 40, 0, 1) * (cm === 'cockpit' || cm === 'tcam' ? 0.007 : 0.012) : 0;
       const lines = fast ? clamp((f.speed - 64) / 24, 0, 1) : 0;
       const ca = fx.hit * 0.9 + (fast ? clamp((f.speed - 70) / 30, 0, 1) * 0.12 : 0);
       const rain = G.worldWet && cm !== 'heli' && cm !== 'orbit' ? (cm === 'cockpit' ? 0.55 : 1) : 0;
