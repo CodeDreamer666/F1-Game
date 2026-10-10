@@ -68,8 +68,8 @@ test('start grid, pit lane, timing and minimap data come from each circuit', () 
     assert.equal(t.gridSlots.length, 24);
     // grid boxes behind the line on the straight; the pit lane straight and level
     for (const g of t.gridSlots.slice(0, 20)) { const i = t.wrapI(Math.round(g.s / SIM.DS)); assert.ok(Math.abs(t.kappa[i]) < 1 / 800, t.name + ' grid on the straight'); }
-    for (let s = -400; s <= 450; s += 10) { const i = t.wrapI(Math.round(s / SIM.DS)); assert.ok(Math.abs(t.kappa[i]) < 1 / 600, t.name + ' pit lane bend at ' + s); assert.ok(Math.abs(t.grade[i]) < 0.02, t.name + ' pit lane slope'); }
-    assert.equal(t.pit.boxes.length, SIM.TEAMS.length);
+    for (let q = 0; q <= t.pit.len; q += 10) { const s = t.wrapS(t.pit.entry0 + q), i = t.wrapI(Math.round(s / SIM.DS)); assert.ok(Math.abs(t.kappa[i]) < 1 / 600, t.name + ' pit lane bend at ' + s); assert.ok(Math.abs(t.grade[i]) < 0.02, t.name + ' pit lane slope'); }
+    assert.equal(t.pit.boxes.length, 4, 'four shared boxes, not one per team');
     assert.ok(t.sector1 > 0 && t.sector2 > t.sector1 && t.sector2 < t.length);
     // the menu map is the playable centre line
     const line = SIM.circuitCentreLine(t.def);
@@ -97,9 +97,17 @@ function race(id, laps, seed) {
   const s = new SIM.Session(t, { type: 'race', laps: 8, entries: SIM.DRIVERS.map(driver => ({ driver })), seed, spectate: true, weather: 'dynamic',
     weatherState: Object.assign(new SIM.DynamicWeather(seed).snapshot(), { pattern: 'dry', regime: 'sunny', rain: 0, water: 0, lineWater: 0, cloud: 0.2, targetCloud: 0.2, targetRain: 0, patternEnds: 1e9, regimeEnds: 1e9 }) });
   s.totalLaps = laps;
-  let drs = 0; const open = new Map(), last = new Map();
+  let drs = 0; const open = new Map(), last = new Map(), pits = { maxBoxes: 0, assigned: [], fifo: true };
   for (let step = 0; !s.over && s.time < laps * 160 + 200; step++) {
     s.fixedStep(SIM.PHYS_DT);
+    // shared boxes: never more than four, never one car in two, and each box goes to the earliest waiting car
+    const held = s.pitBoxes.filter(Boolean); pits.maxBoxes = Math.max(pits.maxBoxes, held.length);
+    assert.equal(new Set(held).size, held.length, id + ': a car in two boxes');
+    for (const c of held) if (c.pit.assignedAt === s.time && !pits.assigned.includes(c.pit)) {
+      pits.assigned.push(c.pit);
+      for (const w of s.pitQueue) if (w.pit.entryTime < c.pit.entryTime) pits.fifo = false;
+    }
+    for (const c of s.cars) if (c.pit && c.pit.entryTime != null) assert.ok(s.time - c.pit.entryTime < 150, id + ': ' + c.driver.short + ' stuck in the pit lane');
     for (const c of s.cars) { if (c.drsOpen && !open.get(c)) drs++; open.set(c, c.drsOpen); }
     if (step % 2400 === 0) for (const c of s.cars) {
       if (c.dnf || c.finished || c.pit || !s.lightsOut) continue;
@@ -107,17 +115,22 @@ function race(id, laps, seed) {
       if (!prev || c.totalDist - prev.d > 30) last.set(c, { d: c.totalDist, t: s.time });
     }
   }
-  return { s, drs };
+  return { s, drs, pits };
 }
 
 for (const id of ['summit', 'rivermere', 'redridge']) {
   test(id + ': the full 20-car field starts, races, pits and is classified', () => {
-    const { s, drs } = race(id, 4, 21);
+    const { s, drs, pits } = race(id, 4, 21);
+    assert.ok(pits.maxBoxes <= 4 && pits.assigned.length >= 10, id + ' boxes used ' + pits.assigned.length);
+    assert.ok(pits.fifo, id + ': a box went to a car that arrived after one still waiting');
+    for (const c of s.cars) assert.notEqual(c.dnfReason, 'Out of fuel', id + ': ' + c.driver.short + ' ran out of fuel');
+    for (const c of s.cars) for (const h of c.pitHistory) assert.ok(h.fuel <= s.fuelCapacity + 1e-9);
     assert.ok(s.over, 'race finished');
     // every car still running kept racing: at most a lap or two down at the flag
     for (const c of s.cars) if (!c.dnf) assert.ok(c.laps >= 2, id + ': ' + c.driver.short + ' completed only ' + c.laps + ' laps');
     assert.ok(s.cars.filter(c => c.finished).length >= 12, id + ' finishers');
     assert.ok(s.stats.pitstops >= 15, id + ' pit stops ' + s.stats.pitstops);
+    assert.equal(s.stats.boxMissed, 0, id + ': a car overshot its box');
     assert.ok(drs > 0, id + ' DRS used');
     const res = s.results; assert.equal(res.length, 20); res.forEach((r, k) => assert.equal(r.pos, k + 1));
     const winner = res[0].car; assert.equal(winner.laps, 4);

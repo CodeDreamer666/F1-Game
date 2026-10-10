@@ -18,7 +18,6 @@ function rig(speed = 30) {
   car.vx = car.u = car.speed = speed;
   car.gear = speed > 50 ? 7 : speed > 20 ? 4 : 1;
   car.rpm = 10000;
-  car.input.ers = 0;
   return { car, handling: new SIM.PlayerHandling(), maxSlip: 0 };
 }
 function run(r, input, seconds, fps = 60) {
@@ -168,12 +167,14 @@ test('arcade force respects fuel exhaustion and the pit limiter', () => {
 function headlessRace(count, cfg = {}) {
   const realTrack = new SIM.Track(SIM.TRACK_DEF);
   const entries = SIM.DRIVERS.slice(0, count).map(driver => ({ driver }));
-  return new SIM.Session(realTrack, { type: 'race', laps: 1, difficulty: 0.8, entries, seed: 7, spectate: true, ...cfg });
+  const sess = new SIM.Session(realTrack, { type: 'race', laps: 1, difficulty: 0.8, entries, seed: 7, spectate: true, ...cfg });
+  sess.totalLaps = sess.cfg.laps; // sessions are built for the 8-lap race; these runs are shorter
+  return sess;
 }
 
 test('bots drive through the same arcade handling as the player', () => {
   const sess = headlessRace(4);
-  for (let frame = 0; frame < 60 * 110 && !sess.over; frame++) {
+  for (let frame = 0; frame < 60 * 150 && !sess.over; frame++) {
     sess.update(1 / 60, 1, 1e9);
     if (!sess.lightsOut) continue;
     for (const car of sess.cars) {
@@ -201,26 +202,32 @@ test('a bot command reaches the car exactly as the same player input would', () 
   assert.deepEqual(['x', 'z', 'psi', 'speed', 'r'].map(k => bot.car[k]), ['x', 'z', 'psi', 'speed', 'r'].map(k => player.car[k]));
 });
 
-test('the pit autopilot stops in the box using the arcade handling', () => {
+test('the pit autopilot stops in a shared box using the arcade handling; the player then chooses the service', () => {
   const sess = headlessRace(2, { laps: 2, spectate: false, entries: [{ driver: SIM.DRIVERS[0] }, { driver: SIM.DRIVERS[1], isPlayer: true }] });
-  const p = sess.player; p.autoDrive = true; p.boxRequest = true; p.boxCompound = 'H';
-  let stopped = false;
+  const p = sess.player; p.autoDrive = true; p.boxRequest = true;
+  let stopped = false, chose = false;
   for (let frame = 0; frame < 60 * 200 && !sess.over; frame++) {
     p.autopilot.boxThisLap = p.boxRequest;
     sess.update(1 / 60, 1, 1e9);
     if (sess.lightsOut && !p.inGarage) assert.equal(p.aids.arcade, true);
+    if (p.pit && p.pit.phase === 'awaiting' && !chose) {
+      chose = true;
+      assert.ok(p.frozen && p.speed === 0, 'the car waits, stationary, in its box');
+      assert.ok(sess.pitBoxes.includes(p), 'and occupies a shared box while the player decides');
+      assert.ok(sess.confirmPitService(p, { tyre: 'H', fuel: 0 }));
+    }
     if (p.pit && p.pit.phase === 'stopped') stopped = true;
   }
-  assert.ok(stopped);
+  assert.ok(chose && stopped);
   assert.equal(p.pitStops, 1);
   assert.equal(p.tyre.c, 'H');
 });
 
-test('ERS and DRS still improve arcade speed; loose surfaces slow acceleration', () => {
+test('ERS is gone; DRS still improves arcade speed; loose surfaces slow acceleration', () => {
   const standard = run(rig(60), raw(0, 1), 2);
-  const boost = rig(60); boost.car.input.ers = 2;
-  run(boost, raw(0, 1), 2);
-  assert.ok(boost.car.speed > standard.car.speed);
+  assert.equal(SIM.SPEC.ersMax, undefined);
+  for (const k of ['ers', 'ersDeploy', 'harvesting']) assert.ok(!(k in standard.car), 'no ' + k + ' on the car');
+  assert.ok(!('ers' in standard.car.input), 'no ERS control input');
   const drs = rig(60); drs.car.drsOpen = true;
   run(drs, raw(0, 1), 2);
   assert.ok(drs.car.speed > standard.car.speed);
@@ -497,31 +504,38 @@ test('fires are rare and need a plausible cause; Reduced never has them', () => 
   assert.equal(fires('realistic', (A) => { A.damage.c[0] = 1; A._E = 40000; }, 300), 0, 'wing damage never starts a fire');
 });
 
-test('pit stops: tyres 2–4 s, front wing with tyres 7–12 s; structural damage is not repaired', () => {
-  const stop = (prep, seed) => {
+test('pit stops: tyres 2–4.5 s, a new front wing about 5 s, a new rear wing about 8 s; structural damage is not repaired', () => {
+  const stop = (prep, sel, seed) => {
     const entries = [{ driver: SIM.DRIVERS[0] }, { driver: SIM.DRIVERS[1], isPlayer: true }];
     const S = new SIM.Session(circuit, { type: 'race', laps: 2, entries, seed, damage: 'standard' });
-    const p = S.player; p.autoDrive = true; p.boxRequest = true; p.boxCompound = 'H';
-    let P = null;
+    S.totalLaps = 2;
+    const p = S.player; p.autoDrive = true; p.boxRequest = true;
+    let P = null, prepped = false;
     for (let f = 0; f < 60 * 150 && !S.over; f++) {
       p.autopilot.boxThisLap = p.boxRequest; S.update(1 / 60, 1, 1e9);
-      if (!P && p.pit && p.pit.phase === 'in') prep(p);
+      if (!prepped && p.pit && p.pit.phase === 'in') { prepped = true; prep(p); }
+      if (p.pit && p.pit.phase === 'awaiting') assert.ok(S.confirmPitService(p, sel));
       if (p.pit && p.pit.phase === 'stopped') P = p.pit;
       if (P && p.pit && p.pit.phase === 'out') break;
     }
     return [P, p];
   };
-  const [tyres] = stop(() => {}, 11);
+  const [tyres] = stop(() => {}, { tyre: 'H', fuel: 0 }, 11);
   assert.ok(tyres.total >= 2 && tyres.total <= 4.5 && !tyres.fwT, 'tyre-only stop ' + tyres.total.toFixed(2));
-  const [wing, car] = stop((p) => { p.damage.c[0] = 0.7; p.damage.c[1] = 0.4; p.damage.c[6] = 0.3; p.damage.c[3] = 0.4; p.damage.computePerf(); }, 12);
-  assert.ok(wing.total >= 7 && wing.total <= 12, 'front wing + tyres ' + wing.total.toFixed(2));
+  const [wing, car] = stop((p) => { p.damage.c[0] = 0.7; p.damage.c[1] = 0.4; p.damage.c[6] = 0.3; p.damage.c[3] = 0.4; p.damage.computePerf(); }, { tyre: 'H', fuel: 0 }, 12);
+  assert.ok(wing.fwT >= 4.6 && wing.fwT <= 5.4, 'front wing ' + wing.fwT.toFixed(2));
+  assert.equal(wing.total, Math.max(wing.tyreT, wing.fwT), 'tyres and wing at the same time: ' + wing.total.toFixed(2));
   assert.equal(car.damage.fw, 0, 'new front wing fitted');
   assert.ok(car.damage.c[6] >= 0.3 && car.damage.c[3] >= 0.4, 'suspension and floor damage remain');
   assert.equal(car.tyre.c, 'H');
+  const [rear, car2] = stop((p) => { p.damage.c[2] = 0.6; p.damage.computePerf(); }, { tyre: 'keep', fuel: 0 }, 13);
+  assert.ok(rear.rwT >= 7.4 && rear.rwT <= 8.6 && rear.total === rear.rwT, 'rear wing ' + rear.total.toFixed(2));
+  assert.equal(car2.damage.c[2], 0, 'new rear wing fitted');
 });
 
 test('a retired car stops, stays out and never corrupts timing or results', () => {
   const S = new SIM.Session(circuit, { type: 'race', laps: 2, entries: SIM.DRIVERS.slice(0, 6).map(driver => ({ driver })), seed: 5, spectate: true, damage: 'standard' });
+  S.totalLaps = 2;
   let victim = null;
   for (let f = 0; f < 60 * 400 && !S.over; f++) {
     S.update(1 / 60, 1, 1e9);
